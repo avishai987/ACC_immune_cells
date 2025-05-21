@@ -1,0 +1,399 @@
+---
+title: '`r rstudioapi::getSourceEditorContext()$path %>% basename() %>% gsub(pattern = "\\.Rmd",replacement = "")`' 
+author: "Avishai Wizel"
+date: '`r Sys.time()`'
+output: 
+  html_notebook: 
+    code_folding: hide
+    toc: yes
+    toc_collapse: yes
+    toc_float: 
+      collapsed: FALSE
+    number_sections: true
+    toc_depth: 1
+---
+
+
+
+# Functions
+
+```{r warning=FALSE}
+```
+
+# Data
+
+```{r}
+acc_immune = LoadH5Seurat(file = "./Data/acc_immune.h5seurat")
+```
+
+```{r}
+library("readxl")
+signatures <- read_excel("./Data/Shengjin_et al_DataSheet_1.xlsx", sheet = "Gene Signature",skip = 42,col_names = F)
+signatures = signatures %>% t() %>% as.data.frame() %>% janitor::row_to_names(1) %>% dplyr::filter(!row_number() %in% c(1))
+```
+
+
+
+# log TMP signatures {.tabset}
+```{r results='asis'}
+acc_immune = FindVariableFeatures(object = acc_immune,nfeatures = 5000,verbose = F)
+for (col in 1:ncol(signatures)) {
+  genes = signatures[,col] %>% na.omit() %>% as.vector() %>% intersect(VariableFeatures(acc_immune))
+  if (length(genes) == 0 ){
+    print("skip")
+    next
+  }
+  score = acc_immune@assays$RNA@data[genes,] %>% colMeans()
+  acc_immune = AddMetaData(object = acc_immune,metadata = score, col.name = names(signatures)[col])
+  print_tab(FeaturePlot(object = acc_immune,features = names(signatures)[col]),title = names(signatures)[col])
+
+}
+
+```
+# scaled data signatures {.tabset}
+
+```{r results='asis'}
+acc_immune = FindVariableFeatures(object = acc_immune,nfeatures = 5000,verbose = F)
+for (col in 1:ncol(signatures)) {
+  genes = signatures[,col] %>% na.omit() %>% as.vector() %>% intersect(VariableFeatures(acc_immune))
+  if (length(genes) == 0 ){
+    print("skip")
+    next
+  }
+  score = acc_immune@assays$RNA@scale.data[genes,] %>% colMeans()
+  acc_immune = AddMetaData(object = acc_immune,metadata = score, col.name = names(signatures)[col])
+  print_tab(FeaturePlot(object = acc_immune,features = names(signatures)[col]),title = names(signatures)[col])
+
+}
+
+
+# acc_immune <- AddModuleScore(
+#   object = acc_immune,
+#   features = list(genes),
+#   ctrl = 5,
+#   name = names(signatures)[col]
+# )
+# FeaturePlot(object = acc_immune,features = "Central_memory_CD4_T_cel1")
+
+
+```
+# Clusters
+```{r}
+acc_immune <- FindClusters(acc_immune, resolution = 1,verbose = F)
+DimPlot(acc_immune,label = T)
+```
+
+```{r}
+lapply(c("dplyr","Seurat","HGNChelper"), library, character.only = T)
+source("https://raw.githubusercontent.com/IanevskiAleksandr/sc-type/master/R/gene_sets_prepare.R"); source("https://raw.githubusercontent.com/IanevskiAleksandr/sc-type/master/R/sctype_score_.R")
+
+db_ = "https://raw.githubusercontent.com/IanevskiAleksandr/sc-type/master/ScTypeDB_full.xlsx";
+tissue = "Immune system" # e.g. Immune system,Pancreas,Liver,Eye,Kidney,Brain,Lung,Adrenal,Heart,Intestine,Muscle,Placenta,Spleen,Stomach,Thymus 
+
+# prepare gene sets
+gs_list = gene_sets_prepare(db_, tissue)
+```
+
+# ScType
+
+```{r}
+es.max = sctype_score(scRNAseqData = acc_immune[["RNA"]]@scale.data, scaled = TRUE, 
+                      gs = gs_list$gs_positive, gs2 = gs_list$gs_negative) 
+# merge by cluster
+cL_resutls = do.call("rbind", lapply(unique(acc_immune@meta.data$seurat_clusters), function(cl){
+    es.max.cl = sort(rowSums(es.max[ ,rownames(acc_immune@meta.data[acc_immune@meta.data$seurat_clusters==cl, ])]), decreasing = !0)
+    head(data.frame(cluster = cl, type = names(es.max.cl), scores = es.max.cl, ncells = sum(acc_immune@meta.data$seurat_clusters==cl)), 10)
+}))
+sctype_scores = cL_resutls %>% group_by(cluster) %>% top_n(n = 1, wt = scores)  
+
+# set low-confident (low ScType score) clusters to "unknown"
+sctype_scores$type[as.numeric(as.character(sctype_scores$scores)) < sctype_scores$ncells/4] = "Unknown"
+print(sctype_scores[,1:3])
+
+acc_immune@meta.data$cell_identity = ""
+for(j in unique(sctype_scores$cluster)){
+  cl_type = sctype_scores[sctype_scores$cluster==j,]; 
+  acc_immune@meta.data$cell_identity[acc_immune@meta.data$seurat_clusters == j] = as.character(cl_type$type[1])
+}
+
+DimPlot(acc_immune, reduction = "umap", label = F, repel = TRUE, group.by = 'cell_identity')  
+```
+
+```{r}
+es.max = sctype_score(scRNAseqData = acc_immune[["RNA"]]@scale.data, scaled = TRUE, 
+                      gs = gs_list$gs_positive, gs2 = gs_list$gs_negative) 
+# merge by cluster
+cL_resutls = do.call("rbind", lapply(unique(acc_immune@meta.data$seurat_clusters), function(cl){
+    es.max.cl = sort(rowSums(es.max[ ,rownames(acc_immune@meta.data[acc_immune@meta.data$seurat_clusters==cl, ])]), decreasing = !0)
+    head(data.frame(cluster = cl, type = names(es.max.cl), scores = es.max.cl, ncells = sum(acc_immune@meta.data$seurat_clusters==cl)), 10)
+}))
+sctype_scores = cL_resutls %>% group_by(cluster) %>% top_n(n = 1, wt = scores)  
+
+# set low-confident (low ScType score) clusters to "unknown"
+sctype_scores$type[as.numeric(as.character(sctype_scores$scores)) < sctype_scores$ncells/4] = "Unknown"
+print(sctype_scores[,1:3])
+
+acc_immune@meta.data$cell_identity = ""
+for(j in unique(sctype_scores$cluster)){
+  cl_type = sctype_scores[sctype_scores$cluster==j,]; 
+  acc_immune@meta.data$cell_identity[acc_immune@meta.data$seurat_clusters == j] = as.character(cl_type$type[1])
+}
+
+DimPlot(acc_immune, reduction = "umap", label = TRUE, repel = TRUE, group.by = 'cell_identity')  
+```
+
+
+
+```{r}
+cL_resutls
+```
+
+
+```{r}
+acc_immune = SetIdent(object = acc_immune,value = "cell_identity")
+g1_treat <- WhichCells(acc_immune, idents = c( "Macrophages"))
+DimPlot(acc_immune, label=F, cells.highlight= g1_treat, cols.highlight = c( "red"), cols= "grey")
+```
+
+```{r}
+FindMarkers(object = acc_immune,ident.1 = "1",densify = T)
+```
+
+```{r}
+FeaturePlot(object = acc_immune,features = "GATA3")
+```
+
+
+```{r fig.width=12}
+scores_data = AverageExpression(object = acc_immune,features = names(signatures))
+pheatmap(scores_data)
+```
+
+```{r fig.height=8, fig.width=10}
+FeaturePlot(object = acc_immune,features = names(signatures)[1:6])
+FeaturePlot(object = acc_immune,features = names(signatures)[7:13])
+FeaturePlot(object = acc_immune,features = names(signatures)[14:17])
+FeaturePlot(object = acc_immune,features = names(signatures)[20:26])
+FeaturePlot(object = acc_immune,features = names(signatures)[27:28])
+
+```
+
+
+# Immune markers
+```{r fig.height=8, fig.width=10}
+FeaturePlot(acc_immune, features = c("CD4","MS4A1", "SELL", "CD3E",  "S100A4","CD14","GNLY","MS4A1"))
+```
+# assign cell type
+```{r fig.height=6, fig.width=8}
+acc_immune <- RenameIdents(object = acc_immune, 
+                               "0" = "Naive CD4+ T",
+                               "1" = "Memory CD4+",
+                               "2" = "CD14+ Mono",
+                               "3" = "Memory CD4+",
+                               "4" = "CD8+ T",
+                               "5" = "B",
+                               "6" = "Naive CD4+ T",
+                               "7" = "Memory CD4+",
+                               "8" = "Memory CD4+")
+acc_immune$cell_identity = acc_immune@active.ident
+DimPlot(object = acc_immune,label = T)
+```
+
+# Antigen presenting machinery {.tabset}
+```{r}
+apm_genes = c("HLA-A","HLA-B","HLA-C","B2M","TAP1","TAP2", "TAPBP")
+apm_score = FetchData(acc_immune,vars = apm_genes,slot = "data") %>% rowMeans()
+acc_immune = AddMetaData(object = acc_immune,metadata = apm_score,col.name = "APM_score")
+```
+
+```{r fig.height=8, fig.width=10, results='asis'}
+print_tab(plt = FeaturePlot(acc_immune,features = apm_genes),title = "genes")
+print_tab(plt = FeaturePlot(acc_immune,features = "APM_score"),title = "score")
+```
+
+# Exhaustion markers
+```{r fig.height=8, fig.width=10}
+exhausted_genes = c("PDCD1","CD244","CD160","CTLA4","HAVCR2")
+FeaturePlot(acc_immune,features = exhausted_genes)
+```
+# Immune receptors
+```{r fig.height=8, fig.width=10}
+receptors = c("CCR3", "CCR4", "CCR10","CXCR2", "CXCR3", "CXCR4", "IL17A")
+FeaturePlot(acc_immune,features = receptors)
+
+```
+# CellphoneDB
+```{r}
+acc_cancer_cells = readRDS("/sci/labs/yotamd/lab_share/avishai.wizel/R_projects/ACC_microenv/Data/acc_cancer_no146_primaryonly15k_cancercells.rds")
+```
+
+
+
+```{r}
+# merge cancer and immune
+common_genes = intersect(rownames(acc_cancer_cells),rownames(acc_immune))
+acc_cancer_and_cd45 = merge(acc_cancer_cells[common_genes,],acc_immune[common_genes,])
+```
+
+```{r}
+  #write metadata
+
+#create lum or myo
+lum_over_myo = FetchData(object = acc_cancer_cells,vars = "luminal_over_myo")
+lum_over_myo$lum_or_myo = "Unknown"
+lum_over_myo$lum_or_myo [lum_over_myo$luminal_over_myo>1]  = "Luminal"
+lum_over_myo$lum_or_myo [lum_over_myo$luminal_over_myo<(-1)]  = "Myo"
+lum_or_myo = lum_over_myo[,"lum_or_myo",drop = F]
+names(lum_or_myo)[1] = "cell_identity"
+
+# combine
+immune_identity =FetchData(object = acc_immune,vars = "cell_identity")
+all_identity= rbind(lum_or_myo,immune_identity )
+
+#rename and sort columns
+all_identity$barcode_sample = rownames(all_identity)
+all_identity = all_identity %>% rename(cell_type = cell_identity)
+all_identity = all_identity[,c(2,1)]
+
+
+write.table(x = all_identity,file = "./Data/CellphoneDB/metadata.tsv",row.names =F,sep = "\t")
+```
+
+```{r}
+#write normalized counts
+count_matrix = as.data.frame(acc_cancer_and_cd45@assays[["RNA"]]@data)
+fwrite(count_matrix, file = "./Data/CellphoneDB/counts.txt",sep = "\t",row.names = T)
+```
+
+
+```{python include=FALSE}
+#download database
+import pandas as pd
+import glob
+import os
+# -- Version of the databse
+cpdb_version = 'v4.1.0'
+
+# -- Path where the input files to generate the database are located
+cpdb_target_dir = os.path.join('./Data/CellphoneDB/', cpdb_version)
+
+# Download database
+from cellphonedb.utils import db_utils
+db_utils.download_database(cpdb_target_dir, cpdb_version)
+```
+
+```{python include=FALSE}
+from cellphonedb.src.core.methods import cpdb_statistical_analysis_method
+
+deconvoluted, means, pvalues, significant_means = cpdb_statistical_analysis_method.call(
+    cpdb_file_path = "./Data/CellphoneDB/v4.1.0/cellphonedb.zip",                 # mandatory: CellPhoneDB database zip file.
+    meta_file_path = "./Data/CellphoneDB/metadata.tsv",                 # mandatory: tsv file defining barcodes to cell label.
+    counts_file_path = "./Data/CellphoneDB/counts.txt",             # mandatory: normalized count matrix.
+    counts_data = 'hgnc_symbol',                     # defines the gene annotation in counts matrix.
+    output_path = "./Data/CellphoneDB/output",                          # Path to save results.
+)
+```
+
+
+```{r}
+library(ktplots)
+acc_cancer_and_cd45$cell_type = all_identity[,2,drop = F] # add cells identities to seurat
+
+#read data:
+pvals =  read.delim(file = "./Data/CellphoneDB/output/statistical_analysis_pvalues_07_19_2023_12:16:16.txt", check.names = FALSE)
+means = read.delim(file = "./Data/CellphoneDB/output/statistical_analysis_means_07_19_2023_12:16:16.txt", check.names = FALSE)
+
+```
+
+# significant interactions heatmap
+```{r}
+plot_cpdb_heatmap(scdata = acc_cancer_and_cd45, idents = 'cell_type',pvals =  pvals,main = "Number of significant interactions",alpha = 0.05)
+```
+
+# Costimulatory interactions {.tabset}
+```{r fig.height=8, results='asis'}
+
+print_tab(plt = 
+            plot_cpdb(cell_type1 = 'CD', cell_type2 = 'Luminal', scdata = acc_cancer_and_cd45,
+                      idents = 'cell_type', means = means, pvals = pvals,
+                      gene.family = 'costimulatory',return_table = F,max_size = 3,p.adjust.method = "fdr",keep_significant_only = T,cluster_rows = F)+
+            ggtitle("costimulatory Luminal")
+  ,title = "Luminal")
+
+print_tab(plt = 
+            plot_cpdb(cell_type1 = 'CD', cell_type2 = 'Myo', scdata = acc_cancer_and_cd45,
+                      idents = 'cell_type', means = means, pvals = pvals,
+                      gene.family = 'costimulatory',return_table = F,max_size = 3,p.adjust.method = "fdr",keep_significant_only = T,cluster_rows = F)+
+            ggtitle("costimulatory Myo")
+  ,title = "Myo")
+```
+
+# Coinhibitory interactions {.tabset}
+
+```{r fig.height=5,results='asis'}
+
+print_tab(plot_cpdb(cell_type1 = 'CD', cell_type2 = 'Luminal', scdata = acc_cancer_and_cd45,
+          idents = 'cell_type', means = means, pvals = pvals,
+          gene.family = 'coinhibitory',return_table = F,max_size = 4,p.adjust.method = "fdr",keep_significant_only = F,cluster_rows = F)+
+  ggtitle("coinhibitory Luminal"),title = "Luminal")
+
+print_tab(plot_cpdb(cell_type1 = 'CD', cell_type2 = 'Myo', scdata = acc_cancer_and_cd45,
+          idents = 'cell_type', means = means, pvals = pvals,
+          gene.family = 'coinhibitory',return_table = F,max_size = 4,p.adjust.method = "fdr",keep_significant_only = F,cluster_rows = F)+
+  ggtitle("coinhibitory Myo"),title = "Myo")
+```
+
+# Chemokines interactions {.tabset}
+```{r fig.height=6, results='asis'}
+print_tab(
+  plot_cpdb(cell_type1 = 'CD', cell_type2 = 'Luminal', scdata = acc_cancer_and_cd45,
+          idents = 'cell_type', means = means, pvals = pvals,
+          gene.family = 'chemokines',return_table = F,max_size = 4,p.adjust.method = "fdr",keep_significant_only = F,cluster_rows = F)+
+  ggtitle("chemokines Luminal"),title = "Luminal")
+
+print_tab(
+  plot_cpdb(cell_type1 = 'CD', cell_type2 = 'Myo', scdata = acc_cancer_and_cd45,
+          idents = 'cell_type', means = means, pvals = pvals,
+          gene.family = 'chemokines',return_table = F,max_size = 4,p.adjust.method = "fdr",keep_significant_only = F,cluster_rows = F)+
+  ggtitle("chemokines Myo"),title = "Myo")
+```
+# Chemokine ligands {.tabset}
+```{r results='asis'}
+print_tab(plot_cpdb(cell_type1 = 'CD', cell_type2 = 'Myo', scdata = acc_cancer_and_cd45,
+    idents = 'cell_type', means = means, pvals = pvals,
+ genes = c("CXCL1\\D", "CXCL2\\D","CXCL3\\D","CXCL17","C3","CXCL14"),return_table = F,max_size = 4,p.adjust.method = "fdr" ,keep_significant_only = F) 
+ ,title = "Myo")
+
+print_tab(plot_cpdb(cell_type1 = 'CD', cell_type2 = 'Luminal', scdata = acc_cancer_and_cd45,
+    idents = 'cell_type', means = means, pvals = pvals,
+  genes = c("CXCL1\\D", "CXCL2\\D","CXCL3\\D","CXCL17","C3","CXCL14"),return_table = F,max_size = 4,p.adjust.method = "fdr" ,keep_significant_only = F) 
+,title = "Luminal")
+
+```
+# CCL22 and CCL28 {.tabset}
+```{r results='asis'}
+print_tab(plot_cpdb(cell_type1 = 'CD', cell_type2 = 'Myo', scdata = acc_cancer_and_cd45,
+    idents = 'cell_type', means = means, pvals = pvals,
+ genes = c("CCL22", "CCL28" ),return_table = F,max_size = 4,p.adjust.method = "fdr" ,keep_significant_only = F),title = "Myo")
+
+print_tab(plot_cpdb(cell_type1 = 'CD', cell_type2 = 'Luminal', scdata = acc_cancer_and_cd45,
+    idents = 'cell_type', means = means, pvals = pvals,
+  genes = c("CCL22", "CCL28" ),return_table = F,max_size = 6,p.adjust.method = "fdr" ,keep_significant_only = F),title = "Luminal")
+
+
+
+```
+
+```{r fig.height=6}
+plot_cpdb(cell_type1 = 'CD', cell_type2 = 'Myo', scdata = acc_cancer_and_cd45,
+    idents = 'cell_type', means = means, pvals = pvals,
+ genes = c("JAG", "MYB" ),return_table = F,max_size = 4,p.adjust.method = "fdr" ,keep_significant_only = F) 
+
+plot_cpdb(cell_type1 = 'CD', cell_type2 = 'Luminal', scdata = acc_cancer_and_cd45,
+    idents = 'cell_type', means = means, pvals = pvals,
+  genes = c("JAG", "MYB" , "NOTCH","HES1","HEY"),return_table = F,max_size = 4,p.adjust.method = "fdr" ,keep_significant_only = F) 
+
+
+```
+<script src="https://hypothes.is/embed.js" async></script>
+

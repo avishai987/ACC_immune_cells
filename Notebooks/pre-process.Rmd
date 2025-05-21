@@ -1,0 +1,367 @@
+---
+title: '`r rstudioapi::getSourceEditorContext()$path %>% basename() %>% gsub(pattern = "\\.Rmd",replacement = "")`' 
+author: "Avishai Wizel"
+date: '`r Sys.time()`'
+output: 
+  html_notebook: 
+    code_folding: hide
+    toc: yes
+    toc_collapse: yes
+    toc_float: 
+      collapsed: FALSE
+    number_sections: true
+    toc_depth: 1
+---
+
+
+# Functions
+
+```{r warning=FALSE}
+tpm <- function(counts, lengths) {
+  rpk <- counts / lengths
+  coef <- sum(rpk) / 1e6
+  rpk/coef
+}
+
+rpk <- function(counts, lengths) {
+  rpk <- counts / lengths
+  rpk
+}
+```
+
+# Read data
+```{r}
+acc_immune_data_part1 <- read.delim("./Data/raw_data/SN0276364",skip=1,header=T, 
+                       sep="\t",stringsAsFactors=F,row.names=1,check.names = F)
+
+acc_immune_data_part2 <- read.delim("./Data/raw_data/SN0276892",skip=1,header=T, 
+                       sep="\t",stringsAsFactors=F,row.names=1,check.names = F)
+```
+
+# Pre-process
+```{r}
+#save before omitting
+genes_names = acc_immune_data_part1$gene_name
+genes_lengths = acc_immune_data_part1[,5]
+
+#omit non relevant cols
+acc_immune_data_part1=acc_immune_data_part1[,7:ncol(acc_immune_data_part1)]
+acc_immune_data_part2=acc_immune_data_part2[,7:ncol(acc_immune_data_part2)]
+
+#combine datasets
+acc_immune_data = cbind(acc_immune_data_part1,acc_immune_data_part2)
+
+#create genes names
+genes_names=make.unique(genes_names) %>% replace_na('NA')
+rownames(acc_immune_data) = genes_names
+
+#omit non relevant genes
+omitgenes= startsWith(rownames(acc_immune_data),"NA")
+acc_immune_data=acc_immune_data[!omitgenes,]
+genes_lengths = genes_lengths[!omitgenes] #update genes_lengths
+
+#calcualte gene length and MT genes
+mt_genes = startsWith(rownames(acc_immune_data),"MT-")| startsWith(rownames(acc_immune_data),"ERCC-")
+
+#get colnames
+cell.labels <- gsub(pattern = "/.*$",replacement = "",colnames(acc_immune_data))
+
+#change colnames
+colnames(acc_immune_data) <- cell.labels
+
+
+acc_immune_counts <- CreateSeuratObject(counts = acc_immune_data, project = "acc_immune_counts", min.cells = 3, min.features = 1000)
+
+```
+
+# QC  {.tabset}
+```{r echo=TRUE, results='asis'}
+acc_immune_counts@meta.data[["percent.mt"]] <- PercentageFeatureSet(acc_immune_counts, pattern = "^MT-")
+print_tab(plt = 
+            FeatureScatter(acc_immune_counts, feature1 = "nCount_RNA", feature2 = "percent.mt") + 
+            theme(legend.position="none", axis.text.x = element_text(size=8)) + 
+              geom_point(color='darkblue')
+  
+            ,title = "MT percentages")
+
+print_tab(plt = 
+            VlnPlot(acc_immune_counts, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+,title = "violin plots")
+
+```
+
+
+```{r}
+acc_immune_data.rpk=apply(acc_immune_data[!mt_genes,], 2, function(x) rpk(x, genes_lengths[!mt_genes]))
+acc_immune <- CreateSeuratObject(counts = acc_immune_data.rpk, project = "acc_immune", min.cells = 3, min.features = 1000)
+```
+```{r}
+acc_immune = NormalizeData(object = acc_immune,scale.factor = 1e6) #create TPM
+acc_immune@assays$RNA@data = log2(exp(1)) * acc_immune@assays$RNA@data #convert from e base to 2 base log
+```
+
+
+```{r}
+# new_genes = rownames(acc_immune_data) %in% rownames(acc_immune)
+# acc_immune_data.tpm=apply(acc_immune_data[new_genes,], 2, function(x) tpm(x, genes_lengths[new_genes])) %>%as.data.frame()
+# acc_immune_data.tpm = log2(acc_immune_data.tpm+1)
+```
+
+# Filtering
+```{r}
+nFeature_RNA_threshold = 1000
+percent.mt_threshold = 40
+print ("nFeature_RNA threshold = " %>% paste(nFeature_RNA_threshold))
+print ("percent.mt threshold = " %>% paste(percent.mt_threshold))
+
+acc_immune <- subset(acc_immune, subset = nFeature_RNA > nFeature_RNA_threshold & percent.mt < percent.mt_threshold)
+acc_immune
+```
+
+# PCA
+```{r results='hide'}
+# Identification of highly variable features
+acc_immune <- FindVariableFeatures(acc_immune, selection.method = "vst", nfeatures = 15000) 
+
+# Scaling the data
+acc_immune <- ScaleData(acc_immune, vars.to.regress = c("percent.mt","nCount_RNA"))
+
+# Perform linear dimensional reduction (PCA)
+acc_immune <- RunPCA(acc_immune, features = VariableFeatures(object = acc_immune))
+
+ElbowPlot(acc_immune, ndims = 50) # checking the dimensionality 
+
+```
+```{r}
+pc2use=1:10
+clus_res=1
+print("PCA dims = " %>% paste(max(pc2use)))
+```
+
+# UMAP and clustering
+```{r}
+acc_immune <- FindNeighbors(acc_immune, dims = pc2use,verbose = F)
+acc_immune <- FindClusters(acc_immune, resolution = clus_res,verbose = F)
+
+# Run non-linear dimensional reduction (UMAP)
+acc_immune <- RunUMAP(acc_immune, dims = pc2use,verbose = F)
+DimPlot(object = acc_immune, reduction = "umap", pt.size = 1, label = F)
+```
+# UMAPS  {.tabset}
+```{r echo=TRUE, results='asis'}
+
+
+
+#get metedata
+plate = str_extract(colnames(acc_immune), "^.*-P[0-9]*")
+patient.ident = str_extract(colnames(acc_immune), "ACC[0-9]*")
+origin = str_extract(colnames(acc_immune), "LN")
+origin = origin %>% replace_na('Primary')
+
+acc_immune <- AddMetaData(object = acc_immune, metadata = as.factor(patient.ident), col.name = "patient.ident")
+acc_immune <- AddMetaData(object = acc_immune, metadata = as.factor(plate), col.name = "plate")
+acc_immune <- AddMetaData(object = acc_immune, metadata = as.factor(origin), col.name = "origin")
+
+print_tab(DimPlot(acc_immune, reduction = "umap", label = F, pt.size = 1,group.by = "patient.ident") 
+,title = "by patient")
+print_tab(plt = 
+            DimPlot(acc_immune, reduction = "umap", label = F, pt.size = 1,group.by = "plate") 
+        ,title =  "by plate")
+
+print_tab(plt =
+            FeaturePlot(object = acc_immune, features = "PTPRC")
+          ,
+          title = "CD45")
+print_tab(plt = 
+            DimPlot(acc_immune, reduction = "umap", label = F, pt.size = 1,group.by = "origin") 
+        ,title =  "by origin")
+```
+
+```{r}
+library(SeuratDisk)
+SaveH5Seurat(object = acc_immune,filename = "./Data/acc_immune")
+```
+
+
+# 5K var genes
+# PCA
+```{r results='hide'}
+# Identification of highly variable features
+acc_immune <- FindVariableFeatures(acc_immune, selection.method = "vst", nfeatures = 5000) 
+
+# Scaling the data
+acc_immune <- ScaleData(acc_immune, vars.to.regress = c("percent.mt","nCount_RNA"))
+
+# Perform linear dimensional reduction (PCA)
+acc_immune <- RunPCA(acc_immune, features = VariableFeatures(object = acc_immune))
+
+ElbowPlot(acc_immune, ndims = 50) # checking the dimensionality 
+```
+
+```{r}
+pc2use=1:10
+clus_res=1
+print("PCA dims = " %>% paste(max(pc2use)))
+```
+
+# UMAP and clustering
+```{r}
+acc_immune <- FindNeighbors(acc_immune, dims = pc2use,verbose = F)
+acc_immune <- FindClusters(acc_immune, resolution = clus_res,verbose = F)
+
+# Run non-linear dimensional reduction (UMAP)
+acc_immune <- RunUMAP(acc_immune, dims = pc2use,verbose = F)
+DimPlot(object = acc_immune, reduction = "umap", pt.size = 1, label = F)
+```
+# UMAPSS  {.tabset}
+```{r echo=TRUE, results='asis'}
+
+
+
+#get metedata
+plate = str_extract(colnames(acc_immune), "^.*-P[0-9]*")
+patient.ident = str_extract(colnames(acc_immune), "ACC[0-9]*")
+origin = str_extract(colnames(acc_immune), "LN")
+origin = origin %>% replace_na('Primary')
+
+acc_immune <- AddMetaData(object = acc_immune, metadata = as.factor(patient.ident), col.name = "patient.ident")
+acc_immune <- AddMetaData(object = acc_immune, metadata = as.factor(plate), col.name = "plate")
+acc_immune <- AddMetaData(object = acc_immune, metadata = as.factor(origin), col.name = "origin")
+
+print_tab(DimPlot(acc_immune, reduction = "umap", label = F, pt.size = 1,group.by = "patient.ident") 
+,title = "by patient")
+print_tab(plt = 
+            DimPlot(acc_immune, reduction = "umap", label = F, pt.size = 1,group.by = "plate") 
+        ,title =  "by plate")
+
+print_tab(plt =
+            FeaturePlot(object = acc_immune, features = "PTPRC")
+          ,
+          title = "CD45")
+print_tab(plt = 
+            DimPlot(acc_immune, reduction = "umap", label = F, pt.size = 1,group.by = "origin") 
+        ,title =  "by origin")
+```
+
+```{r}
+library(SeuratDisk)
+SaveH5Seurat(object = acc_immune,filename = "./Data/acc_immune_5KvarGenes")
+```
+
+# Primary
+```{r}
+acc_immune_pri  = subset(acc_immune, subset = origin == "Primary")
+```
+
+
+## PCA
+```{r results='hide'}
+# Identification of highly variable features
+acc_immune_pri <- FindVariableFeatures(acc_immune_pri, selection.method = "vst", nfeatures = 15000) 
+
+# Scaling the data
+acc_immune_pri <- ScaleData(acc_immune_pri, vars.to.regress = c("percent.mt","nCount_RNA"))
+
+# Perform linear dimensional reduction (PCA)
+acc_immune_pri <- RunPCA(acc_immune_pri, features = VariableFeatures(object = acc_immune_pri))
+
+ElbowPlot(acc_immune_pri, ndims = 50) # checking the dimensionality 
+
+```
+
+```{r}
+pc2use=1:10
+clus_res=1
+print("PCA dims = " %>% paste(max(pc2use)))
+```
+
+## UMAP and clustering
+```{r}
+acc_immune_pri <- FindNeighbors(acc_immune_pri, dims = pc2use,verbose = F)
+acc_immune_pri <- FindClusters(acc_immune_pri, resolution = clus_res,verbose = F)
+
+# Run non-linear dimensional reduction (UMAP)
+acc_immune_pri <- RunUMAP(acc_immune_pri, dims = pc2use,verbose = F,  metric = "euclidean")
+DimPlot(object = acc_immune_pri, reduction = "umap", pt.size = 1, label = F)
+```
+```{r}
+SeuratDisk::SaveH5Seurat(object = acc_immune_pri,filename = "./Data/acc_immune_pri.h5seurat")
+```
+
+
+# LN
+```{r}
+acc_immune_ln  = subset(acc_immune, subset = origin == "LN")
+```
+
+
+## PCA
+```{r results='hide'}
+# Identification of highly variable features
+acc_immune_ln <- FindVariableFeatures(acc_immune_ln, selection.method = "vst", nfeatures = 15000) 
+
+# Scaling the data
+acc_immune_ln <- ScaleData(acc_immune_ln, vars.to.regress = c("percent.mt","nCount_RNA"))
+
+# Perform linear dimensional reduction (PCA)
+acc_immune_ln <- RunPCA(acc_immune_ln, features = VariableFeatures(object = acc_immune_ln))
+
+ElbowPlot(acc_immune_ln, ndims = 50) # checking the dimensionality 
+
+```
+
+```{r}
+pc2use=1:10
+clus_res=1
+print("PCA dims = " %>% paste(max(pc2use)))
+```
+
+## UMAP and clustering
+```{r}
+acc_immune_ln <- FindNeighbors(acc_immune_ln, dims = pc2use,verbose = F)
+acc_immune_ln <- FindClusters(acc_immune_ln, resolution = clus_res,verbose = F)
+
+# Run non-linear dimensional reduction (UMAP)
+acc_immune_ln <- RunUMAP(acc_immune_ln, dims = pc2use,verbose = F,  metric = "euclidean")
+DimPlot(object = acc_immune_ln, reduction = "umap", pt.size = 1, label = F)
+```
+```{r}
+SeuratDisk::SaveH5Seurat(object = acc_immune_ln,filename = "./Data/acc_immune_ln.h5seurat")
+```
+```{r}
+
+prefix="acc_tpm_nCount_mito_no146_"
+acc_caf = readRDS(paste(prefix,"cafs.rds",sep=""))
+acc_caf = readRDS("/sci/labs/yotamd/lab_share/ACC/ACC_sc/analysis/acc_tpm_nCount_mito_no146_cafs.rds")
+
+acc_caf <- FindVariableFeatures(acc_caf, selection.method = "vst", nfeatures = 7500)
+acc_caf <- ScaleData(acc_caf, vars.to.regress = c("percent.mt","nCount_RNA"))
+clus_res=.25
+gs=acc_caf@assays$RNA@var.features
+
+myCAF=apply(acc_caf@assays$RNA@scale.data[intersect(c("ADIRF","ACTA2","MYH11","TAGLN","SPARCL1","MCAM","A2M","MYLK","IGFBP7","CRIP1","TINAGL1","TPM2","PTP4A3","PPP1R14A","CRIP2","ADAMTS1","CSRP2","NDUFA4L2","TPM1","MAP1B","FRZB","PRKCDBP","CSRP1","CAV1","ADAMTS4","GJA4","RGS5","MEF2C","CALM2","APOLD1","OAZ2","MGST3","ISYNA1","CPM","PGF","GUCY1B3","UBA2","YIF1A","PHLDA1","NDRG2","ID3","RGS16","CYB5R3","CRYAB","OLFML2A","TIMP3","GUCY1A3","FILIP1","FAM13C","NDUFS4","ITGB1","KCNE4","CPE"),gs),],2,mean)
+dCAF=apply(acc_caf@assays$RNA@scale.data[intersect(c("COL1A1","THBS2","CTHRC1","COL3A1","LUM","COL1A2","LGALS1","COL5A1","POSTN","SERPINE1","LOXL2","COL11A1","CTSK","COL12A1","MMP2","INHBA","TNFAIP6","VCAN","ADAM12","THY1","FN1","STEAP1","SPON2","PLAUR","SPHK1","LOX","EMP1","ANGPTL2","RARRES2","SULF1","IGFBP3","COL8A1","GREM1","DCN","ITGA5","ANTXR1","RIN2","TMEM119","TNFRSF12A","P4HA3","CRABP2","TPM4","LOXL1","CPXM1","COL6A1","ASPN","PDLIM4","ITGA11","PRSS23","COL6A2","SFRP2","PLAU","YIF1A","SNAI2","C1S","TMEM176B","CTGF","MORF4L2","UAP1","SERPINF1","ITGB1","TGFBI","HTRA3","C1R","TIMP1","LMNA","CYP1B1","MGP","ANGPTL4"),gs),],2,mean)
+iCAF=apply(acc_caf@assays$RNA@scale.data[intersect(c("CFD","GPC3","C3","ADH1B","IGF1","EFEMP1","PODN","SEPP1","CXCL12","ABI3BP","FBLN1","MGST1","MFAP4","PLA2G2A","DPT","WISP2","CCDC80","SFRP2","PTGDS","DCN","MGP","C1S","IGFBP6","GSN","TMEM176A","FIBIN","TMEM176B","SERPINF1","FHL1","GPX3","CTGF","C1R","SFRP4","CYP1B1","CST3","SLC40A1","FHL2","ELN","KLF4","RARRES1","CYR61","IGFBP5"),gs),],2,mean)
+iCAF2=apply(acc_caf@assays$RNA@scale.data[intersect(c("IER3","CXCL2","ICAM1","TNFAIP2","NFKBIA","NR4A1","CCL2","SOD2","FOSB","PIM1","ZFP36","CLU","ABL2","GEM","NR4A3","APOD","SAT1","UAP1","OGN","GFPT2","JUNB","THBS1","CDKN1A","C3","CYP1B1","EGR1","ABI3BP","GADD45B","DUSP1","RARRES1","CST3"),gs),],2,mean)
+pCAF=apply(acc_caf@assays$RNA@scale.data[intersect(c("NUSAP1","DIAPH3","LOXL2","ADAM12","LOX","POSTN","THY1","CD248","FN1","COL12A1","CTHRC1","COL5A1","LOXL1","COL1A1","COL8A1","COL6A1","COL6A2"),gs),],2,mean)
+acc_caf=AddMetaData(acc_caf,myCAF,"pan.myCAF")
+acc_caf=AddMetaData(acc_caf,dCAF,"pan.dCAF")
+acc_caf=AddMetaData(acc_caf,iCAF,"pan.iCAF")
+acc_caf=AddMetaData(acc_caf,iCAF2,"pan.iCAF2")
+acc_caf=AddMetaData(acc_caf,pCAF,"pan.pCAF")
+
+pc2use=1:11
+acc_caf <- RunPCA(acc_caf, features = VariableFeatures(object = acc_caf))
+pcaplot <- PCAPlot(acc_caf, label = FALSE)
+elbowplot <- ElbowPlot(acc_caf, ndims = 50) # checking the dimensionality 
+acc_caf <- FindNeighbors(acc_caf, dims = pc2use)
+acc_caf <- FindClusters(acc_caf, resolution = clus_res)
+acc_caf <- RunUMAP(acc_caf, dims = pc2use)
+DimPlot(object = acc_caf, reduction = "umap", pt.size = 0.5, label = TRUE)
+
+FeaturePlot(acc_caf, "pan.myCAF", pt.size = 0.5, cols = c("blue","yellow"))
+FeaturePlot(acc_caf, "pan.dCAF", pt.size = 0.5, cols = c("blue","yellow"))
+FeaturePlot(acc_caf, "pan.iCAF", pt.size = 0.5, cols = c("blue","yellow"))
+FeaturePlot(acc_caf, "pan.iCAF2", pt.size = 0.5, cols = c("blue","yellow"))
+FeaturePlot(acc_caf, "pan.pCAF", pt.size = 0.5, cols = c("blue","yellow"))
+```

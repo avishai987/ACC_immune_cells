@@ -1,0 +1,384 @@
+---
+title: 'cpbd_analysis' 
+author: "Avishai Wizel"
+date: '`r Sys.time()`'
+output: 
+  html_document: 
+    code_folding: hide
+    toc: yes
+    toc_collapse: yes
+    toc_float: 
+      collapsed: TRUE
+    number_sections: true
+    toc_depth: 2
+    df_print: paged
+params: 
+  data_out_dir: "./temp_data/" 
+---
+
+```{r}
+source("./pipe.R")
+input = pipeline$cpdb_analysis$input
+output = pipeline$cpdb_analysis$output
+```
+
+```{r}
+acc_cancer_cd45_caf = readRDS(input$acc_cancer_cd45_caf)
+signif_deg =readRDS(input$signif_deg)
+```
+
+```{r}
+library(ktplots)
+
+
+pvals = read.delim(input$pvals,check.names = F)
+means = read.delim(input$means,check.names = F)
+
+pvals$interacting_pair = make.unique(pvals$interacting_pair)
+means$interacting_pair = make.unique(means$interacting_pair)
+
+```
+
+
+```{r fig.height=10}
+mat = plot_cpdb_heatmap(scdata = acc_cancer_cd45_caf, idents = 'cell_type',pvals =  pvals,main = "Number of significant interactions",alpha = 0.05,treeheight_row = 50,return_tables = T)
+```
+
+
+
+```{r echo=TRUE, fig.height=8, fig.width=18, results='asis'}
+ln_types = acc_cancer_cd45_caf@meta.data %>% filter(tissue == "LN") %>% pull(cell_type) %>% unique()
+pri_types = acc_cancer_cd45_caf@meta.data %>% filter(tissue == "pri") %>% pull(cell_type)%>% unique()
+
+
+p1= pheatmap::pheatmap(mat$count_network[pri_types,pri_types],main = "Number of significant interactions- primary",silent = T) [[4]]
+p2 = pheatmap::pheatmap(mat$count_network[ln_types,ln_types],main = "Number of significant interactions- LN",silent = T)[[4]]
+gridExtra::grid.arrange(p1, p2,nrow = 1,ncol=2)
+```
+
+```{r}
+uniq_interactions <- function(cell_type1, cell_type2_a ,cell_type2_b, gene.family = NULL,genes = NULL) {
+  require(purrr)
+  a = plot_cpdb(cell_type1 = cell_type1, cell_type2 =cell_type2_a, scdata = acc_cancer_cd45_caf,
+                      idents = 'cell_type', means = means, pvals = pvals,
+                      gene.family = gene.family,return_table = T, p.adjust.method = "fdr",keep_significant_only = F, genes = genes)
+  
+  b = plot_cpdb(cell_type1 = cell_type1, cell_type2 = cell_type2_b, scdata = acc_cancer_cd45_caf,
+                      idents = 'cell_type', means = means, pvals = pvals,
+                      gene.family = gene.family,return_table = T,p.adjust.method = "fdr",keep_significant_only = F, genes = genes)
+  
+  
+  all = list()
+  i=0
+  nelements = a$Var2 %>% unique() %>% length()
+  a_couples = a$Var2 %>% unique()%>% as.vector()  
+  b_couples = b$Var2 %>% unique()%>% as.vector()  
+  for (i in 1:nelements) {
+    sig_couples_a = a %>% filter(Var2 == a_couples[i]) %>% filter(pvals_adj <= 0.05) %>%  pull(Var1) %>% as.vector()  
+    sig_couples_b = b %>% filter(Var2 == b_couples[i]) %>% filter(pvals_adj <= 0.05) %>%  pull(Var1) %>% as.vector()  
+    only_in_a = sig_couples_a[! sig_couples_a %in% sig_couples_b]
+    all[[a_couples[i]]] = only_in_a 
+    i = i+1
+  }
+  all = t(map_dfr(all, ~as_tibble(t(.)))) %>% as.data.frame() %>%  set_names(a_couples)
+  return(all)
+}
+
+get_uniq_interactions <- function(cell_type1, cell_type2_a ,cell_type2_b, gene.family = NULL,genes = NULL) {
+  require(purrr)
+  a = plot_cpdb(cell_type1 = cell_type1, cell_type2 =cell_type2_a, scdata = acc_cancer_cd45_caf,
+                      idents = 'cell_type', means = means, pvals = pvals,
+                      gene.family = gene.family,return_table = T, p.adjust.method = "fdr",keep_significant_only = F, genes = genes)
+  
+  b = plot_cpdb(cell_type1 = cell_type1, cell_type2 = cell_type2_b, scdata = acc_cancer_cd45_caf,
+                      idents = 'cell_type', means = means, pvals = pvals,
+                      gene.family = gene.family,return_table = T,p.adjust.method = "fdr",keep_significant_only = F, genes = genes)
+  
+  
+  all = c()
+  i=0
+  nelements = a$Var2 %>% unique() %>% length()
+  a_couples = a$Var2 %>% unique()%>% as.vector()  
+  b_couples = b$Var2 %>% unique()%>% as.vector()  
+  for (i in 1:nelements) {
+    sig_couples_a = a %>% filter(Var2 == a_couples[i]) %>% filter(pvals_adj <= 0.05) %>%  pull(Var1) %>% as.vector()  
+    sig_couples_b = b %>% filter(Var2 == b_couples[i]) %>% filter(pvals_adj <= 0.05) %>%  pull(Var1) %>% as.vector()  
+    only_in_a = sig_couples_a[! sig_couples_a %in% sig_couples_b]
+    uniq_interactions = c(base::setdiff(sig_couples_a, sig_couples_b),  base::setdiff(sig_couples_b, sig_couples_a))
+    all = c(all, uniq_interactions)
+    i = i+1
+    
+  }
+  all = gsub(pattern = "-",replacement = "_",x = all)
+  return(unique(all))
+}
+
+switch_genes <- function(row) {
+  first_gene = row[14]
+  if (is_null(first_gene)) {first_gene = row[16] %>% gsub(pattern = "complex:",replacement = "")}
+  second_gene = row[15]
+  if (is_null(second_gene)) {first_gene = row[17] %>% gsub(pattern = "complex:",replacement = "")}
+
+  inverted = paste0(second_gene,"-",first_gene)
+}
+
+
+my_plot_cpdb <- function(...,caf = F) {
+  p = plot_cpdb(...)
+  pg <- ggplot_build(p)
+  
+  ## switch all to ligand-receptor:
+  # p_pairs = pg$plot$data$Var1 %>% gsub(pattern = "-",replacement = "_")
+  # pval_cut = pvals %>%  column_to_rownames(var = "interacting_pair")  
+  # pval_cut = pval_cut[p_pairs,c("receptor_a","receptor_b","gene_a","gene_b","partner_a","partner_b")]
+  # 
+  # pg$plot$data = cbind(pg$plot$data, pval_cut)
+  # rows_to_switch = pg$plot$data$receptor_a == "False" & pg$plot$data$receptor_b == "True"
+  # a = apply(pg$plot$data[169:179,], MARGIN = 1, switch_genes) 
+
+  # add facet
+  if (caf == F){
+    pg$plot$data  %<>%  mutate(lum_or_myo = if_else(condition = grepl(pattern = "Luminal",x = Var2),
+                                                    true = "Luminal",false = "Myo"))%>% 
+      mutate(direction =if_else(condition = grepl(pattern = "-Luminal|-Myo",x = Var2),
+                                    true = "immune->cancer",false = "cancer->immune")) 
+      pg$plot+facet_grid(cols = vars(direction,lum_or_myo),scales = "free_x")+ylab("Interacting pair") +
+      theme(axis.title.y = element_text(angle = 90,size = 20))
+      
+  }else{
+    pg$plot$data  %<>%  mutate(direction =if_else(condition = grepl(pattern = "-CAF",x = Var2),true = "CAF->immune",false = "immune->CAF")) 
+      pg$plot+facet_grid(cols = vars(direction),scales = "free_x")+ylab("Interacting pair") +
+      theme(axis.title.y = element_text(angle = 90,size = 20))
+  }
+}
+
+```
+
+# Costimulatory interactions {.tabset}
+```{r fig.height=12, fig.width=20, results='asis'}
+
+print_tab(plt = 
+            my_plot_cpdb(cell_type1 = 'CD|B|Macro|mono', cell_type2 = 'Luminal pri|Myo pri', scdata = acc_cancer_cd45_caf,
+                      idents = 'cell_type', means = means, pvals = pvals,
+                      gene.family = 'costimulatory',return_table = F,max_size = 3,p.adjust.method = "fdr",
+                      keep_significant_only = T,cluster_rows = T)+
+            ggtitle("Costimulatory primary")
+          ,title = "Primary")
+
+
+print_tab(plt = 
+            my_plot_cpdb(cell_type1 = 'CD|B|Macro|mono', cell_type2 = 'Luminal LN|Myo LN', scdata = acc_cancer_cd45_caf,
+                      idents = 'cell_type', means = means, pvals = pvals,
+                      gene.family = 'costimulatory',return_table = F,max_size = 3,p.adjust.method = "fdr",keep_significant_only = T,cluster_rows = F)+
+            ggtitle("Costimulatory LN")
+  ,title = "LN")
+
+print_tab(plt = 
+            my_plot_cpdb(cell_type1 = 'CD|B|Macro|mono', cell_type2 = 'CAF', scdata = acc_cancer_cd45_caf,
+                      idents = 'cell_type', means = means, pvals = pvals,
+                      gene.family = 'costimulatory',return_table = F,max_size = 3,p.adjust.method = "fdr",keep_significant_only = T,cluster_rows = F,caf = T)+
+            ggtitle("Costimulatory CAF")
+  ,title = "CAF")
+
+print_tab(plt = 
+            uniq_interactions(cell_type1 = 'CD|B|Macro|mono',cell_type2_a  = 'Luminal pri',cell_type2_b = "Myo",gene.family = "Costimulatory")
+,title = "unique in luminal pri")
+
+
+print_tab(plt = 
+            uniq_interactions(cell_type1 = 'CD|B|Macro|mono',cell_type2_a  = 'Myo pri',cell_type2_b = "Luminal",gene.family = "Costimulatory")
+,title = "unique in myo pri")
+
+print_tab(plt = 
+            uniq_interactions(cell_type1 = 'CD|B|Macro|mono',cell_type2_a  = 'Luminal LN',cell_type2_b = "Myo",gene.family = "Costimulatory")
+,title = "unique in luminal LN")
+
+
+print_tab(plt = 
+            uniq_interactions(cell_type1 = 'CD|B|Macro|mono',cell_type2_a  = 'Myo LN',cell_type2_b = "Luminal",gene.family = "Costimulatory")
+,title = "unique in myo LN")
+
+```
+
+# Coinhibitory interactions {.tabset}
+
+```{r fig.height=5,results='asis'}
+print_tab(my_plot_cpdb(cell_type1 = 'CD|B|Macro|mono', cell_type2 = 'Luminal pri|Myo pri', scdata = acc_cancer_cd45_caf,
+          idents = 'cell_type', means = means, pvals = pvals,
+          gene.family = 'coinhibitory',return_table = F,max_size = 4,p.adjust.method = "fdr",keep_significant_only = F,cluster_rows = F)+
+  ggtitle("coinhibitory primary"),title = "Primary")
+
+print_tab(my_plot_cpdb(cell_type1 = 'CD|B|Macro|mono', cell_type2 = 'Luminal LN|Myo LN', scdata = acc_cancer_cd45_caf,
+          idents = 'cell_type', means = means, pvals = pvals,
+          gene.family = 'coinhibitory',return_table = F,max_size = 4,p.adjust.method = "fdr",keep_significant_only = F,cluster_rows = F)+
+  ggtitle("coinhibitory LN"),title = "LN")
+
+
+print_tab(plt = 
+            my_plot_cpdb(cell_type1 = 'CD|B|Macro|mono', cell_type2 = 'CAF', scdata = acc_cancer_cd45_caf,
+                      idents = 'cell_type', means = means, pvals = pvals,
+                      gene.family = 'coinhibitory',return_table = F,max_size = 3,p.adjust.method = "fdr",keep_significant_only = T,cluster_rows = F,caf = T)+
+            ggtitle("coinhibitory CAF")
+  ,title = "CAF")
+
+print_tab(plt = 
+            uniq_interactions(cell_type1 = 'CD|B|Macro|mono',cell_type2_a  = 'Luminal LN',cell_type2_b = "Myo LN",gene.family = "coinhibitory")
+,title = "unique in luminal LN")
+
+
+print_tab(plt = 
+            uniq_interactions(cell_type1 = 'CD|B|Macro|mono',cell_type2_a  = 'Myo LN',cell_type2_b = "Luminal LN",gene.family = "coinhibitory")
+,title = "unique in myo LN")
+
+
+print_tab(plt = 
+            uniq_interactions(cell_type1 = 'CD|B|Macro|mono',cell_type2_a  = 'Luminal pri',cell_type2_b = "Myo pri",gene.family = "coinhibitory")
+,title = "unique in luminal pri")
+
+print_tab(plt = 
+            uniq_interactions(cell_type1 = 'CD|B|Macro|mono',cell_type2_a  = 'Myo pri',cell_type2_b = "Luminal pri",gene.family = "coinhibitory")
+,title = "unique in myo pri")
+```
+
+# Chemokines interactions {.tabset}
+```{r fig.height=9, results='asis'}
+print_tab(
+  my_plot_cpdb(cell_type1 = 'CD|B|Macro|mono', cell_type2 = 'Luminal pri|Myo pri', scdata = acc_cancer_cd45_caf,
+          idents = 'cell_type', means = means, pvals = pvals,
+          gene.family = 'chemokines',return_table = F,max_size = 4,p.adjust.method = "fdr",keep_significant_only = F,cluster_rows = F)+
+  ggtitle("chemokines primary"),title = "Primary")
+
+print_tab(
+  my_plot_cpdb(cell_type1 = 'CD|B|Macro|mono', cell_type2 = 'Luminal LN|Myo LN', scdata = acc_cancer_cd45_caf,
+          idents = 'cell_type', means = means, pvals = pvals,
+          gene.family = 'chemokines',return_table = F,max_size = 4,p.adjust.method = "fdr",keep_significant_only = F,cluster_rows = F)+
+  ggtitle("chemokines LN"),title = "LN")
+
+
+
+print_tab(plt = 
+            my_plot_cpdb(cell_type1 = 'CD|B|Macro|mono', cell_type2 = 'CAF', scdata = acc_cancer_cd45_caf,
+                      idents = 'cell_type', means = means, pvals = pvals,
+                      gene.family = 'chemokines',return_table = F,max_size = 3,p.adjust.method = "fdr",keep_significant_only = T,cluster_rows = F,caf = T)+
+            ggtitle("chemokines CAF")
+  ,title = "CAF")
+
+print_tab(plt = 
+            uniq_interactions(cell_type1 = 'CD|B|Macro|mono',cell_type2_a  = 'Luminal LN',cell_type2_b = "Myo LN",gene.family = "chemokines")
+,title = "unique in luminal LN")
+
+
+print_tab(plt = 
+            uniq_interactions(cell_type1 = 'CD|B|Macro|mono',cell_type2_a  = 'Myo LN',cell_type2_b = "Luminal LN",gene.family = "chemokines")
+,title = "unique in myo LN")
+
+
+print_tab(plt = 
+            uniq_interactions(cell_type1 = 'CD|B|Macro|mono',cell_type2_a  = 'Luminal pri',cell_type2_b = "Myo pri",gene.family = "chemokines")
+,title = "unique in luminal pri")
+
+print_tab(plt = 
+            uniq_interactions(cell_type1 = 'CD|B|Macro|mono',cell_type2_a  = 'Myo pri',cell_type2_b = "Luminal pri",gene.family = "chemokines")
+,title = "unique in myo pri")
+```
+# Chemokine ligands {.tabset}
+```{r fig.height=8, results='asis'}
+genes = c("CXCL1\\D", "CXCL2\\D","CXCL3\\D","CXCL17","C3","CXCL14")
+print_tab(my_plot_cpdb(cell_type1 = 'CD|B|Macro|mono', cell_type2 = 'Luminal pri|Myo pri', scdata = acc_cancer_cd45_caf,
+    idents = 'cell_type', means = means, pvals = pvals,
+ genes = genes,return_table = F,max_size = 4,p.adjust.method = "fdr" ,keep_significant_only = F) 
+ ,title = "Primary")
+
+print_tab(my_plot_cpdb(cell_type1 = 'CD|B|Macro|mono', cell_type2 = 'Luminal LN|Myo LN', scdata = acc_cancer_cd45_caf,
+    idents = 'cell_type', means = means, pvals = pvals,
+  genes = genes,return_table = F,max_size = 4,p.adjust.method = "fdr" ,keep_significant_only = F) 
+,title = "LN")
+
+
+print_tab(plt = 
+            uniq_interactions(cell_type1 = 'CD|B|Macro|mono',cell_type2_a  = 'Luminal LN',cell_type2_b = "Myo LN",genes = genes)
+,title = "unique in luminal LN")
+
+
+print_tab(plt = 
+            uniq_interactions(cell_type1 = 'CD|B|Macro|mono',cell_type2_a  = 'Myo LN',cell_type2_b = "Luminal LN",genes = genes)
+,title = "unique in myo LN")
+
+
+print_tab(plt = 
+            uniq_interactions(cell_type1 = 'CD|B|Macro|mono',cell_type2_a  = 'Luminal pri',cell_type2_b = "Myo pri",genes = genes)
+,title = "unique in luminal pri")
+
+print_tab(plt = 
+            uniq_interactions(cell_type1 = 'CD|B|Macro|mono',cell_type2_a  = 'Myo pri',cell_type2_b = "Luminal pri",genes = genes)
+,title = "unique in myo pri")
+```
+
+# CCL22 and CCL28 {.tabset}
+```{r fig.width=10, results='asis'}
+print_tab(my_plot_cpdb(cell_type1 = 'CD|B|Macro|mono', cell_type2 = 'Luminal pri|Myo pri', scdata = acc_cancer_cd45_caf,
+    idents = 'cell_type', means = means, pvals = pvals,
+ genes = c("CCL22", "CCL28","CXCL1_","CXCL2_","CXCL3_","CXCL17" ,"CXCL14","IL17RD","^C3_","_C3"),return_table = F,max_size = 4,p.adjust.method = "fdr" ,keep_significant_only = F),title = "Primary")
+
+print_tab(my_plot_cpdb(cell_type1 = 'CD|B|Macro|mono', cell_type2 = 'Luminal LN|Myo LN', scdata = acc_cancer_cd45_caf,
+    idents = 'cell_type', means = means, pvals = pvals,
+  genes = c("CCL22", "CCL28" ),return_table = F,max_size = 6,p.adjust.method = "fdr" ,keep_significant_only = F),title = "LN")
+
+
+
+```
+
+
+# signif DEG
+```{r fig.height=8, fig.width=10}
+
+uniq_genes = get_uniq_interactions(cell_type1 = 'CD|B|Macro|mono|Den',cell_type2_a  = 'Myo pri',cell_type2_b = "Luminal pri",
+                                   genes = rownames( signif_deg %>% filter(avg_log2FC >0)))
+
+
+my_plot_cpdb(cell_type1 = 'CD|B|Macro|mono|Den', cell_type2 = 'Luminal pri|Myo pri', scdata = acc_cancer_cd45_caf,
+    idents = 'cell_type', means = means, pvals = pvals,
+ genes = uniq_genes,return_table = F,max_size = 4,p.adjust.method = "fdr" ,keep_significant_only = T)
+
+uniq_genes = get_uniq_interactions(cell_type1 = 'CD|B|Macro|mono|Den',cell_type2_a  = 'Myo pri',cell_type2_b = "Luminal pri",
+                                   genes = rownames( signif_deg %>% filter(avg_log2FC < 0)))
+
+
+my_plot_cpdb(cell_type1 = 'CD|B|Macro|mono|Den', cell_type2 = 'Luminal pri|Myo pri', scdata = acc_cancer_cd45_caf,
+    idents = 'cell_type', means = means, pvals = pvals,
+ genes = uniq_genes,return_table = F,max_size = 4,p.adjust.method = "fdr" ,keep_significant_only = T)
+
+```
+
+
+# Notch signaling interactions with immune {.tabset}
+```{r fig.height=6, results='asis'}
+print_tab(plt = 
+            my_plot_cpdb(cell_type1 = 'CD|B|Macro|mono', cell_type2 = 'Luminal pri|Myo pri', scdata = acc_cancer_cd45_caf,
+                         idents = 'cell_type', means = means, pvals = pvals,
+                         genes =c("JAG", "MYB" , "NOTCH","HES1","HEY"),return_table = F,max_size = 4,p.adjust.method = "fdr" ,keep_significant_only = F) 
+        ,title = "Primary")
+
+print_tab(plt = 
+            my_plot_cpdb(cell_type1 = 'CD|B|Macro|mono', cell_type2 = 'Luminal LN|Myo LN', scdata = acc_cancer_cd45_caf,
+                         idents = 'cell_type', means = means, pvals = pvals,
+                         genes =c("JAG", "MYB" , "NOTCH","HES1","HEY"),return_table = F,max_size = 4,p.adjust.method = "fdr" ,keep_significant_only = F) 
+        ,title = "Primary")
+```
+
+
+# Notch signaling interactions with CAF {.tabset}
+
+```{r fig.height=6 ,results='asis'}
+print_tab(plt = 
+            plot_cpdb(cell_type1 = 'CAF', cell_type2 = 'Luminal pri|Myo pri', scdata = acc_cancer_cd45_caf,
+                      idents = 'cell_type', means = means, pvals = pvals,
+                      genes = c("JAG", "MYB" ),return_table = F,max_size = 4,p.adjust.method = "fdr" ,keep_significant_only = F) 
+          ,title = "Primary")
+
+print_tab(plt = 
+            plot_cpdb(cell_type1 = 'CAF', cell_type2 = 'Luminal LN|Myo LN', scdata = acc_cancer_cd45_caf,
+                      idents = 'cell_type', means = means, pvals = pvals,
+                      genes = c("JAG", "MYB" ),return_table = F,max_size = 4,p.adjust.method = "fdr" ,keep_significant_only = F) 
+          ,title = "Primary") 
+```

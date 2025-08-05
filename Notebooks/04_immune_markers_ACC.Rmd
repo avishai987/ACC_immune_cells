@@ -1,0 +1,267 @@
+---
+title: '04_1_immune_markers_ACC' 
+author: "Avishai Wizel"
+date: '`r Sys.time()`'
+output: 
+  html_document: 
+    code_folding: hide
+    toc: yes
+    toc_collapse: yes
+    toc_float: 
+      collapsed: TRUE
+    number_sections: true
+    toc_depth: 2
+    df_print: paged
+params: 
+  data_out_dir: "./temp_data/" 
+---
+
+```{r}
+source("./pipe.R")
+input = pipeline$immune_markers_ACC$input
+output = pipeline$immune_markers_ACC$output
+```
+
+
+```{r}
+library(ggplot2)
+library(ggpubr)
+suppressPackageStartupMessages(library(GSEABase))
+```
+
+```{r}
+acc_cancer_pri = readRDS(input$acc_cancer_pri)
+```
+
+```{r}
+FeaturePlot(acc_cancer_pri,features = "luminal_over_myo")
+DimPlot(acc_cancer_pri,group.by = "origin")
+DimPlot(acc_cancer_pri,group.by = "tissue")
+DimPlot(acc_cancer_pri,group.by = "plate")
+
+```
+
+```{r}
+immune_genes = fread(input$immmune_genes ,sep = "\t",select = 3,header = F) %>% pull(1) %>% unique()
+immune_genes = immune_genes[immune_genes %in% rownames(acc_cancer_pri)]
+```
+
+```{r}
+acc_cancer_pri = SetIdent(object = acc_cancer_pri,value = "cell_identity")
+deg = FindMarkers(
+  object = acc_cancer_pri,
+  slot = "data",
+  ident.1 = "Luminal",
+  ident.2 = "Myo",
+  densify = T,
+  logfc.threshold = 0,
+  min.pct = 0,
+  features = immune_genes,
+  mean.fxn = function(x) {
+    return(log(rowMeans(x) + .1, base = 2))
+  }
+)
+
+deg$fdr = p.adjust(deg$p_val)
+```
+
+```{r}
+
+```
+
+
+## Immune checkpoints
+```{r}
+all_features = c("CD247","PDCD1LG2","CTLA4","CD274","LAG3","TIGIT")
+deg[all_features,] %>% na.omit()
+```
+
+
+
+## CC receptors {.tabset}
+
+```{r echo=TRUE, fig.height=10, fig.width=14, results='asis'}
+all_features = rownames(acc_cancer_pri)[startsWith(x =rownames(acc_cancer_pri), prefix = "CCR")]
+deg[all_features,] %>% na.omit()
+
+```
+## CC ligands {.tabset}
+```{r echo=TRUE, fig.height=10, fig.width=14, results='asis'}
+features = rownames(acc_cancer_pri)[startsWith(x =rownames(acc_cancer_pri), prefix = "CCL")]
+deg[features,] %>% na.omit()
+```
+## CXC receptors {.tabset}
+
+```{r}
+all_features = rownames(acc_cancer_pri)[startsWith(x =rownames(acc_cancer_pri), prefix = "CXCR")]
+deg[all_features,] %>% na.omit()
+
+```
+
+## CXC ligands {.tabset}
+```{r}
+all_features = rownames(acc_cancer_pri)[startsWith(x =rownames(acc_cancer_pri), prefix = "CXCL")]
+deg[all_features,] %>% na.omit()
+
+```
+
+
+## IL receptors genes {.tabset}
+```{r}
+all_features = rownames(acc_cancer_pri)[grepl("^IL\\d*R.*", rownames(acc_cancer_pri))]
+deg[all_features,] %>% na.omit()
+
+```
+
+## Classical  HLA 1 genes {.tabset}
+
+```{r}
+hla_genes = rownames(acc_cancer_pri)[startsWith(x =rownames(acc_cancer_pri), prefix = "HLA")]
+hla_class_2 = hla_genes[startsWith(x =hla_genes, prefix = "HLA-D")]
+hla_class_1 = hla_genes[!startsWith(x =hla_genes, prefix = "HLA-D")]
+
+deg[hla_class_1,] %>% na.omit()
+
+```
+## Non-classical  HLA 1 genes {.tabset}
+```{r}
+all_features  = hla_class_1 [!hla_class_1 %in% c("HLA-A","HLA-B","HLA-C")] %>% sort()
+deg[all_features,] %>% na.omit()
+
+```
+## HLA 2 genes {.tabset}
+```{r}
+deg[hla_class_2,] %>% na.omit()
+
+```
+
+## IL17RD 
+```{r}
+deg["IL17RD",] %>% na.omit()
+```
+
+# C3
+
+```{r}
+feature = "C3"
+deg[feature,] %>% na.omit()
+
+data = FetchData(object = acc_cancer_pri,vars = c(feature,"cell_identity"),slot = "data")
+data = data %>% dplyr::filter(cell_identity != "mid")
+ggboxplot(data, x = "cell_identity", y = feature,
+          palette = "jco",
+          add = "jitter")+ 
+  stat_compare_means(method = "wilcox.test",comparisons = list(c("Luminal","Myo")))+
+  stat_summary(fun.data = function(x) data.frame(y=max(x)+10, label = paste("Mean=",mean(x))), geom="text") +
+     theme(legend.position="none")
+```
+
+```{r}
+signif_deg = deg %>% filter((avg_log2FC > log2(2) | avg_log2FC < log2(1/2))  & fdr <0.05)
+genes = c("CD274", "LAG3", "TIGIT", "CCL22","CCL28","CXCL1","CXCL2","CXCL3","CXCL17","CXCL14","C3")
+signif_deg[genes,] %>% na.omit()
+up_in_lum = signif_deg %>% filter(avg_log2FC > 0) %>% arrange(desc(avg_log2FC))
+signif_deg %>% filter(avg_log2FC < 0)%>% arrange((avg_log2FC))
+```
+
+```{r}
+saveRDS(signif_deg, params$data_out_dir %s+% "signif_deg.rds")
+```
+
+# CP GSEA
+
+```{r}
+suppressPackageStartupMessages(library(GSEABase))
+cp = GSEABase::getGmt("input_data/c2.cp.v2025.1.Hs.symbols.gmt") %>% geneIds()
+
+
+```
+
+```{r}
+library(hypeR)
+library(ggpubr)
+source_from_github(repositoy = "DEG_functions",version = "0.2.54")
+```
+
+```{r}
+ranked_vec = deg %>% pull(avg_log2FC) %>%  setNames(rownames(deg))
+ranked_vec = ranked_vec %>% sort(decreasing = T)
+hyp_obj <-hypeR_fgsea(signature = ranked_vec,genesets = (cp),up_only = F)
+plt = hyp_dots(hyp_obj,merge = F,fdr = 0.2)
+plt
+```
+
+
+## RAR
+
+```{r}
+
+deg["RARA",] %>% na.omit()
+
+```
+```{r}
+features = rownames(acc_cancer_pri)
+acc_cancer_pri = SetIdent(object = acc_cancer_pri,value = "cell_identity")
+deg = FindMarkers(
+  object = acc_cancer_pri,
+  slot = "data",
+  ident.1 = "Luminal",
+  ident.2 = "Myo",
+  densify = T,
+  logfc.threshold = 0,
+  min.pct = 0,
+  features = features,
+  mean.fxn = function(x) {
+    return(log(rowMeans(x) + .1, base = 2))
+  }
+)
+
+deg$fdr = p.adjust(deg$p_val,n = length(features))
+
+```
+
+
+```{r}
+ranked_vec = deg %>% pull(avg_log2FC) %>%  setNames(rownames(deg))
+ranked_vec = ranked_vec %>% sort(decreasing = T)
+hyp_obj <-hypeR_fgsea(signature = ranked_vec,genesets = (cp),up_only = F)
+plt = hyp_dots(hyp_obj,merge = F,fdr = 0.2)
+plt
+```
+
+
+```{r}
+ra_genes = cp$REACTOME_SIGNALING_BY_RETINOIC_ACID
+deg[ra_genes,] %>% na.omit() %>% filter(fdr<0.05)
+
+```
+
+```{r}
+library(msigdbr)
+cp$REACTOME_SIGNALING_BY_RETINOIC_ACID
+genes = msigdbr(species = "Homo sapiens", category = "C2") %>% filter(gs_subcat != "CGP" & grepl('RETINOIC', gs_name))
+rar_genes = genes %>% filter(gs_name == "REACTOME_SIGNALING_BY_RETINOIC_ACID") %>% pull("gene_symbol") %>% unique()
+rar_genes = rar_genes[rar_genes %in% rownames(acc_cancer_pri)]
+
+
+deg[rar_genes,] %>% na.omit() %>% filter(fdr<0.1 )
+step1 = strsplit("ADH1B
+ADH1C
+ADH4
+ADH3
+RDH10
+RDHL
+RDH5",split= "\n") %>% unlist()
+
+step2 = c("RALDH1","RALDH2","RALDH3")
+
+deg[step1,] %>% na.omit() 
+deg[step2,] %>% na.omit() 
+
+step1_rev = c("RDH12","RDH11","AKR1B10","AKR1B1","ADH4")
+deg[step1_rev,] %>% na.omit() 
+
+```
+
+
+

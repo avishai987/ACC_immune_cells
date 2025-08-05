@@ -1,0 +1,69 @@
+---
+title: 'run_cpdb' 
+author: "Avishai Wizel"
+date: '`r Sys.time()`'
+output: 
+  html_document: 
+    code_folding: hide
+    toc: yes
+    toc_collapse: yes
+    toc_float: 
+      collapsed: TRUE
+    number_sections: true
+    toc_depth: 2
+    df_print: paged
+params: 
+  data_out_dir: "./temp_data/" 
+---
+```{r}
+source("./pipe.R")
+input = pipeline$run_cpdb$input
+output = pipeline$run_cpdb$output
+script_params = pipeline$run_cpdb$params
+
+```
+
+
+```{r}
+reticulate::use_condaenv(script_params$cpdb_conda_env)
+reticulate::py_config()
+```
+
+```{r}
+library(reticulate)
+```
+
+```{python}
+#download database
+import pandas as pd
+import glob
+import os
+# -- Version of the databse
+cpdb_version = 'v4.1.0'
+
+# -- Path where the input files to generate the database are located
+
+# Download database
+from cellphonedb.utils import db_utils
+data_dir = r.script_params["cpdb_target_dir"] + cpdb_version
+db_utils.download_database(data_dir,cpdb_version=cpdb_version)
+```
+
+```{python}
+# r.input["cells_identity"]
+# r.input["counts"]
+# r.input["cells_identity"]
+# r.input["cells_environment"]
+# r.script_params["cpbd_output_dir"]
+
+from cellphonedb.src.core.methods import cpdb_statistical_analysis_method
+deconvoluted, means, pvalues, significant_means = cpdb_statistical_analysis_method.call(
+    cpdb_file_path = data_dir + '/cellphonedb.zip',                 # mandatory: CellPhoneDB database zip file.
+    meta_file_path = r.input["cells_identity"],                 # mandatory: tsv file defining barcodes to cell label.
+    counts_file_path = r.input["counts"],             # mandatory: normalized count matrix.
+    counts_data = 'hgnc_symbol',                     # defines the gene annotation in counts matrix.
+    microenvs_file_path = r.input["cells_environment"],
+    output_path = r.script_params["cpbd_output_dir"], # Path to save results.
+    output_suffix = ""
+)
+```   

@@ -1,0 +1,57 @@
+---
+title: 'Cell types' 
+author: "Avishai Wizel"
+date: '`r Sys.time()`'
+output: 
+  html_document: 
+    code_folding: hide
+    toc: yes
+    toc_collapse: yes
+    toc_float: 
+      collapsed: TRUE
+    number_sections: true
+    toc_depth: 2
+    df_print: paged
+params: 
+  data_out_dir: "./temp_data/" 
+---
+
+
+```{r}
+source("./pipe.R")
+input = pipeline$umap_clustering$input
+output = pipeline$umap_clustering$output
+```
+
+
+```{r}
+acc_immune = readRDS(input$acc_immune)
+```
+
+```{r fig.height=8, fig.width=12}
+immune_plate_df = acc_immune[[c("plate","origin")]] %>% 
+  mutate(immune_plate = if_else(condition = (origin == "acc_data"),true = "acc_old_data",false = plate))
+
+acc_immune %<>% AddMetaData(metadata = immune_plate_df[,"immune_plate",drop=F])
+DimPlot(object = acc_immune, reduction = "umap", pt.size = 0.3, label = F,group.by = "immune_plate",cols = rainbow(length(unique(acc_immune$immune_plate))))
+
+```
+
+```{r}
+immune_plate_df = acc_immune@meta.data %>% select(seurat_clusters,immune_plate) %>% group_by(seurat_clusters) %>%dplyr::count(immune_plate)%>%
+  ungroup()
+
+ggplot(immune_plate_df, aes(x = seurat_clusters, y = n, fill = immune_plate)) +
+  geom_bar(stat = "identity", position = "stack")+
+  labs(
+    title = "Immune Plate Composition per Seurat Cluster (Counts)",
+    x = "Seurat Clusters",
+    y = "Number of Cells",
+    fill = "Immune Plate"
+  ) +
+  theme_minimal() + # רקע נקי יותר
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+
+
+```
+

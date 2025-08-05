@@ -1,0 +1,76 @@
+---
+title: 'Create data' 
+author: "Avishai Wizel"
+date: '`r Sys.time()`'
+output: 
+  html_document: 
+    code_folding: hide
+    toc: yes
+    toc_collapse: yes
+    toc_float: 
+      collapsed: TRUE
+    number_sections: true
+    toc_depth: 2
+    df_print: paged
+params: 
+  data_out_dir: "./temp_data/" 
+---
+
+```{r}
+source("./pipe.R")
+input = pipeline$cpdb_create_data$input
+output = pipeline$cpdb_create_data$output
+```
+
+```{r}
+library(ComplexHeatmap)
+```
+
+
+```{r}
+acc_cancer_cells = readRDS(input$cancer)
+acc_caf_cells =  readRDS(input$caf)
+immune =  readRDS(input$immune)
+```
+
+
+```{r}
+#remove unclear lum-myo cells
+acc_cancer_cells_no_mid = subset(acc_cancer_cells,subset = cell_identity != "mid")
+
+# merge cancer, immune and CAF
+common_genes = rownames(acc_cancer_cells_no_mid) %>% intersect (rownames(immune)) %>% intersect(rownames(acc_caf_cells))
+acc_cancer_and_cd45 = merge(acc_cancer_cells_no_mid[common_genes,],immune[common_genes,])
+overlapping_cells = colnames(acc_cancer_cells_no_mid) %>% intersect(colnames(acc_caf_cells)) 
+acc_cancer_cd45_caf = merge(acc_cancer_and_cd45[common_genes,],acc_caf_cells[common_genes,] )
+```
+
+```{r}
+metadata = FetchData(acc_cancer_cd45_caf,vars = c("tissue","cell_identity","immune_type"))
+metadata  = metadata %>%  mutate(cell_type = 
+                                   if_else(condition = cell_identity == "immune",
+                                           true = paste(immune_type,tissue),
+                                           false = paste(cell_identity, tissue)))
+acc_cancer_cd45_caf = AddMetaData(object = acc_cancer_cd45_caf,metadata = metadata[,"cell_type",drop=F],col.name = "cell_type")
+
+```
+
+```{r}
+all_identity = data.frame(barcode_sample = rownames(metadata), cell_type = metadata$cell_type)
+all_environment = data.frame(cell_type = metadata$cell_type, microenviroment = metadata$tissue)
+```
+
+
+```{r}
+write.table(x = all_identity,file = output$cells_identity,row.names =F,sep = "\t")
+write.table(x = all_environment,file = output$cells_environment,row.names =F,sep = "\t")
+```
+
+```{r}
+fwrite(as.data.frame(acc_cancer_cd45_caf@assays[["RNA"]]@data), file = output$counts,sep = "\t",row.names = T)
+```
+
+```{r}
+saveRDS(acc_cancer_cd45_caf,file = output$acc_cancer_cd45_caf)
+```
+

@@ -1,0 +1,117 @@
+---
+title: 'Cell types' 
+author: "Avishai Wizel"
+date: '`r Sys.time()`'
+output: 
+  html_document: 
+    code_folding: hide
+    toc: yes
+    toc_collapse: yes
+    toc_float: 
+      collapsed: TRUE
+    number_sections: true
+    toc_depth: 2
+    df_print: paged
+params: 
+  data_out_dir: "./temp_data/" 
+---
+
+
+```{r}
+source("./pipe.R")
+input = pipeline$immune_identity$input
+output = pipeline$immune_identity$output
+```
+
+# Functions
+
+```{r warning=FALSE}
+
+scAssign_db <- function(tissue) {
+  lapply(c("dplyr","Seurat","HGNChelper"), library, character.only = T)
+  source("https://raw.githubusercontent.com/IanevskiAleksandr/sc-type/master/R/gene_sets_prepare.R"); source("https://raw.githubusercontent.com/IanevskiAleksandr/sc-type/master/R/sctype_score_.R")
+  
+  db_ = "https://raw.githubusercontent.com/IanevskiAleksandr/sc-type/master/ScTypeDB_full.xlsx";
+  tissue = tissue # e.g. Immune system,Pancreas,Liver,Eye,Kidney,Brain,Lung,Adrenal,Heart,Intestine,Muscle,Placenta,Spleen,Stomach,Thymus 
+  
+  # prepare gene sets
+  gs_list = gene_sets_prepare(db_, tissue)
+  
+  # add treg  genes from: https://panglaodb.se/markers.html?cell_type=%27T%20regulatory%20cells%27
+  treg_pos_markers = c("FOXP3", "IKZF2", "CD4", "IL2RA", "ENTPD1", "SELL", "NT5E", "ITGAE", "TNFRSF4", "CTLA4", "CCR4",
+                       "LAG3", "IZUMO1R", "CNGB1", "TNFRSF18", "MAF", "IL10", "IL1R1", "ITGB8", "LRRC32", "FOLR1")
+  exhausted_cd8 = c("LAG3","PDCD1"	,"TIGIT"	,"HAVCR2","CD8A")
+  exhausted_cd4 = c("LAG3","PDCD1"	,"TIGIT"	,"HAVCR2","CD4")
+
+
+  gs_list$gs_positive[["Treg"]] = treg_pos_markers
+  gs_list$gs_negative[["Treg"]] = c()
+
+  gs_list$gs_positive[["exhausted_cd8"]] = exhausted_cd8
+  gs_list$gs_negative[["exhausted_cd8"]] = c()
+  
+  gs_list$gs_positive[["exhausted_cd4"]] = exhausted_cd4
+  gs_list$gs_negative[["exhausted_cd4"]] = c()
+  
+  return(gs_list)
+}
+
+scAssign <- function(seuratObj,gs_list, metadata_name = "cell_identity") {
+  es.max = sctype_score(scRNAseqData = seuratObj[["RNA"]]@scale.data, scaled = TRUE, 
+                      gs = gs_list$gs_positive, gs2 = gs_list$gs_negative) 
+  # merge by cluster
+  cL_resutls = do.call("rbind", lapply(unique(seuratObj@meta.data$seurat_clusters), function(cl){
+      es.max.cl = sort(rowSums(es.max[ ,rownames(seuratObj@meta.data[seuratObj@meta.data$seurat_clusters==cl, ])]), decreasing = !0)
+      head(data.frame(cluster = cl, type = names(es.max.cl), scores = es.max.cl, ncells = sum(seuratObj@meta.data$seurat_clusters==cl)), 10)
+  }))
+  print(cL_resutls)
+  sctype_scores = cL_resutls %>% group_by(cluster) %>% top_n(n = 1, wt = scores)  
+  
+  # set low-confident (low ScType score) clusters to "unknown"
+  sctype_scores$type[as.numeric(as.character(sctype_scores$scores)) < sctype_scores$ncells/4] = "Unknown"
+
+  seuratObj@meta.data[[metadata_name]] = ""
+  for(j in unique(sctype_scores$cluster)){
+    cl_type = sctype_scores[sctype_scores$cluster==j,]; 
+    seuratObj@meta.data[[metadata_name]][seuratObj@meta.data$seurat_clusters == j] = as.character(cl_type$type[1])
+  }
+  return(seuratObj)
+}
+
+```
+
+```{r}
+immune = readRDS(input$immune)
+
+```
+
+```{r}
+immune = FindClusters(object = immune,resolution = 1)
+
+DimPlot(immune)
+```
+
+
+```{r echo=TRUE, results='asis'}
+gs_list = scAssign_db(tissue = "Immune system")
+immune = immune %>%  scAssign(gs_list = gs_list,metadata_name = "immune_type")
+immune$immune_type = immune$immune_type %>% gsub(patter = " cells",replacement = "") #remove "cells"
+```
+
+```{r echo=TRUE, fig.height=6, fig.width=9, results='asis'}
+immune %<>%  SetIdent(value = "immune_type")
+print_tab(DimPlot(immune,group.by = "immune_type",label = T),title = "UMAP")
+FeaturePlot(immune,features = c("CD8A"))
+print_tab(plt = immune$immune_type %>% table() %>% as.data.frame(), title = "cell count")
+```
+
+
+```{r}
+table(immune@meta.data[,c("origin","immune_type")])
+```
+
+
+```{r}
+saveRDS(object = immune,file = params$data_out_dir %s+% basename(output$immune_with_cell_types))
+```
+

@@ -1,0 +1,256 @@
+---
+title: 'Cell types' 
+author: "Avishai Wizel"
+date: '`r Sys.time()`'
+output: 
+  html_document: 
+    code_folding: hide
+    toc: yes
+    toc_collapse: yes
+    toc_float: 
+      collapsed: TRUE
+    number_sections: true
+    toc_depth: 2
+    df_print: paged
+params: 
+  data_out_dir: "./temp_data/" 
+---
+
+```{r}
+source("./pipe.R")
+input = pipeline$cell_types$input
+output = pipeline$cell_types$output
+```
+
+```{r}
+acc_immune = readRDS(input$acc_immune)
+```
+
+# UMAPS
+
+```{r echo=TRUE,}
+DimPlot(object = acc_immune, reduction = "umap", pt.size = 1, label = T,group.by = "seurat_clusters")
+DimPlot(object = acc_immune, reduction = "umap", pt.size = 1, label = F,group.by = "origin")
+```
+
+```{r}
+acchigh=read.delim(input$kaye_acc_genes,skip=0,header=F,sep="\t",stringsAsFactors=F)
+acchigh_s = rowMeans(FetchData(acc_immune,vars = acchigh$V1,slot = "data"))
+acc_immune=AddMetaData(acc_immune,acchigh_s,"kaye_acc_score")
+```
+
+# UMAP {.tabset}
+
+```{r echo=TRUE, results='asis'}
+print_tab(FeaturePlot(acc_immune, c("COL3A1","COL1A2") ,cols = c("blue","yellow")),title =  "CAF markers")
+print_tab(FeaturePlot(acc_immune, c("VWF","PECAM1") ,cols = c("blue","yellow")),title =  "Endothelial markers")
+print_tab(FeaturePlot(acc_immune, c("CD79A","PTPRC") ,cols = c("blue","yellow")),title =  "WBC markers") 
+print_tab(FeaturePlot(acc_immune, c("kaye_acc_score","MYB") ,cols = c("blue","yellow")),title =  "ACC markers")
+
+```
+
+# Violin by origin {.tabset}
+
+```{r echo=TRUE, results='asis'}
+print_tab(VlnPlot(object = acc_immune,features = c("COL3A1","COL1A2"),group.by = "origin"),title =  "CAF markers")
+print_tab(VlnPlot(object = acc_immune,features = c("VWF","PECAM1"),group.by = "origin"),title =  "Endothelial markers")
+print_tab(VlnPlot(object = acc_immune,features = c("CD79A","PTPRC"),group.by = "origin"),title =  "WBC markers") 
+print_tab(VlnPlot(object = acc_immune,features = "kaye_acc_score",group.by = "origin"),title =  "ACC markers")
+
+```
+
+# Violin by cluster {.tabset}
+
+```{r fig.height=4, fig.width=10,results='asis'}
+print_tab(VlnPlot(object = acc_immune,features = c("COL3A1","COL1A2"),group.by = "seurat_clusters"),title =  "CAF markers")
+print_tab(VlnPlot(object = acc_immune,features = c("VWF","PECAM1"),group.by = "seurat_clusters"),title =  "Endothelial markers")
+print_tab(VlnPlot(object = acc_immune,features = c("CD79A","PTPRC"),group.by = "seurat_clusters"),title =  "WBC markers") 
+print_tab(VlnPlot(object = acc_immune,features = "kaye_acc_score",group.by = "seurat_clusters"),title =  "ACC markers")
+```
+
+# set identities
+
+```{r}
+new.cluster.ids2 <- c("0" ="cancer",
+                      "1" = "immune",
+                      "2" = "CAF",
+                      "3" = "cancer",
+                      "4" = "cancer",
+                      "5" = "immune",
+                      "6" = "CAF",
+                      "7" = "cancer",
+                      "8" = "CAF",
+                      "9" = "immune",
+                      "10" = "immune",
+                      "11" = "endothelial",
+                      "12" = "cancer",
+                      "13" = "CAF",
+                      "14" = "immune",
+                      "15" = "cancer",
+                      "16" = "immune",
+                      "17" = "immune")              
+names(new.cluster.ids2) <- levels(acc_immune$seurat_clusters)
+acc_immune <- RenameIdents(acc_immune, new.cluster.ids2)
+acc_immune = acc_immune %>% AddMetaData(metadata = acc_immune@active.ident,col.name = 'cell_identity')
+```
+
+```{r}
+DimPlot(acc_immune)
+```
+
+# count cells
+
+```{r}
+table(acc_immune@meta.data[,c("origin","cell_identity")])
+```
+
+# Immune cells dim reduction
+
+```{r}
+immune = subset(acc_immune,subset = cell_identity == "immune")
+
+```
+
+```{r results='hide'}
+# Identification of highly variable features
+immune <- FindVariableFeatures(immune, selection.method = "vst", nfeatures = 15000) 
+
+# Scaling the data
+immune <- ScaleData(immune, vars.to.regress = c("percent.mt","nCount_RNA"),features = VariableFeatures(object = immune))
+
+# Perform linear dimensional reduction (PCA)
+immune <- RunPCA(immune, features = VariableFeatures(object = immune))
+
+ElbowPlot(immune, ndims = 50) # checking the dimensionality 
+```
+
+```{r}
+immune <- FindNeighbors(immune, dims = 1:10,verbose = F)
+immune <- FindClusters(immune, resolution = 1, verbose = F)
+
+# Run non-linear dimensional reduction (UMAP)
+immune <- RunUMAP(immune, dims = 1:10,verbose = F)
+DimPlot(object = immune, reduction = "umap", pt.size = 1, label = F)
+DimPlot(object = immune, reduction = "umap", pt.size = 1, label = F,group.by = "origin")
+```
+
+```{r}
+saveRDS(object = immune,file = params$data_out_dir %s+% basename(output$immune))
+
+```
+
+# Cancer cells 
+
+```{r}
+cancer = subset(acc_immune,subset = cell_identity == "cancer")
+```
+
+## add lum/myo
+```{r}
+#create luminal_over_myo
+myo_genes = c("TP63","TP73","CAV1","CDH3","KRT5","KRT14","ACTA2","TAGLN","MYLK","DKK3")
+lum_genes = c("KIT","EHF","ELF5","KRT7","CLDN3","CLDN4","CD24","LGALS3","LCN2","SLPI")
+cancer <- ScaleData(cancer, vars.to.regress = c("percent.mt","nCount_RNA"),features = c(myo_genes,lum_genes))
+
+myoscore=apply(cancer@assays$RNA@scale.data[myo_genes,],2,mean)
+lescore=apply(cancer@assays$RNA@scale.data[lum_genes,],2,mean)
+cancer=AddMetaData(cancer,lescore-myoscore,"luminal_over_myo")
+
+#create lum_or_myo
+lum_over_myo = FetchData(object = cancer,vars = "luminal_over_myo")
+lum_over_myo$lum_or_myo = "mid"
+lum_over_myo$lum_or_myo [lum_over_myo$luminal_over_myo>1]  = "Luminal"
+lum_over_myo$lum_or_myo [lum_over_myo$luminal_over_myo<(-1)]  = "Myo"
+lum_or_myo = lum_over_myo[,"lum_or_myo",drop = F]
+table(lum_or_myo$lum_or_myo)
+
+cancer %<>% AddMetaData(metadata = lum_or_myo, col.name = "cell_identity")
+
+```
+
+## dim reduction
+```{r results='hide'}
+# Identification of highly variable features
+cancer <- FindVariableFeatures(cancer, selection.method = "vst", nfeatures = 15000) 
+
+# Scaling the data
+cancer <- ScaleData(cancer, vars.to.regress = c("percent.mt","nCount_RNA"),features = VariableFeatures(object = cancer))
+
+# Perform linear dimensional reduction (PCA)
+cancer <- RunPCA(cancer, features = VariableFeatures(object = cancer))
+
+ElbowPlot(cancer, ndims = 50) # checking the dimensionality 
+```
+
+```{r}
+cancer <- FindNeighbors(cancer, dims = 1:10,verbose = F)
+cancer <- FindClusters(cancer, resolution = 1, verbose = F)
+
+# Run non-linear dimensional reduction (UMAP)
+cancer <- RunUMAP(cancer, dims = 1:10,verbose = F)
+DimPlot(object = cancer, reduction = "umap", pt.size = 1, label = F)
+DimPlot(object = cancer, reduction = "umap", pt.size = 1, label = F,group.by = "origin")
+```
+
+
+
+
+```{r}
+saveRDS(object = cancer,file = params$data_out_dir %s+% basename(output$cancer))
+```
+
+# primary cancer cells 
+
+
+```{r}
+acc_cancer_pri = subset(cancer,subset = tissue == "pri")
+```
+
+```{r results='hide'}
+# Identification of highly variable features
+acc_cancer_pri <- FindVariableFeatures(acc_cancer_pri, selection.method = "vst", nfeatures = 15000) 
+
+# Scaling the data
+acc_cancer_pri <- ScaleData(acc_cancer_pri, vars.to.regress = c("percent.mt","nCount_RNA"),features = VariableFeatures(object = acc_cancer_pri))
+
+# Perform linear dimensional reduction (PCA)
+acc_cancer_pri <- RunPCA(acc_cancer_pri, features = VariableFeatures(object = acc_cancer_pri))
+
+ElbowPlot(acc_cancer_pri, ndims = 50) # checking the dimensionality 
+```
+
+```{r}
+acc_cancer_pri <- FindNeighbors(acc_cancer_pri, dims = 1:10,verbose = F)
+acc_cancer_pri <- FindClusters(acc_cancer_pri, resolution = 1, verbose = F)
+
+# Run non-linear dimensional reduction (UMAP)
+acc_cancer_pri <- RunUMAP(acc_cancer_pri, dims = 1:10,verbose = F)
+
+
+```
+
+
+```{r}
+DimPlot(object = acc_cancer_pri, reduction = "umap", pt.size = 1, label = F,group.by = "cell_identity")
+DimPlot(object = acc_cancer_pri, reduction = "umap", pt.size = 1, label = F,group.by = "origin")
+DimPlot(acc_cancer_pri,group.by = "patient.ident")
+FeaturePlot(acc_cancer_pri,features = "luminal_over_myo")
+```
+
+
+```{r}
+saveRDS(object = acc_cancer_pri,file = params$data_out_dir %s+% basename(output$acc_cancer_pri))
+```
+
+
+
+# save CAF
+
+```{r}
+caf = subset(acc_immune,subset = cell_identity == "CAF")
+```
+
+```{r}
+saveRDS(object = caf,file = params$data_out_dir %s+% basename(output$caf))
+```
+

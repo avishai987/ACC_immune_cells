@@ -1,0 +1,149 @@
+---
+title: '06_create_data_for_CIBERSORT' 
+author: "Avishai Wizel"
+date: '`r Sys.time()`'
+output: 
+  html_document: 
+    code_folding: hide
+    toc: yes
+    toc_collapse: yes
+    toc_float: 
+      collapsed: TRUE
+    number_sections: true
+    toc_depth: 2
+    df_print: paged
+params: 
+  data_out_dir: "./temp_data/" 
+---
+
+```{r}
+source("./pipe.R")
+input = pipeline$create_data_for_CIBERSORT$input
+output = pipeline$create_data_for_CIBERSORT$output
+```
+
+```{r}
+tissue = "Immune system"
+library(HGNChelper)
+source("https://raw.githubusercontent.com/IanevskiAleksandr/sc-type/master/R/gene_sets_prepare.R"); source("https://raw.githubusercontent.com/IanevskiAleksandr/sc-type/master/R/sctype_score_.R")
+
+db_ = "https://raw.githubusercontent.com/IanevskiAleksandr/sc-type/master/ScTypeDB_full.xlsx";
+tissue = tissue # e.g. Immune system,Pancreas,Liver,Eye,Kidney,Brain,Lung,Adrenal,Heart,Intestine,Muscle,Placenta,Spleen,Stomach,Thymus 
+
+# prepare gene sets
+gs_list = gene_sets_prepare(db_, tissue)
+  
+myo_genes = c("TP63","TP73","CAV1","CDH3","KRT5","KRT14","ACTA2","TAGLN","MYLK","DKK3")
+lum_genes = c("KIT","EHF","ELF5","KRT7","CLDN3","CLDN4","CD24","LGALS3","LCN2","SLPI")
+```
+
+```{r}
+
+signatures = gs_list$gs_positive 
+signatures[["Myo"]] = c("TP63","TP73","CAV1","CDH3","KRT5","KRT14","ACTA2","TAGLN","MYLK","DKK3")
+signatures[["Luminal"]] = c("KIT","EHF","ELF5","KRT7","CLDN3","CLDN4","CD24","LGALS3","LCN2","SLPI")
+signatures[["CAF"]] = c("COL3A1","COL1A2")
+
+# add treg  genes from: https://panglaodb.se/markers.html?cell_type=%27T%20regulatory%20cells%27
+treg_pos_markers = c("FOXP3", "IKZF2", "CD4", "IL2RA", "ENTPD1", "SELL", "NT5E", "ITGAE", "TNFRSF4", "CTLA4", "CCR4",
+                     "LAG3", "IZUMO1R", "CNGB1", "TNFRSF18", "MAF", "IL10", "IL1R1", "ITGB8", "LRRC32", "FOLR1")
+signatures[["Treg"]] = treg_pos_markers
+
+  
+```
+
+```{r}
+acc_cancer_cd45_caf = readRDS(input$acc_cancer_cd45_caf)
+```
+
+# create signature matrix with TPM as scores
+```{r}
+# remove "pri" and  "on" from "cell_type" metadata
+acc_cancer_cd45_caf$cell_type_no_env = gsub(x = acc_cancer_cd45_caf$cell_type,pattern = " pri",replacement = "")
+acc_cancer_cd45_caf$cell_type_no_env = gsub(x = acc_cancer_cd45_caf$cell_type_no_env,pattern = " LN",replacement = "")
+table(acc_cancer_cd45_caf$cell_type_no_env )
+acc_cancer_cd45_caf = SetIdent(acc_cancer_cd45_caf,value = "cell_type_no_env")
+all_markers = unlist(signatures)[unlist(signatures) %in% rownames(acc_cancer_cd45_caf)] %>% unique()
+
+signature_matrix = AverageExpression(object = acc_cancer_cd45_caf,features = all_markers)[["RNA"]] %>% as.data.frame()
+signature_matrix
+
+```
+
+
+```{r}
+fwrite(x = signature_matrix,file = params$data_out_dir %s+% "tpm_signature_matrix.tsv",sep = "\t",row.names = T)
+```
+
+# Set Tregs
+
+```{r}
+tregs_cells = acc_cancer_cd45_caf@assays$RNA@data[treg_pos_markers,] %>% t() %>% as.data.frame() %>% filter(FOXP3 > 5 & IL2RA>5 & CTLA4 >5) %>% rownames()
+
+acc_cancer_cd45_caf@meta.data[tregs_cells,"cell_type_no_env"] <-"Treg"
+
+table(acc_cancer_cd45_caf$cell_type_no_env )
+
+```
+
+# create signature matrix from TPM using cibersort
+
+```{r}
+# get exprs
+signature_matrix = acc_cancer_cd45_caf@assays$RNA@counts[all_markers,] %>% data.frame(check.names = F)
+
+#set colnames to be cell type (req for cibersort)
+dic = acc_cancer_cd45_caf$cell_type_no_env
+colnames(signature_matrix) <- dic[colnames(acc_cancer_cd45_caf)] %>% unname() 
+```
+
+```{r}
+fwrite(x = signature_matrix,file = params$data_out_dir %s+% "tpm_per_cell_for_making_signature_matrix.txt",sep = "\t",row.names = T, quote = FALSE)
+```
+
+# create RNA-seq data
+```{r}
+dou_exprs = readxl::read_excel(input$dou_acc,sheet = 2,col_names = T,skip = 1) %>% as.data.frame()
+
+```
+
+```{r}
+library(biomaRt)
+
+
+ensembl <- useEnsembl(biomart = "genes", dataset = "hsapiens_gene_ensembl")
+
+ensembl_ids <- dou_exprs$GeneID
+
+
+mapped_genes <- getBM(
+  attributes = c("ensembl_gene_id", "hgnc_symbol"),
+  filters = "ensembl_gene_id",
+  values = ensembl_ids,
+  mart = ensembl
+)
+# Return the gene symbols (hgnc_symbol) in the original order of the Ensembl IDs, including NA for unmatched entries
+mapped_ordered <- mapped_genes$hgnc_symbol[match(ensembl_ids, mapped_genes$ensembl_gene_id)]
+
+
+dou_exprs$gene_symbol = mapped_ordered
+dou_exprs= dou_exprs %>% na.omit()
+rownames(dou_exprs) = dou_exprs$gene_symbol %>% make.unique()
+dou_exprs$GeneID <- NULL
+dou_exprs$gene_symbol <- NULL
+dou_exprs_log = log1p(dou_exprs)
+```
+
+
+```{r}
+
+dou_exprs_log$`P-50`<- NULL # almost all 0 expression
+colnames(dou_exprs_log)  = colnames(dou_exprs_log) %>% gsub(replacement = "_",pattern = "-") # cibersort don't accept "-"
+```
+
+```{r}
+fwrite(dou_exprs_log,file = params$data_out_dir %s+% "dou_exprs_log.tsv",sep = "\t",row.names = T)
+```
+
+
+

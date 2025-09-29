@@ -15,7 +15,16 @@ output:
 params: 
   data_out_dir: "./temp_data/" 
 ---
-
+```{r}
+library(stringi)
+library(Seurat)
+library(ggplot2)
+library(tidyverse)
+library(dplyr)
+library(data.table)
+library(print.rmd.tabs)
+library(Matrix)
+```
 
 ```{r}
 source("./pipe.R")
@@ -38,20 +47,6 @@ scAssign_db <- function(tissue) {
   gs_list = gene_sets_prepare(db_, tissue)
   
   # add treg  genes from: https://panglaodb.se/markers.html?cell_type=%27T%20regulatory%20cells%27
-  treg_pos_markers = c("FOXP3", "IKZF2", "CD4", "IL2RA", "ENTPD1", "SELL", "NT5E", "ITGAE", "TNFRSF4", "CTLA4", "CCR4",
-                       "LAG3", "IZUMO1R", "CNGB1", "TNFRSF18", "MAF", "IL10", "IL1R1", "ITGB8", "LRRC32", "FOLR1")
-  exhausted_cd8 = c("LAG3","PDCD1"	,"TIGIT"	,"HAVCR2","CD8A")
-  exhausted_cd4 = c("LAG3","PDCD1"	,"TIGIT"	,"HAVCR2","CD4")
-
-
-  gs_list$gs_positive[["Treg"]] = treg_pos_markers
-  gs_list$gs_negative[["Treg"]] = c()
-
-  gs_list$gs_positive[["exhausted_cd8"]] = exhausted_cd8
-  gs_list$gs_negative[["exhausted_cd8"]] = c()
-  
-  gs_list$gs_positive[["exhausted_cd4"]] = exhausted_cd4
-  gs_list$gs_negative[["exhausted_cd4"]] = c()
   
   return(gs_list)
 }
@@ -114,4 +109,35 @@ table(immune@meta.data[,c("origin","immune_type")])
 ```{r}
 saveRDS(object = immune,file = params$data_out_dir %s+% basename(output$immune_with_cell_types))
 ```
+
+# write input for starCAT
+
+```{r}
+t_cells_types = c("Naive CD4+ T", "Effector CD8+ T", "CD8+ NKT-like")
+t_cells = immune[,immune$immune_type %in% t_cells_types]
+```
+
+```{r}
+counts = t_cells@assays$RNA@data #SUPPOSE TO BE COUNTS!! when 3' seq, this is smart seq (full lenght), q asked in starCAT github
+data_dir = "starCAT_input/"
+dir.create(params$data_out_dir %s+% data_dir, recursive = TRUE)
+
+# Output counts matrix
+writeMM(counts, paste0(params$data_out_dir,data_dir, 'matrix.mtx'))
+system(paste0("gzip ",params$data_out_dir,data_dir, 'matrix.mtx'))
+
+# Output cell barcodes
+barcodes <- colnames(counts)
+write_delim(as.data.frame(barcodes), paste0(params$data_out_dir,data_dir, 'barcodes.tsv'),
+           col_names = FALSE)
+system(paste0("gzip ",params$data_out_dir,data_dir, 'barcodes.tsv'))
+
+# Output feature names
+gene_names <- rownames(counts)
+features <- data.frame("gene_id" = gene_names,"gene_name" = gene_names,type = "Gene Expression")
+write_delim(as.data.frame(features),delim = "\t", paste0(params$data_out_dir,data_dir, 'features.tsv'),
+           col_names = FALSE)
+system(paste0("gzip ",params$data_out_dir,data_dir, 'features.tsv'))
+```
+
 

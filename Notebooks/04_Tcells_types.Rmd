@@ -1,0 +1,59 @@
+---
+title: 'Cell types' 
+author: "Avishai Wizel"
+date: '`r Sys.time()`'
+output: 
+  html_document: 
+    code_folding: hide
+    toc: yes
+    toc_collapse: yes
+    toc_float: 
+      collapsed: TRUE
+    number_sections: true
+    toc_depth: 2
+    df_print: paged
+params: 
+  data_out_dir: "./temp_data/" 
+---
+```{r}
+library(stringi)
+library(Seurat)
+library(ggplot2)
+library(tidyverse)
+library(dplyr)
+library(data.table)
+library(print.rmd.tabs)
+```
+
+```{r}
+source("./pipe.R")
+input = pipeline$Tcells_types$input
+output = pipeline$Tcells_types$output
+```
+
+```{r}
+immune = readRDS(input$immune_with_cell_types)
+
+```
+
+```{r}
+t_cells_types = c("Naive CD4+ T", "Effector CD8+ T", "CD8+ NKT-like")
+t_cells = immune[,immune$immune_type %in% t_cells_types]
+```
+
+```{r}
+t_cells_scores = fread(input$starCat_score,sep = "\t") %>% column_to_rownames('V1')
+table(t_cells_scores$Multinomial_Label)
+
+
+```
+```{r}
+t_cells_labled = AddMetaData(t_cells, metadata = t_cells_scores[,"Multinomial_Label",drop=F],col.name = "t_cell_label")
+```
+
+```{r}
+saveRDS(object = t_cells_labled,file = params$data_out_dir %s+% basename(output$t_cells_labled))
+
+```
+
+

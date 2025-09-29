@@ -23,6 +23,14 @@ output = pipeline$cpdb_create_data$output
 ```
 
 ```{r}
+library(ggplot2)
+library(ggpubr)
+library(stringi)
+library(Seurat)
+library(ggplot2)
+library(tidyverse)
+library(dplyr)
+library(data.table)
 library(ComplexHeatmap)
 ```
 
@@ -30,7 +38,7 @@ library(ComplexHeatmap)
 ```{r}
 acc_cancer_cells = readRDS(input$cancer)
 acc_caf_cells =  readRDS(input$caf)
-immune =  readRDS(input$immune)
+immune =  readRDS(input$t_cells_labled)
 ```
 
 
@@ -46,10 +54,10 @@ acc_cancer_cd45_caf = merge(acc_cancer_and_cd45[common_genes,],acc_caf_cells[com
 ```
 
 ```{r}
-metadata = FetchData(acc_cancer_cd45_caf,vars = c("tissue","cell_identity","immune_type"))
+metadata = FetchData(acc_cancer_cd45_caf,vars = c("tissue","cell_identity","t_cell_label"))
 metadata  = metadata %>%  mutate(cell_type = 
                                    if_else(condition = cell_identity == "immune",
-                                           true = paste(immune_type,tissue),
+                                           true = paste(t_cell_label,tissue),
                                            false = paste(cell_identity, tissue)))
 acc_cancer_cd45_caf = AddMetaData(object = acc_cancer_cd45_caf,metadata = metadata[,"cell_type",drop=F],col.name = "cell_type")
 

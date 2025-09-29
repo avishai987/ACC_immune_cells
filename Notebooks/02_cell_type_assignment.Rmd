@@ -15,6 +15,16 @@ output:
 params: 
   data_out_dir: "./temp_data/" 
 ---
+```{r}
+library(stringi)
+library(Seurat)
+library(ggplot2)
+library(tidyverse)
+library(dplyr)
+library(data.table)
+library(print.rmd.tabs)
+library(Matrix)
+```
 
 ```{r}
 source("./pipe.R")

@@ -26,6 +26,13 @@ output = pipeline$immune_markers_ACC$output
 ```{r}
 library(ggplot2)
 library(ggpubr)
+library(stringi)
+library(Seurat)
+library(ggplot2)
+library(tidyverse)
+library(dplyr)
+library(data.table)
+library(SourceFromGithub)
 suppressPackageStartupMessages(library(GSEABase))
 ```
 

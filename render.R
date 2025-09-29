@@ -1,5 +1,6 @@
 args <- commandArgs(trailingOnly = TRUE)
 source("./pipe.R")
+library(devtools)
 knitr::opts_knit$set(progress = TRUE, verbose = TRUE) #print commands when rendering
 
 

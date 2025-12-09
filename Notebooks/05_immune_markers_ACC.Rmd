@@ -34,6 +34,8 @@ library(dplyr)
 library(data.table)
 library(SourceFromGithub)
 suppressPackageStartupMessages(library(GSEABase))
+
+source_from_github(repositoy = "DEG_functions",version = "0.2.59")
 ```
 
 ```{r}
@@ -73,7 +75,7 @@ deg$fdr = p.adjust(deg$p_val)
 ```
 
 ```{r}
-
+volcano_plot(de_genes = deg,ident1 = "lum",ident2 = "myo",top_genes_text = 0,show_gene_names = c("CCL22","CCL28","CXCL2","CXCL3","CXCL17","C3","HLA-DRB1","HLA-DRB5"))
 ```
 
 

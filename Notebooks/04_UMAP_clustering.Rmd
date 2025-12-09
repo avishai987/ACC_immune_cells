@@ -45,6 +45,9 @@ acc_immune %<>% AddMetaData(metadata = immune_plate_df[,"immune_plate",drop=F])
 DimPlot(object = acc_immune, reduction = "umap", pt.size = 0.3, label = F,group.by = "immune_plate",cols = rainbow(length(unique(acc_immune$immune_plate))))
 
 ```
+```{r}
+table(acc_immune$immune_plate)
+```
 
 ```{r}
 immune_plate_df = acc_immune@meta.data %>% select(seurat_clusters,immune_plate) %>% group_by(seurat_clusters) %>%dplyr::count(immune_plate)%>%

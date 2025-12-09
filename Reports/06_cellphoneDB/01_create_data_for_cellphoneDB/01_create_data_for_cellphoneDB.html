@@ -2839,7 +2839,7 @@ border-radius: 0px;
 
 <h1 class="title toc-ignore">Create data</h1>
 <h4 class="author">Avishai Wizel</h4>
-<h4 class="date">2025-09-28 13:58:38</h4>
+<h4 class="date">2025-10-07 22:34:55.70662</h4>
 
 </div>
 
@@ -2851,29 +2851,32 @@ output = pipeline$cpdb_create_data$output</code></pre>
 library(ggpubr)
 library(stringi)
 library(Seurat)</code></pre>
-<pre><code>## The legacy packages maptools, rgdal, and rgeos, underpinning this package
-## will retire shortly. Please refer to R-spatial evolution reports on
-## https://r-spatial.org/r/2023/05/15/evolution4.html for details.
-## This package is now running under evolution status 0</code></pre>
 <pre><code>## Attaching SeuratObject</code></pre>
+<pre><code>## &#39;SeuratObject&#39; was built under R 4.3.1 but the current version is
+## 4.3.3; it is recomended that you reinstall &#39;SeuratObject&#39; as the ABI
+## for R may have changed</code></pre>
 <pre class="r"><code>library(ggplot2)
 library(tidyverse)</code></pre>
-<pre><code>## -- Attaching packages
-## --------------------------------------------------------------------------------
-## tidyverse 1.3.2 --</code></pre>
-<pre><code>## v tibble  3.2.1     v dplyr   1.1.2
-## v tidyr   1.3.0     v stringr 1.5.0
-## v readr   2.1.4     v forcats 1.0.0
-## v purrr   1.0.1     
-## -- Conflicts ----------------------------------------------------------------------------------- tidyverse_conflicts() --
+<pre><code>## -- Attaching core tidyverse packages ----------------------------------------------------------------------------------------- tidyverse 2.0.0 --
+## v dplyr     1.1.4     v readr     2.1.5
+## v forcats   1.0.0     v stringr   1.5.2
+## v lubridate 1.9.4     v tibble    3.3.0
+## v purrr     1.1.0     v tidyr     1.3.1</code></pre>
+<pre><code>## -- Conflicts ----------------------------------------------------------------------------------------------------------- tidyverse_conflicts() --
 ## x tidyr::extract()   masks magrittr::extract()
 ## x dplyr::filter()    masks stats::filter()
 ## x dplyr::lag()       masks stats::lag()
-## x purrr::set_names() masks magrittr::set_names()</code></pre>
+## x purrr::set_names() masks magrittr::set_names()
+## i Use the conflicted package (&lt;http://conflicted.r-lib.org/&gt;) to force all conflicts to become errors</code></pre>
 <pre class="r"><code>library(dplyr)
 library(data.table)</code></pre>
 <pre><code>## 
 ## Attaching package: &#39;data.table&#39;
+## 
+## The following objects are masked from &#39;package:lubridate&#39;:
+## 
+##     hour, isoweek, mday, minute, month, quarter, second, wday, week,
+##     yday, year
 ## 
 ## The following objects are masked from &#39;package:dplyr&#39;:
 ## 
@@ -2885,14 +2888,16 @@ library(data.table)</code></pre>
 <pre class="r"><code>library(ComplexHeatmap)</code></pre>
 <pre><code>## Loading required package: grid
 ## ========================================
-## ComplexHeatmap version 2.10.0
+## ComplexHeatmap version 2.18.0
 ## Bioconductor page: http://bioconductor.org/packages/ComplexHeatmap/
 ## Github page: https://github.com/jokergoo/ComplexHeatmap
 ## Documentation: http://jokergoo.github.io/ComplexHeatmap-reference
 ## 
-## If you use it in published research, please cite:
-## Gu, Z. Complex heatmaps reveal patterns and correlations in multidimensional 
-##   genomic data. Bioinformatics 2016.
+## If you use it in published research, please cite either one:
+## - Gu, Z. Complex Heatmap Visualization. iMeta 2022.
+## - Gu, Z. Complex heatmaps reveal patterns and correlations in multidimensional 
+##     genomic data. Bioinformatics 2016.
+## 
 ## 
 ## The new InteractiveComplexHeatmap package can directly export static 
 ## complex heatmaps into an interactive Shiny app with zero effort. Have a try!
@@ -2902,27 +2907,27 @@ library(data.table)</code></pre>
 ## ========================================</code></pre>
 <pre class="r"><code>acc_cancer_cells = readRDS(input$cancer)
 acc_caf_cells =  readRDS(input$caf)
-immune =  readRDS(input$t_cells_labled)</code></pre>
+t_cells_labled =  readRDS(input$t_cells_labled)</code></pre>
 <pre class="r"><code>#remove unclear lum-myo cells
 acc_cancer_cells_no_mid = subset(acc_cancer_cells,subset = cell_identity != &quot;mid&quot;)
 
 # merge cancer, immune and CAF
-common_genes = rownames(acc_cancer_cells_no_mid) %&gt;% intersect (rownames(immune)) %&gt;% intersect(rownames(acc_caf_cells))
-acc_cancer_and_cd45 = merge(acc_cancer_cells_no_mid[common_genes,],immune[common_genes,])
+common_genes = rownames(acc_cancer_cells_no_mid) %&gt;% intersect (rownames(t_cells_labled)) %&gt;% intersect(rownames(acc_caf_cells))
+acc_cancer_and_cd45 = merge(acc_cancer_cells_no_mid[common_genes,],t_cells_labled[common_genes,])
 overlapping_cells = colnames(acc_cancer_cells_no_mid) %&gt;% intersect(colnames(acc_caf_cells)) 
-acc_cancer_cd45_caf = merge(acc_cancer_and_cd45[common_genes,],acc_caf_cells[common_genes,] )</code></pre>
-<pre class="r"><code>metadata = FetchData(acc_cancer_cd45_caf,vars = c(&quot;tissue&quot;,&quot;cell_identity&quot;,&quot;t_cell_label&quot;))
+acc_cancer_Tcells_caf = merge(acc_cancer_and_cd45[common_genes,],acc_caf_cells[common_genes,] )</code></pre>
+<pre class="r"><code>metadata = FetchData(acc_cancer_Tcells_caf,vars = c(&quot;tissue&quot;,&quot;cell_identity&quot;,&quot;t_cell_label&quot;))
 metadata  = metadata %&gt;%  mutate(cell_type = 
                                    if_else(condition = cell_identity == &quot;immune&quot;,
                                            true = paste(t_cell_label,tissue),
                                            false = paste(cell_identity, tissue)))
-acc_cancer_cd45_caf = AddMetaData(object = acc_cancer_cd45_caf,metadata = metadata[,&quot;cell_type&quot;,drop=F],col.name = &quot;cell_type&quot;)</code></pre>
+acc_cancer_Tcells_caf = AddMetaData(object = acc_cancer_Tcells_caf,metadata = metadata[,&quot;cell_type&quot;,drop=F],col.name = &quot;cell_type&quot;)</code></pre>
 <pre class="r"><code>all_identity = data.frame(barcode_sample = rownames(metadata), cell_type = metadata$cell_type)
 all_environment = data.frame(cell_type = metadata$cell_type, microenviroment = metadata$tissue)</code></pre>
 <pre class="r"><code>write.table(x = all_identity,file = output$cells_identity,row.names =F,sep = &quot;\t&quot;)
 write.table(x = all_environment,file = output$cells_environment,row.names =F,sep = &quot;\t&quot;)</code></pre>
-<pre class="r"><code>fwrite(as.data.frame(acc_cancer_cd45_caf@assays[[&quot;RNA&quot;]]@data), file = output$counts,sep = &quot;\t&quot;,row.names = T)</code></pre>
-<pre class="r"><code>saveRDS(acc_cancer_cd45_caf,file = output$acc_cancer_cd45_caf)</code></pre>
+<pre class="r"><code>fwrite(as.data.frame(acc_cancer_Tcells_caf@assays[[&quot;RNA&quot;]]@data), file = output$counts,sep = &quot;\t&quot;,row.names = T)</code></pre>
+<pre class="r"><code>saveRDS(acc_cancer_Tcells_caf,file = output$acc_cancer_Tcells_caf)</code></pre>
 
 
 

@@ -112,6 +112,8 @@ DimPlot(acc_immune)
 
 ```{r}
 table(acc_immune@meta.data[,c("origin","cell_identity")])
+print(colSums(table(acc_immune@meta.data[,c("origin","cell_identity")])
+))
 ```
 
 # Immune cells dim reduction

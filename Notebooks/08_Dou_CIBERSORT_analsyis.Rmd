@@ -1,5 +1,5 @@
 ---
-title: '07_Dou_CIBERSORT_analysis' 
+title: 'Dou_CIBERSORT_analysis' 
 author: "Avishai Wizel"
 date: '`r Sys.time()`'
 output: 
@@ -15,6 +15,17 @@ output:
 params: 
   data_out_dir: "./temp_data/" 
 ---
+```{r}
+library(stringi)
+library(Seurat)
+library(ggplot2)
+library(tidyverse)
+library(dplyr)
+library(data.table)
+library(print.rmd.tabs)
+library(grid)
+library(ComplexHeatmap)
+```
 
 ```{r}
 source("./pipe.R")
@@ -81,10 +92,11 @@ ggplot(df_summary, aes(x = reorder(Histopathology, -mean_ratio), y = mean_ratio)
   theme_minimal()
 
 ```
-#threhsold
+
+# Treshold
 
 ```{r}
-ratio_threshold = 0.7
+ratio_threshold = 0.5
 df <- df %>%
   mutate(
     LumCategory = ifelse(lum_ratio > ratio_threshold, paste("High (>",ratio_threshold,")"), paste("Low (<=",ratio_threshold,")"))
@@ -118,14 +130,102 @@ ggplot(df, aes(x = LumCategory, fill = Histopathology)) +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
-```{r}
-df %>% filter(LumCategory == "High (> 0.7 )" & LumCategory == "cribriform" )
-```
+
 
 # immune inflatration correlation
+```{r}
+# T cells ratio
+deconv_result_with_survival = deconv_result %>% as.data.frame()
+deconv_result_with_survival = deconv_result_with_survival %>% 
+  select(-c("Mixture", "P-value", "Correlation","RMSE"))
+t_cells_names = c( "CD8_Naive", "CD4_Naive", "CD8_CM", "CD4_CM", "CD4_EM", "CD8_EM", "gdT",
+                   "Treg", "CD8_TEMRA","MAIT")
+deconv_result_with_survival$t_cells_ratio = rowSums(deconv_result_with_survival[, colnames(deconv_result_with_survival) %in% t_cells_names])
+
+# Immune cells ratio
+immune_cells_names = c( "Naive B", "CD8_Naive", "CD4_Naive", 
+"CD8_CM", "CD4_CM", "CD4_EM", "CD8_EM", "Plasmacytoid Dendritic", 
+"gdT", "Treg", "CD8_TEMRA", "Macrophages", "Basophils", "Neutrophils", 
+"MAIT", "Plasma B", "Myeloid Dendritic")
+deconv_result_with_survival$immune_cells_ratio = rowSums(deconv_result_with_survival[, colnames(deconv_result_with_survival) %in% immune_cells_names])
+
+deconv_result_with_survival$lum_ratio = deconv_result_with_survival$Luminal/(deconv_result_with_survival$Luminal + deconv_result_with_survival$Myo)
+
+deconv_result_with_survival$myo_ratio = deconv_result_with_survival$Myo/(deconv_result_with_survival$Luminal + deconv_result_with_survival$Myo)
+
+
+deconv_result_with_survival$`Immune infiltration score (IIS)` = dou_survival$`Immune infiltration score (IIS)`
+deconv_result_with_survival$`T cell infiltration score (TIS)` = dou_survival$`T cell infiltration score (TIS)`
+deconv_result_with_survival["Antigen presenting machinery (APM)"] = dou_survival["Antigen presenting machinery (APM)"]
+deconv_result_with_survival["Antigen presenting machinery (APM)"] = dou_survival["Antigen presenting machinery (APM)"]
+deconv_result_with_survival["indel_TMB"] = dou_survival["indel_TMB"]
+deconv_result_with_survival["Tumour mutational burden (TMB)"] = dou_survival["Tumour mutational burden (TMB)"]
+"Tumour mutational burden (TMB)"
+deconv_result_with_survival["indel_TMB"] = dou_survival["indel_TMB"]
+deconv_result_with_survival["Locoregional recurrence-free survival (LRRFS)"] = dou_survival["Locoregional recurrence-free survival (LRRFS)"]
+deconv_result_with_survival["Distant metastasis-free survival time (DMFS)" ] = dou_survival["Distant metastasis-free survival time (DMFS)" ]
+
+
+
+correlation_matrix <- cor(
+  x = deconv_result_with_survival[,1:24],
+  y = deconv_result_with_survival[,25:length(deconv_result_with_survival)],
+  method = "pearson" 
+)
+all_pairs = expand.grid(
+  Item_A = rownames(correlation_matrix), 
+  Item_B = colnames(correlation_matrix)
+)
+
+
+p_values_vector = apply(all_pairs, MARGIN = 1, FUN = function(x){
+  pair_a = x[[1]]
+  pair_b = x[[2]]
+  p_val = cor.test(deconv_result_with_survival[[pair_a]], deconv_result_with_survival[[pair_b]])[["p.value"]]
+    }
+) %>% p.adjust(method = "fdr")
+
+all_pvals = matrix(
+  p_values_vector,
+  nrow = nrow(correlation_matrix),
+  ncol = ncol(correlation_matrix)
+) %>% as.data.frame()
+rownames(all_pvals) = rownames(correlation_matrix)
+colnames(all_pvals) = colnames(correlation_matrix)
+
+
+```
+
 
 ```{r}
-cell_type = "CD8+ NKT-like"
+convert <- function(vec) {
+  symnum(vec, corr = FALSE, na = FALSE, cutpoints = c(0, 
+    0.001, 0.01, 0.05, 0.1, 1), symbols = c("***", "**", "*", ".", " ")) %>% as.character()
+} 
+all_pvals[] = apply(all_pvals, MARGIN = 2, FUN = convert)
+```
+
+```{r fig.height=8, fig.width=15}
+
+
+col_fun = circlize::colorRamp2(c(-1, 0, 1), c("royalblue4", "white", "red"))
+p = ComplexHeatmap::Heatmap(t(correlation_matrix),  row_names_gp = gpar(fontsize = 8), 
+                            name = "Pearson",
+                            clustering_method_rows = "average",show_heatmap_legend = T,col = col_fun, 
+                            clustering_distance_rows = "euclidean", 
+                            cell_fun = function(j, i, x, y, width, height, fill) {
+                              grid.text(t(all_pvals)[i, j], x, y, gp = gpar(fontsize = 8))
+                              },
+                            column_names_rot =45,column_title = "cell types %",column_title_side = "bottom",
+                            row_title = "patient data", row_title_side = "right"
+    
+)
+
+p
+```
+
+```{r}
+cell_type = "CD8_TEMRA"
 data = data.frame(fraction = deconv_result[[cell_type]],
                   TIS = dou_survival$`T cell infiltration score (TIS)`)
 
@@ -185,7 +285,7 @@ p <- ggplot(data, aes(x = fraction, y = survival)) +
 p
 ```
 ```{r}
-cell_type = "Effector CD8+ T"
+cell_type = "CD8_TEMRA"
 data = data.frame(fraction = deconv_result[[cell_type]],
                   survival =dou_survival$`Locoregional recurrence-free survival (LRRFS)`)
 
@@ -228,7 +328,7 @@ p
 ```{r}
 
  
- cell_type = "Myeloid Dendritic"
+ cell_type = "Treg"
 data = data.frame(fraction = deconv_result[[cell_type]],
                   survival =dou_survival$`Locoregional recurrence-free survival (LRRFS)`)
 

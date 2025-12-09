@@ -1,5 +1,5 @@
 ---
-title: '06_create_data_for_CIBERSORT' 
+title: 'create_data_for_CIBERSORT' 
 author: "Avishai Wizel"
 date: '`r Sys.time()`'
 output: 
@@ -15,6 +15,16 @@ output:
 params: 
   data_out_dir: "./temp_data/" 
 ---
+```{r}
+library(stringi)
+library(Seurat)
+library(ggplot2)
+library(tidyverse)
+library(dplyr)
+library(data.table)
+library(print.rmd.tabs)
+```
+
 
 ```{r}
 source("./pipe.R")
@@ -22,7 +32,48 @@ input = pipeline$create_data_for_CIBERSORT$input
 output = pipeline$create_data_for_CIBERSORT$output
 ```
 
+
+
+
 ```{r}
+acc_cancer_cells = readRDS(input$cancer)
+acc_caf_cells =  readRDS(input$caf)
+immune_with_Tcells = readRDS(input$immune_with_Tcells)
+```
+
+
+# Create TPM matrix
+Create TPM matrix with cell type in col names , later upload to cibersort to create signature matrix from TPM using.
+use genes that were identified as markers of the existing cell types 
+use cancer cells +CAF + immune + T cells 
+
+
+```{r}
+#remove unclear lum-myo cells
+acc_cancer_cells_no_mid = subset(acc_cancer_cells,subset = cell_identity != "mid")
+
+# merge cancer, immune and CAF
+common_genes = rownames(acc_cancer_cells_no_mid) %>% intersect (rownames(immune_with_Tcells)) %>% intersect(rownames(acc_caf_cells))
+acc_cancer_and_cd45 = merge(acc_cancer_cells_no_mid[common_genes,],immune_with_Tcells[common_genes,])
+overlapping_cells = colnames(acc_cancer_cells_no_mid) %>% intersect(colnames(acc_caf_cells)) 
+acc_cancer_CD45_caf = merge(acc_cancer_and_cd45[common_genes,],acc_caf_cells[common_genes,] )
+```
+
+```{r}
+# set common cell type metadata 
+metadata = FetchData(acc_cancer_CD45_caf,vars = c("tissue","cell_identity","immune_type"))
+metadata  = metadata %>%  mutate(cell_type = 
+                                   if_else(condition = cell_identity == "immune",
+                                           true = immune_type,
+                                           false = cell_identity))
+acc_cancer_CD45_caf = AddMetaData(object = acc_cancer_CD45_caf,metadata = metadata[,"cell_type",drop=F],col.name = "cell_type")
+
+```
+
+
+## Set markers
+```{r}
+#markers for sctype cell types
 tissue = "Immune system"
 library(HGNChelper)
 source("https://raw.githubusercontent.com/IanevskiAleksandr/sc-type/master/R/gene_sets_prepare.R"); source("https://raw.githubusercontent.com/IanevskiAleksandr/sc-type/master/R/sctype_score_.R")
@@ -32,76 +83,67 @@ tissue = tissue # e.g. Immune system,Pancreas,Liver,Eye,Kidney,Brain,Lung,Adrena
 
 # prepare gene sets
 gs_list = gene_sets_prepare(db_, tissue)
-  
-myo_genes = c("TP63","TP73","CAV1","CDH3","KRT5","KRT14","ACTA2","TAGLN","MYLK","DKK3")
-lum_genes = c("KIT","EHF","ELF5","KRT7","CLDN3","CLDN4","CD24","LGALS3","LCN2","SLPI")
+
+#take only signature that found in data
+sctype_signatures_in_data = gs_list$gs_positive [names(gs_list$gs_positive ) %in% 
+                                                   unique(acc_cancer_CD45_caf$cell_type)]
+signatures = sctype_signatures_in_data
+
+
 ```
 
 ```{r}
-
-signatures = gs_list$gs_positive 
+# acc cell types markers
+myo_genes = c("TP63","TP73","CAV1","CDH3","KRT5","KRT14","ACTA2","TAGLN","MYLK","DKK3")
+lum_genes = c("KIT","EHF","ELF5","KRT7","CLDN3","CLDN4","CD24","LGALS3","LCN2","SLPI")
 signatures[["Myo"]] = c("TP63","TP73","CAV1","CDH3","KRT5","KRT14","ACTA2","TAGLN","MYLK","DKK3")
 signatures[["Luminal"]] = c("KIT","EHF","ELF5","KRT7","CLDN3","CLDN4","CD24","LGALS3","LCN2","SLPI")
 signatures[["CAF"]] = c("COL3A1","COL1A2")
 
-# add treg  genes from: https://panglaodb.se/markers.html?cell_type=%27T%20regulatory%20cells%27
-treg_pos_markers = c("FOXP3", "IKZF2", "CD4", "IL2RA", "ENTPD1", "SELL", "NT5E", "ITGAE", "TNFRSF4", "CTLA4", "CCR4",
-                     "LAG3", "IZUMO1R", "CNGB1", "TNFRSF18", "MAF", "IL10", "IL1R1", "ITGB8", "LRRC32", "FOLR1")
-signatures[["Treg"]] = treg_pos_markers
-
-  
 ```
 
 ```{r}
-acc_cancer_cd45_caf = readRDS(input$acc_cancer_cd45_caf)
+#CD45 markers from starCAT
+library(readxl)
+starCAT_top_genes = readxl::read_excel(,path = "./input_data/starCAT/starCAT_PMC11092745_Supplementary_Tables.xlsx", 
+                   sheet = "S2 - cGEP Top Genes",skip = 2)
+
+names(starCAT_top_genes) = gsub(x = names(starCAT_top_genes) ,pattern = "-",replacement = "_") #set valin names
+names(starCAT_top_genes) = gsub(x = names(starCAT_top_genes) ,pattern = "/",replacement = ".") #set valin names
+
+#take only signature that found in data
+starCAT_top_genes = starCAT_top_genes[,colnames(starCAT_top_genes) %in% unique(immune_with_Tcells$immune_type)]
+signatures = c(signatures,starCAT_top_genes %>% as.list())
+
+
 ```
 
-# create signature matrix with TPM as scores
-```{r}
-# remove "pri" and  "on" from "cell_type" metadata
-acc_cancer_cd45_caf$cell_type_no_env = gsub(x = acc_cancer_cd45_caf$cell_type,pattern = " pri",replacement = "")
-acc_cancer_cd45_caf$cell_type_no_env = gsub(x = acc_cancer_cd45_caf$cell_type_no_env,pattern = " LN",replacement = "")
-table(acc_cancer_cd45_caf$cell_type_no_env )
-acc_cancer_cd45_caf = SetIdent(acc_cancer_cd45_caf,value = "cell_type_no_env")
-all_markers = unlist(signatures)[unlist(signatures) %in% rownames(acc_cancer_cd45_caf)] %>% unique()
 
-signature_matrix = AverageExpression(object = acc_cancer_cd45_caf,features = all_markers)[["RNA"]] %>% as.data.frame()
-signature_matrix
-
-```
-
-
-```{r}
-fwrite(x = signature_matrix,file = params$data_out_dir %s+% "tpm_signature_matrix.tsv",sep = "\t",row.names = T)
-```
-
-# Set Tregs
 
 ```{r}
-tregs_cells = acc_cancer_cd45_caf@assays$RNA@data[treg_pos_markers,] %>% t() %>% as.data.frame() %>% filter(FOXP3 > 5 & IL2RA>5 & CTLA4 >5) %>% rownames()
-
-acc_cancer_cd45_caf@meta.data[tregs_cells,"cell_type_no_env"] <-"Treg"
-
-table(acc_cancer_cd45_caf$cell_type_no_env )
-
+all_markers = unlist(signatures)[unlist(signatures) %in% rownames(immune_with_Tcells)] %>% unique()
 ```
 
-# create signature matrix from TPM using cibersort
-
+## set matrix
 ```{r}
 # get exprs
-signature_matrix = acc_cancer_cd45_caf@assays$RNA@counts[all_markers,] %>% data.frame(check.names = F)
+signature_matrix = acc_cancer_CD45_caf@assays$RNA@counts[all_markers,] %>% data.frame(check.names = F)
+signature_matrix = signature_matrix %>%  rownames_to_column(var = "gene")
+rownames(signature_matrix) = NULL
+
+signature_matrix = signature_matrix %>% as.matrix()
 
 #set colnames to be cell type (req for cibersort)
-dic = acc_cancer_cd45_caf$cell_type_no_env
-colnames(signature_matrix) <- dic[colnames(acc_cancer_cd45_caf)] %>% unname() 
+colnames(signature_matrix)[2:length(colnames(signature_matrix))] <- unname(acc_cancer_CD45_caf$cell_type)
 ```
+
 
 ```{r}
-fwrite(x = signature_matrix,file = params$data_out_dir %s+% "tpm_per_cell_for_making_signature_matrix.txt",sep = "\t",row.names = T, quote = FALSE)
+fwrite(x = signature_matrix,file = params$data_out_dir %s+% basename(output$tpm_matrix) ,sep = "\t",
+       row.names = F, quote = FALSE)
 ```
 
-# create RNA-seq data
+# create Bulk RNA-seq data to be deconv
 ```{r}
 dou_exprs = readxl::read_excel(input$dou_acc,sheet = 2,col_names = T,skip = 1) %>% as.data.frame()
 
@@ -109,7 +151,7 @@ dou_exprs = readxl::read_excel(input$dou_acc,sheet = 2,col_names = T,skip = 1) %
 
 ```{r}
 library(biomaRt)
-
+#convert from ensmle to gene symbols 
 
 ensembl <- useEnsembl(biomart = "genes", dataset = "hsapiens_gene_ensembl")
 
@@ -131,18 +173,17 @@ dou_exprs= dou_exprs %>% na.omit()
 rownames(dou_exprs) = dou_exprs$gene_symbol %>% make.unique()
 dou_exprs$GeneID <- NULL
 dou_exprs$gene_symbol <- NULL
-dou_exprs_log = log1p(dou_exprs)
 ```
 
 
 ```{r}
 
-dou_exprs_log$`P-50`<- NULL # almost all 0 expression
-colnames(dou_exprs_log)  = colnames(dou_exprs_log) %>% gsub(replacement = "_",pattern = "-") # cibersort don't accept "-"
+dou_exprs$`P-50`<- NULL # almost all 0 expression
+colnames(dou_exprs)  = colnames(dou_exprs) %>% gsub(replacement = "_",pattern = "-") # cibersort don't accept "-"
 ```
 
 ```{r}
-fwrite(dou_exprs_log,file = params$data_out_dir %s+% "dou_exprs_log.tsv",sep = "\t",row.names = T)
+fwrite(dou_exprs,file = params$data_out_dir %s+% basename(output$dou_exprs), sep = "\t",row.names = T)
 ```
 
 

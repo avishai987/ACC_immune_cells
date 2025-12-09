@@ -1,0 +1,1 @@
+micromamba env update --file envs/env.yaml

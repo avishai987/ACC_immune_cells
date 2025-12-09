@@ -1,0 +1,112 @@
+---
+title: 'cpbd_analysis' 
+author: "Avishai Wizel"
+date: '`r Sys.time()`'
+output: 
+  html_document: 
+    code_folding: hide
+    toc: yes
+    toc_collapse: yes
+    toc_float: 
+      collapsed: TRUE
+    number_sections: true
+    toc_depth: 2
+    df_print: paged
+params: 
+  data_out_dir: "./temp_data/" 
+---
+```{r}
+library(stringi)
+library(Seurat)
+library(ggplot2)
+library(tidyverse)
+library(dplyr)
+library(data.table)
+library(print.rmd.tabs)
+library(knitr)
+library(ktplots)
+
+```
+
+
+```{r}
+source("./pipe.R")
+input = pipeline$cpdb_analysis_per_patient$input
+output = pipeline$cpdb_analysis_per_patient$output
+```
+
+```{r}
+acc_cancer_Tcells_caf = readRDS(input$acc_cancer_Tcells_caf)
+
+```
+
+
+```{r}
+all_pvals = list()
+all_means = list()
+for (patient in c("ACC22", "ACC15", "ACC7",  "ACC5")) {
+  seurat_data = dirname(input$create_data_report) %s+% "/cells_seurat_" %s+% patient %s+% ".RDS"
+  pvals = dirname(input$run_cpdb_per_patient_report) %s+% "/cpdb_out/statistical_analysis_pvalues_" %s+% patient %s+% ".txt"
+  means = dirname(input$run_cpdb_per_patient_report) %s+% "/cpdb_out/statistical_analysis_means_" %s+% patient %s+% ".txt"
+  all_pvals[[patient]] = fread(pvals)
+  all_means[[patient]] = fread(means)
+}
+```
+
+```{r}
+all_cols_list = list()
+all_rows_list = list()
+all_positive_indexes =list()
+for (patient in names(all_pvals)) {
+  just_pvals = all_pvals[[patient]][,12:ncol(all_pvals[[patient]])] %>% as.matrix()
+  rownames(just_pvals) = all_pvals[[patient]]$id_cp_interaction
+  colnames(just_pvals) = colnames(all_pvals[[patient]][,12:ncol(all_pvals[[patient]])])
+  
+  
+  results = just_pvals < 0.05 
+  positive_indexes = which(results,arr.ind = TRUE) %>% as.data.frame()
+  all_positive_indexes[[patient]] = paste(rownames(results)[positive_indexes$row], colnames(results)[positive_indexes$col],sep = "~")
+
+
+}
+
+
+all_positive_common_indexes = Reduce(intersect, all_positive_indexes)
+SplitCoords <- strsplit(all_positive_common_indexes, split = "~")
+all_common_cols = unique(sapply(SplitCoords, `[`, 2))
+all_common_pairs = unique(sapply(SplitCoords, `[`, 1))
+
+all_common_pvals = matrix(1, nrow = length(all_common_pairs), ncol = length(all_common_cols),
+                          dimnames = list(all_common_pairs, all_common_cols)) %>% as.data.frame()
+
+for (interaction in SplitCoords) {
+    all_common_pvals[interaction[1],interaction[2]] <- 0.01
+}
+all_common_pvals$id_cp_interaction = rownames(all_common_pvals)
+
+FilteredList <- map(all_means, ~{
+  .x %>% 
+    as.data.frame() %>% 
+    filter(id_cp_interaction %in% all_common_pairs) %>% 
+    select(all_common_cols)
+})
+
+TotalMatrix_Filtered <- Reduce(`+`, FilteredList)
+AverageMatrix_Filtered <- TotalMatrix_Filtered / length(all_means)
+AverageMatrix_Filtered$id_cp_interaction = all_common_pairs
+
+```
+
+```{r}
+AverageMatrix_Filtered = right_join(all_means[[1]][,1:11],AverageMatrix_Filtered,by = "id_cp_interaction") %>% as.data.frame()
+all_common_pvals = right_join(all_means[[1]][,1:11],all_common_pvals,by = "id_cp_interaction") %>% as.data.frame()
+
+```
+
+```{r fig.height=10, fig.width=10}
+my_plot_cpdb(cell_type1 = 'CD|Treg|gdT', cell_type2 = 'Luminal pri|Myo pri', scdata = acc_cancer_Tcells_caf,
+                      idents = 'cell_type', means = AverageMatrix_Filtered, pvals = all_common_pvals,
+                      gene.family = NULL,return_table = F,max_size = 3,p.adjust.method = "fdr",
+                      keep_significant_only = T,cluster_rows = T)
+```
+

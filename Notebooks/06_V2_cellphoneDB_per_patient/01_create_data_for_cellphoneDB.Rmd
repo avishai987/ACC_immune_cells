@@ -1,0 +1,89 @@
+---
+title: 'Create data' 
+author: "Avishai Wizel"
+date: '`r Sys.time()`'
+output: 
+  html_document: 
+    code_folding: hide
+    toc: yes
+    toc_collapse: yes
+    toc_float: 
+      collapsed: TRUE
+    number_sections: true
+    toc_depth: 2
+    df_print: paged
+params: 
+  data_out_dir: "./temp_data/" 
+---
+
+```{r}
+source("./pipe.R")
+input = pipeline$cpdb_create_data_per_patient$input
+output = pipeline$cpdb_create_data_per_patient$output
+```
+
+```{r}
+library(ggplot2)
+library(ggpubr)
+library(stringi)
+library(Seurat)
+library(ggplot2)
+library(tidyverse)
+library(dplyr)
+library(data.table)
+library(ComplexHeatmap)
+```
+
+
+```{r}
+acc_cancer_cells = readRDS(input$cancer)
+acc_caf_cells =  readRDS(input$caf)
+t_cells_labled =  readRDS(input$t_cells_labled)
+```
+
+```{r}
+
+patients_with_t_cells = unique(t_cells_labled$patient.ident)
+for (patient_name in patients_with_t_cells) {
+  print(patient_name)
+  patient_acc_data = subset(acc_cancer_cells,subset = patient.ident == patient_name)
+  patient_caf_data = subset(acc_caf_cells,subset = patient.ident == patient_name)
+  patient_t_cells_data = subset(t_cells_labled,subset = patient.ident == patient_name)
+  
+  #remove unclear lum-myo cells
+  patient_acc_data_no_mid = subset(patient_acc_data,subset = cell_identity != "mid")
+  
+  # merge cancer, immune and CAF
+  common_genes = rownames(patient_acc_data_no_mid) %>% intersect (rownames(patient_t_cells_data)) %>% intersect(rownames(patient_caf_data))
+  acc_cancer_and_cd45 = merge(patient_acc_data_no_mid[common_genes,],patient_t_cells_data[common_genes,])
+  overlapping_cells = colnames(patient_acc_data_no_mid) %>% intersect(colnames(patient_caf_data)) 
+  acc_cancer_Tcells_caf = merge(acc_cancer_and_cd45[common_genes,],patient_caf_data[common_genes,] )
+  
+  #metadata
+  metadata = FetchData(acc_cancer_Tcells_caf,vars = c("tissue","cell_identity","t_cell_label"))
+  metadata  = metadata %>%  mutate(cell_type = 
+                                     if_else(condition = cell_identity == "immune",
+                                             true = paste(t_cell_label,tissue),
+                                             false = paste(cell_identity, tissue)))
+  acc_cancer_Tcells_caf = AddMetaData(object = acc_cancer_Tcells_caf,metadata = metadata[,"cell_type",drop=F],col.name = "cell_type")
+  all_identity = data.frame(barcode_sample = rownames(metadata), cell_type = metadata$cell_type)
+  all_environment = data.frame(cell_type = metadata$cell_type, microenviroment = metadata$tissue)
+  
+  
+  #write
+  dir.create(dirname(output$report))
+  cells_identity_path = paste0(dirname(output$report),"/cells_identity_",patient_name,".tsv")
+  cells_environment_path = paste0(dirname(output$report),"/cells_environment_",patient_name,".tsv")
+  cells_counts_path = paste0(dirname(output$report),"/cells_counts_",patient_name,".txt")
+  cells_seurat_path = paste0(dirname(output$report),"/cells_seurat_",patient_name,".RDS")
+  
+  write.table(x = all_identity,file = cells_identity_path,row.names =F,sep = "\t")
+  write.table(x = all_environment,file = cells_environment_path,row.names =F,sep = "\t")
+  fwrite(as.data.frame(acc_cancer_Tcells_caf@assays[["RNA"]]@data), file = cells_counts_path,sep = "\t",row.names = T)
+  saveRDS(acc_cancer_Tcells_caf,file = cells_seurat_path)
+
+}
+```
+
+
+

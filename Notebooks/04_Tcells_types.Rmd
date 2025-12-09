@@ -44,16 +44,70 @@ t_cells = immune[,immune$immune_type %in% t_cells_types]
 ```{r}
 t_cells_scores = fread(input$starCat_score,sep = "\t") %>% column_to_rownames('V1')
 table(t_cells_scores$Multinomial_Label)
-
+t_cells_usage = fread(input$starCAT_usage,sep = "\t") %>% column_to_rownames('V1')
+names(t_cells_usage) = gsub(x = names(t_cells_usage) ,pattern = "-",replacement = "_") #set valin names
+names(t_cells_usage) = gsub(x = names(t_cells_usage) ,pattern = "/",replacement = ".") #set valin names
 
 ```
+
 ```{r}
 t_cells_labled = AddMetaData(t_cells, metadata = t_cells_scores[,"Multinomial_Label",drop=F],col.name = "t_cell_label")
+
+t_cells_labled = AddMetaData(t_cells_labled, metadata = t_cells_usage)
+```
+
+
+# PCA
+```{r results='hide'}
+# Identification of highly variable features
+t_cells_labled <- FindVariableFeatures(t_cells_labled, selection.method = "vst", nfeatures = 15000) 
+
+# Scaling the data
+t_cells_labled <- ScaleData(t_cells_labled, vars.to.regress = c("percent.mt","nCount_RNA"),features = VariableFeatures(object = t_cells_labled))
+
+# Perform linear dimensional reduction (PCA)
+t_cells_labled <- RunPCA(t_cells_labled, features = VariableFeatures(object = t_cells_labled))
+
+ElbowPlot(t_cells_labled, ndims = 50) # checking the dimensionality 
+```
+
+```{r}
+pc2use=1:10
+clus_res=1
+```
+
+# UMAP and clustering
+```{r}
+t_cells_labled <- FindNeighbors(t_cells_labled, dims = pc2use,verbose = F)
+t_cells_labled <- FindClusters(t_cells_labled, resolution = clus_res,verbose = F)
+
+# Run non-linear dimensional reduction (UMAP)
+t_cells_labled <- RunUMAP(t_cells_labled, dims = pc2use,verbose = F)
+DimPlot(object = t_cells_labled, reduction = "umap", pt.size = 1, label = F)
+```
+
+```{r}
+DimPlot(t_cells_labled,group.by = "t_cell_label",cols =  rainbow(10)) 
+```
+```{r fig.height=6, fig.width=12}
+FeaturePlot(t_cells_labled,features = c("Cytotoxic","Doublet_Platelet","Poor_Quality","Exhaustion"))
 ```
 
 ```{r}
 saveRDS(object = t_cells_labled,file = params$data_out_dir %s+% basename(output$t_cells_labled))
-
 ```
 
+# add labels to all immune object
+```{r}
+#replace sctype tcells annotation  with starCAT
+t_cells_meta = t_cells_scores[,"Multinomial_Label",drop=F]
+immune_meta = immune@meta.data[,"immune_type",drop=F]
 
+immune_meta[rownames(t_cells_meta),"immune_type"] <- t_cells_meta$Multinomial_Label
+immune = AddMetaData(immune,metadata = immune_meta,col.name = "immune_type")
+table(immune$immune_type)
+```
+
+```{r}
+saveRDS(immune,file = params$data_out_dir %s+% basename(output$immune_with_Tcells))
+```

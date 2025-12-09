@@ -1,0 +1,77 @@
+---
+title: 'sipsic' 
+author: "Avishai Wizel"
+date: '`r Sys.time()`'
+output: 
+  html_document: 
+    code_folding: hide
+    toc: yes
+    toc_collapse: yes
+    toc_float: 
+      collapsed: TRUE
+    number_sections: true
+    toc_depth: 2
+    df_print: paged
+params: 
+  data_out_dir: "./temp_data/" 
+---
+```{r}
+library(stringi)
+library(Seurat)
+library(ggplot2)
+library(tidyverse)
+library(dplyr)
+library(data.table)
+library(print.rmd.tabs)
+library(grid)
+library(ComplexHeatmap)
+SourceFromGithub::source_from_github(repositoy = "DEG_functions",version = "0.2.59")
+
+```
+
+```{r}
+source("./pipe.R")
+input = pipeline$sipsic_run$input
+output = pipeline$sipsic_run$output
+```
+
+```{r}
+acc = readRDS(input$acc_cancer_pri)
+```
+
+# DE pathways
+
+
+```{r}
+pathwayScoresMatrix = read_rds(file = input$sipsic_matrix)
+acc[["sipsic"]] = CreateAssayObject(counts = pathwayScoresMatrix)
+
+```
+
+
+
+```{r}
+acc = SetIdent(acc, value = "cell_identity")
+pathways_names = gsub(rownames(pathwayScoresMatrix), pattern = "_", replacement = "-")
+
+pathway_markers = FindMarkers(
+    object = acc,
+    ident.1 = "Luminal",
+    ident.2 = "Myo",
+    assay = "sipsic",
+    slot = "counts",
+    logfc.threshold = 0,
+    densify = T,
+    pseudocount.use = 0.001,
+    features = pathways_names
+  )
+  pathway_markers$fdr = p.adjust(pathway_markers$p_val,method = "fdr",n = 
+                                   length(rownames(acc@assays$sipsic)))
+
+```
+
+```{r fig.height=8, fig.width=15}
+volcano_plot(de_genes = pathway_markers,top_genes_text = 4,title = "acc",ident1 = "Luminal",
+    ident2 = "Myo",)
+```
+

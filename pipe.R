@@ -53,9 +53,7 @@ pipeline[["immune_identity"]] = list(
 
 pipeline[["starCAT"]] = list(
   input = list(
-    starCAT_counts = "./Reports/03_immune_cell_types/starCAT_input/matrix.mtx.gz",
-    starCAT_barcodes = "./Reports/03_immune_cell_types/starCAT_input/barcodes.tsv.gz",
-    starCAT_features = "./Reports/03_immune_cell_types/starCAT_input/features.tsv.gz"
+    starCAT_counts = pipeline$immune_identity$output$starCAT_counts
   ),
   output = list(
     usage  = "./Reports/04_starCAT/ACC.rf_usage_normalized.txt",
@@ -77,7 +75,8 @@ pipeline[["Tcells_types"]] = list(
   ),
   output = list(
     report = "./Reports/04_Tcells_types/04_Tcells_types.html",
-    t_cells_labled = "./Reports/04_Tcells_types/t_cells_labled.RDS"
+    t_cells_labled = "./Reports/04_Tcells_types/t_cells_labled.RDS",
+    immune_with_Tcells = "./Reports/04_Tcells_types/immune_with_Tcells.RDS"
   )
 )
 
@@ -123,7 +122,7 @@ pipeline[["cpdb_create_data"]] = list(
     cells_identity = "Reports/06_cellphoneDB/01_create_data_for_cellphoneDB/cells_identity.tsv",
     cells_environment = "Reports/06_cellphoneDB/01_create_data_for_cellphoneDB/cells_environment.tsv",
     counts = "Reports/06_cellphoneDB/01_create_data_for_cellphoneDB/counts.txt",
-    acc_cancer_cd45_caf = "Reports/06_cellphoneDB/01_create_data_for_cellphoneDB/acc_cancer_cd45_caf.RDS"
+    acc_cancer_Tcells_caf = "Reports/06_cellphoneDB/01_create_data_for_cellphoneDB/acc_cancer_Tcells_caf.RDS"
     )
 )
 
@@ -149,7 +148,7 @@ pipeline[["cpdb_analysis"]] = list(
     script = "./Notebooks/06_cellphoneDB/03_celphoneDB_analysis.Rmd",
     pvals = pipeline$run_cpdb$params$cpbd_output_dir %s+% "statistical_analysis_pvalues_.txt",
     means =   pipeline$run_cpdb$params$cpbd_output_dir %s+% "statistical_analysis_means_.txt",
-    acc_cancer_cd45_caf = pipeline$cpdb_create_data$output$acc_cancer_cd45_caf,
+    acc_cancer_Tcells_caf = pipeline$cpdb_create_data$output$acc_cancer_Tcells_caf,
     signif_deg = pipeline$immune_markers_ACC$output$signif_deg
     ),
   output = list(
@@ -157,18 +156,77 @@ pipeline[["cpdb_analysis"]] = list(
   )
 )
 
+####################################### cellphoneDB per patient ######################################################
+
+pipeline[["cpdb_create_data_per_patient"]] = list(
+  input = list(
+    script = "./Notebooks/06_V2_cellphoneDB_per_patient/01_create_data_for_cellphoneDB.Rmd",
+    t_cells_labled = pipeline$Tcells_types$output$t_cells_labled,
+    cancer = pipeline$cell_types$output$cancer,
+    caf = pipeline$cell_types$output$caf
+  ),
+  output = list(
+    report = "Reports/06_V2_cellphoneDB_per_patient/01_create_data_for_cellphoneDB/01_create_data_for_cellphoneDB.html"
+  )
+)
+
+pipeline[["run_cpdb_per_patient"]] = list(
+  input = list(
+    script = "./Notebooks/06_V2_cellphoneDB_per_patient/02_run_cellphoneDB.Rmd",
+    create_data_report = pipeline$cpdb_create_data_per_patient$output$report
+  ),
+  output = list(
+    report = "Reports/06_V2_cellphoneDB_per_patient/02_run_cellphoneDB/02_run_cellphoneDB.html"
+  ),
+  params = list(
+    cpdb_conda_env = "/sci/labs/yotamd/lab_share/avishai.wizel/python_envs/miniconda/envs/cpdb",
+    cpdb_target_dir = "Reports/06_cellphoneDB/02_run_cellphoneDB/cpdb_data/",
+    cpbd_output_dir = "Reports/06_V2_cellphoneDB_per_patient/02_run_cellphoneDB/cpdb_out/"
+  )
+)
+
+pipeline[["cpdb_analysis_per_patient"]] = list(
+  input = list(
+    script = "./Notebooks/06_V2_cellphoneDB_per_patient/03_celphoneDB_analysis.Rmd",
+    create_data_report = pipeline$cpdb_create_data_per_patient$output$report,
+    run_cpdb_per_patient_report = pipeline$run_cpdb_per_patient$output$report,
+    acc_cancer_Tcells_caf = pipeline$cpdb_create_data$output$acc_cancer_Tcells_caf
+
+  ),
+  output = list(
+    report = "Reports/06_V2_cellphoneDB_per_patient/03_celphoneDB_analysis/03_celphoneDB_analysis.html"
+  )
+)
+
+
 ######################################## Dou et al CIBERSORT ###############################################
 
 pipeline[["create_data_for_CIBERSORT"]] = list(
   input = list(
     script = "./Notebooks/07_create_data_for_CIBERSORT.Rmd",
-    acc_cancer_cd45_caf = pipeline$cpdb_create_data$output$acc_cancer_cd45_caf,
+    immune_with_Tcells = pipeline$Tcells_types$output$immune_with_Tcells,
+    cancer = pipeline$cell_types$output$cancer,
+    caf = pipeline$cell_types$output$caf,
     dou_acc = "input_data/Dou_PMC8450584/PMC8450584_DataSheet_1.xlsx"
   ),
   output = list(
-    report = "Reports/07_create_data_for_CIBERSORT.Rmd/06_Dou_CIBERSORT.html"
+    report = "Reports/07_create_data_for_CIBERSORT/07_create_data_for_CIBERSORT.html",
+    tpm_matrix = "Reports/07_create_data_for_CIBERSORT/tpm_per_cell_for_making_signature_matrix.txt",
+    dou_exprs = "Reports/07_create_data_for_CIBERSORT/dou_exprs.tsv"
   )
 )
+
+# pipeline[["run_cibersortX_alert"]] = list(
+#   input = list(
+#     tpm_matrix = pipeline$create_data_for_CIBERSORT$output$tpm_matrix,
+#     dou_exprs = pipeline$create_data_for_CIBERSORT$output$dou_exprs
+#     
+#   ),
+#   output = list(
+#     cs_result = "input_data/CIBERSORTx_result/CIBERSORTx_Job9_Results_07_27_25-16_46.csv"
+#     
+#   )
+# )
 
 # run CIBERSORTx at cibersortx.stanford.edu
 
@@ -176,10 +234,33 @@ pipeline[["Dou_CIBERSORT_analysis"]] = list(
   input = list(
     script = "./Notebooks/08_Dou_CIBERSORT_analsyis.Rmd",
     dou_acc_survival = "input_data/Dou_PMC8450584/PMC8450584_DataSheet_2.xlsx",
-    cs_result = "input_data/CIBERSORTx_result/CIBERSORTx_Job9_Results_07_27_25-16_46.csv"
+    cs_result = "input_data/CIBERSORTx_result/CIBERSORTx_Job16_Results_2025_09_29.csv"
   ),
   output = list(
     report = "Reports/08_Dou_CIBERSORT_analsyis/08_Dou_CIBERSORT_analsyis.html"
+  )
+)
+
+pipeline[["sipsic_run"]] = list(
+  input = list(
+    script = "./Notebooks/09_sipsic_run.Rmd",
+    acc_cancer_pri = pipeline$cell_types$output$acc_cancer_pri,
+    canonical_pathways = "./input_data/c2.cp.kegg_legacy.v2025.1.Hs.symbols.gmt"
+  ),
+  output = list(
+    report = "Reports/09_sipsic_run/09_sipsic_run.html",
+    sipsic_matrix = "Reports/09_sipsic_run/sipsic_matrix.RDS"
+  )
+)
+
+pipeline[["sipsic_analysis"]] = list(
+  input = list(
+    script = "./Notebooks/10_sipsic_analysis.Rmd",
+    acc_cancer_pri = pipeline$cell_types$output$acc_cancer_pri,
+    sipsic_matrix = pipeline$sipsic_run$output$sipsic_matrix
+  ),
+  output = list(
+    report = "Reports/10_sipsic_analysis/10_sipsic_analysis.html"
   )
 )
 

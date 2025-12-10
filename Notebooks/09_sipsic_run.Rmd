@@ -45,6 +45,10 @@ acc = readRDS(input$acc_cancer_pri)
 ```
 
 ```{r}
+canonical_pathways = getGmt(input$canonical_pathways)
+```
+
+```{r}
 #GO:0002253 activation of immune response
 #GO:0002507 tolerance induction
 #GO:0002682 regulation of immune system process
@@ -103,8 +107,8 @@ calculatePathwayScores <- function(pathwayToScore, countsMatrix) {
 
 
 ```{r}
-pathwayScoreLists <- lapply(X = go_immune@.Data, calculatePathwayScores, acc@assays$RNA@counts)
-names(pathwayScoreLists) = names(go_immune) #set names
+pathwayScoreLists <- lapply(X = canonical_pathways@.Data, calculatePathwayScores, acc@assays$RNA@counts)
+names(pathwayScoreLists) = names(canonical_pathways) #set names
 pathwayScoreLists <- pathwayScoreLists[!is.na(pathwayScoreLists)] #remove NA pathways
 pathwayScoresMatrix <- as.data.frame(do.call("rbind", pathwayScoreLists)) # to df
 ```

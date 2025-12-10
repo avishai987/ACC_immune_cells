@@ -1,18 +1,18 @@
-- Session info ------------------------------------------------------------------------------
+─ Session info ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
  setting  value
  version  R version 4.3.3 (2024-02-29)
- os       Ubuntu 22.04.5 LTS
+ os       CS HUJI Debian GNU/Linux 12 (bookworm) 5786
  system   x86_64, linux-gnu
  ui       X11
- language (EN)
- collate  C
- ctype    C
- tz       Etc/UTC
- date     2025-09-30
- pandoc   3.2 @ /usr/lib/rstudio-server/bin/quarto/bin/tools/x86_64/ (via rmarkdown)
- quarto   1.5.57 @ /usr/local/bin/quarto
+ language en_US:en_GB:en
+ collate  en_IL.UTF-8
+ ctype    en_IL.UTF-8
+ tz       Asia/Jerusalem
+ date     2025-12-10
+ pandoc   3.6.3 @ /sci/labs/yotamd/lab_share/avishai.wizel/python_envs/miniconda/envs/erna_r/bin/ (via rmarkdown)
+ quarto   1.7.33 @ /sci/labs/yotamd/lab_share/avishai.wizel/python_envs/miniconda/envs/erna_r/bin/quarto
 
-- Packages ----------------------------------------------------------------------------------
+─ Packages ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
  package              * version    date (UTC) lib source
  abind                  1.4-5      2016-07-21 [1] CRAN (R 4.3.3)
  annotate             * 1.80.0     2023-10-24 [1] Bioconductor
@@ -81,7 +81,7 @@
  ica                    1.0-3      2022-07-08 [1] CRAN (R 4.3.3)
  igraph                 2.1.4      2025-01-23 [1] CRAN (R 4.3.3)
  IRanges              * 2.36.0     2023-10-24 [1] Bioconductor
- irlba                  2.3.5.1    2022-10-03 [1] CRAN (R 4.3.3)
+ irlba                  2.3.5.1    2022-10-03 [1] CRAN (R 4.3.0)
  iterators              1.0.14     2022-02-05 [1] CRAN (R 4.3.3)
  jquerylib              0.1.4      2021-04-26 [1] CRAN (R 4.3.3)
  jsonlite               2.0.0      2025-03-27 [1] CRAN (R 4.3.3)
@@ -100,7 +100,7 @@
  MakefileR            * 1.0        2016-01-08 [1] RSPM (R 4.1.0)
  mapplots               1.5.3      2025-06-26 [1] CRAN (R 4.3.3)
  MASS                   7.3-60.0.1 2024-01-13 [1] CRAN (R 4.3.3)
- Matrix               * 1.6-5      2024-01-11 [1] CRAN (R 4.3.3)
+ Matrix               * 1.6-1.1    2023-09-18 [1] CRAN (R 4.3.1)
  MatrixGenerics       * 1.14.0     2023-10-24 [1] Bioconductor
  matrixStats          * 1.5.0      2025-01-07 [1] CRAN (R 4.3.3)
  memoise                2.0.1      2021-11-26 [1] CRAN (R 4.3.3)
@@ -139,7 +139,6 @@
  rmarkdown              2.29       2024-11-04 [1] CRAN (R 4.3.3)
  ROCR                   1.0-11     2020-05-02 [1] CRAN (R 4.3.3)
  RSQLite                2.4.3      2025-08-20 [1] CRAN (R 4.3.3)
- rstudioapi             0.17.1     2024-10-22 [1] CRAN (R 4.3.3)
  Rtsne                  0.17       2023-12-07 [1] CRAN (R 4.3.3)
  S4Arrays               1.2.0      2023-10-24 [1] Bioconductor
  S4Vectors            * 0.40.2     2023-11-23 [1] Bioconductor 3.18 (R 4.3.3)
@@ -191,6 +190,7 @@
  zoo                  * 1.8-14     2025-04-10 [1] CRAN (R 4.3.3)
 
  [1] /sci/labs/yotamd/lab_share/avishai.wizel/python_envs/miniconda/envs/ACC_CD45/lib/R/library
- * -- Packages attached to the search path.
+ [2] /sci/labs/yotamd/lab_share/avishai.wizel/python_envs/miniconda/envs/erna_r/lib/R/library
+ * ── Packages attached to the search path.
 
----------------------------------------------------------------------------------------------
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────

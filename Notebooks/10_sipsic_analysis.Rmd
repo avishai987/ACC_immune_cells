@@ -31,8 +31,8 @@ SourceFromGithub::source_from_github(repositoy = "DEG_functions",version = "0.2.
 
 ```{r}
 source("./pipe.R")
-input = pipeline$sipsic_run$input
-output = pipeline$sipsic_run$output
+input = pipeline$sipsic_analysis$input
+output = pipeline$sipsic_analysis$output
 ```
 
 ```{r}
@@ -71,7 +71,7 @@ pathway_markers = FindMarkers(
 ```
 
 ```{r fig.height=8, fig.width=15}
-volcano_plot(de_genes = pathway_markers,top_genes_text = 4,title = "acc",ident1 = "Luminal",
+volcano_plot(de_genes = pathway_markers,top_genes_text = 10,title = "acc",ident1 = "Luminal",
     ident2 = "Myo",)
 ```
 

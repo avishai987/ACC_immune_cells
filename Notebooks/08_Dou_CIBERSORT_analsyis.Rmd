@@ -142,16 +142,36 @@ t_cells_names = c( "CD8_Naive", "CD4_Naive", "CD8_CM", "CD4_CM", "CD4_EM", "CD8_
                    "Treg", "CD8_TEMRA","MAIT")
 deconv_result_with_survival$t_cells_ratio = rowSums(deconv_result_with_survival[, colnames(deconv_result_with_survival) %in% t_cells_names])
 
+for (t_type in t_cells_names) {
+  t_type_ratio = deconv_result_with_survival[,t_type]/rowSums(deconv_result_with_survival[,t_cells_names])
+  deconv_result_with_survival[,paste0(t_type,"_ratio")] = t_type_ratio
+}
+
+
 # Immune cells ratio
 immune_cells_names = c( "Naive B", "CD8_Naive", "CD4_Naive", 
 "CD8_CM", "CD4_CM", "CD4_EM", "CD8_EM", "Plasmacytoid Dendritic", 
 "gdT", "Treg", "CD8_TEMRA", "Macrophages", "Basophils", "Neutrophils", 
 "MAIT", "Plasma B", "Myeloid Dendritic")
+
+non_t_cells_names =  c( "Naive B","Plasmacytoid Dendritic", 
+ "Macrophages", "Basophils", "Neutrophils", 
+"MAIT", "Plasma B", "Myeloid Dendritic")
+
+for (cell_name in non_t_cells_names) {
+  cell_ratio = deconv_result_with_survival[,cell_name]/rowSums(deconv_result_with_survival[,immune_cells_names])
+  deconv_result_with_survival[,paste0(cell_name,"_ratio")] = cell_ratio
+}
+
+
+
 deconv_result_with_survival$immune_cells_ratio = rowSums(deconv_result_with_survival[, colnames(deconv_result_with_survival) %in% immune_cells_names])
 
 deconv_result_with_survival$lum_ratio = deconv_result_with_survival$Luminal/(deconv_result_with_survival$Luminal + deconv_result_with_survival$Myo)
 
 deconv_result_with_survival$myo_ratio = deconv_result_with_survival$Myo/(deconv_result_with_survival$Luminal + deconv_result_with_survival$Myo)
+deconv_result_with_survival$Luminal = NULL
+deconv_result_with_survival$Myo = NULL
 
 
 deconv_result_with_survival$`Immune infiltration score (IIS)` = dou_survival$`Immune infiltration score (IIS)`
@@ -166,10 +186,17 @@ deconv_result_with_survival["Locoregional recurrence-free survival (LRRFS)"] = d
 deconv_result_with_survival["Distant metastasis-free survival time (DMFS)" ] = dou_survival["Distant metastasis-free survival time (DMFS)" ]
 
 
+for (t_type in t_cells_names) {
+    deconv_result_with_survival[,t_type] <- NULL
+}
+
+for (cell_name in non_t_cells_names) {
+    deconv_result_with_survival[,cell_name] <- NULL
+}
 
 correlation_matrix <- cor(
-  x = deconv_result_with_survival[,1:24],
-  y = deconv_result_with_survival[,25:length(deconv_result_with_survival)],
+  x = deconv_result_with_survival[,1:22],
+  y = deconv_result_with_survival[,23:length(deconv_result_with_survival)],
   method = "pearson" 
 )
 all_pairs = expand.grid(

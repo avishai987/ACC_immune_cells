@@ -40,6 +40,37 @@ acc_cancer_Tcells_caf = readRDS(input$acc_cancer_Tcells_caf)
 
 ```
 
+```{r}
+my_plot_cpdb <- function(...,caf = F) {
+  p = plot_cpdb(...)
+  pg <- ggplot_build(p)
+  
+  ## switch all to ligand-receptor:
+  # p_pairs = pg$plot$data$Var1 %>% gsub(pattern = "-",replacement = "_")
+  # pval_cut = pvals %>%  column_to_rownames(var = "interacting_pair")  
+  # pval_cut = pval_cut[p_pairs,c("receptor_a","receptor_b","gene_a","gene_b","partner_a","partner_b")]
+  # 
+  # pg$plot$data = cbind(pg$plot$data, pval_cut)
+  # rows_to_switch = pg$plot$data$receptor_a == "False" & pg$plot$data$receptor_b == "True"
+  # a = apply(pg$plot$data[169:179,], MARGIN = 1, switch_genes) 
+
+  # add facet
+  if (caf == F){
+    pg$plot$data  %<>%  mutate(lum_or_myo = if_else(condition = grepl(pattern = "Luminal",x = Var2),
+                                                    true = "Luminal",false = "Myo"))%>% 
+      mutate(direction =if_else(condition = grepl(pattern = "-Luminal|-Myo",x = Var2),
+                                    true = "immune->cancer" ,false = "cancer->immune")) 
+      pg$plot+facet_grid(cols = vars(direction,lum_or_myo),scales = "free_x")+ylab("Interacting pair") +
+      theme(axis.title.y = element_text(angle = 90,size = 20))
+      
+  }else{
+    pg$plot$data  %<>%  mutate(direction =if_else(condition = grepl(pattern = "-.*CAF",x = Var2),true = "immune->CAF",false = "CAF->immune")) 
+      pg$plot+facet_grid(cols = vars(direction),scales = "free_x")+ylab("Interacting pair") +
+      theme(axis.title.y = element_text(angle = 90,size = 20))
+  }
+}
+```
+
 
 ```{r}
 all_pvals = list()
@@ -49,14 +80,14 @@ for (patient in c("ACC22", "ACC15", "ACC7",  "ACC5")) {
   pvals = dirname(input$run_cpdb_per_patient_report) %s+% "/cpdb_out/statistical_analysis_pvalues_" %s+% patient %s+% ".txt"
   means = dirname(input$run_cpdb_per_patient_report) %s+% "/cpdb_out/statistical_analysis_means_" %s+% patient %s+% ".txt"
   all_pvals[[patient]] = fread(pvals)
-  all_means[[patient]] = fread(means)
+  all_means[[patient]] = fread(means) %>% as.data.frame()
 }
 ```
 
 ```{r}
 all_cols_list = list()
 all_rows_list = list()
-all_positive_indexes =list()
+all_significant_interactions =list()
 for (patient in names(all_pvals)) {
   just_pvals = all_pvals[[patient]][,12:ncol(all_pvals[[patient]])] %>% as.matrix()
   rownames(just_pvals) = all_pvals[[patient]]$id_cp_interaction
@@ -64,49 +95,86 @@ for (patient in names(all_pvals)) {
   
   
   results = just_pvals < 0.05 
-  positive_indexes = which(results,arr.ind = TRUE) %>% as.data.frame()
-  all_positive_indexes[[patient]] = paste(rownames(results)[positive_indexes$row], colnames(results)[positive_indexes$col],sep = "~")
+  significant_indexes = which(results,arr.ind = TRUE) %>% as.data.frame()
+  all_significant_interactions[[patient]] = paste(rownames(results)[significant_indexes$row], colnames(results)[significant_indexes$col],sep = "~")
 
 
 }
 
 
-all_positive_common_indexes = Reduce(intersect, all_positive_indexes)
-SplitCoords <- strsplit(all_positive_common_indexes, split = "~")
+all_significant_interactions_accum = Reduce(intersect, all_significant_interactions,accumulate = T)
+min_patients = 3 #include interactions that in least this patients
+
+all_significant_interactions_min_patients = all_significant_interactions_accum[[min_patients]]
+SplitCoords <- strsplit(all_significant_interactions_min_patients, split = "~") 
 all_common_cols = unique(sapply(SplitCoords, `[`, 2))
 all_common_pairs = unique(sapply(SplitCoords, `[`, 1))
 
 all_common_pvals = matrix(1, nrow = length(all_common_pairs), ncol = length(all_common_cols),
                           dimnames = list(all_common_pairs, all_common_cols)) %>% as.data.frame()
 
-for (interaction in SplitCoords) {
-    all_common_pvals[interaction[1],interaction[2]] <- 0.01
+
+for (interaction in all_significant_interactions_min_patients) {
+  result_indices <- sapply(all_significant_interactions_accum, function(vec) {
+    return(interaction %in% vec)
+  })
+  
+  interacting_pair = strsplit(interaction,split = "~")[[1]][1]
+  interacting_cells = strsplit(interaction,split = "~")[[1]][2]
+  all_common_pvals[interacting_pair, interacting_cells] <- 10^-max(which(result_indices))
 }
+
+
 all_common_pvals$id_cp_interaction = rownames(all_common_pvals)
 
-FilteredList <- map(all_means, ~{
-  .x %>% 
-    as.data.frame() %>% 
-    filter(id_cp_interaction %in% all_common_pairs) %>% 
-    select(all_common_cols)
-})
+average_means = matrix(0, nrow = length(all_common_pairs), ncol = length(all_common_cols),
+                          dimnames = list(all_common_pairs, all_common_cols)) %>% as.data.frame()
 
-TotalMatrix_Filtered <- Reduce(`+`, FilteredList)
-AverageMatrix_Filtered <- TotalMatrix_Filtered / length(all_means)
-AverageMatrix_Filtered$id_cp_interaction = all_common_pairs
+for (interaction in SplitCoords) {
+  all_means_for_interaction = c()
+  for (means_df in all_means) {
+    all_means_for_interaction = c(all_means_for_interaction,means_df[means_df$id_cp_interaction ==interaction[1],interaction[2]])
+  }
+  
+  average_means[interaction[1],interaction[2]] <- mean(all_means_for_interaction)
+  
+}
+
+average_means$id_cp_interaction = rownames(average_means)
+
 
 ```
 
+
+
+
+
 ```{r}
-AverageMatrix_Filtered = right_join(all_means[[1]][,1:11],AverageMatrix_Filtered,by = "id_cp_interaction") %>% as.data.frame()
+average_means = right_join(all_means[[1]][,1:11],average_means,by = "id_cp_interaction") %>% as.data.frame()
 all_common_pvals = right_join(all_means[[1]][,1:11],all_common_pvals,by = "id_cp_interaction") %>% as.data.frame()
 
 ```
 
 ```{r fig.height=10, fig.width=10}
-my_plot_cpdb(cell_type1 = 'CD|Treg|gdT', cell_type2 = 'Luminal pri|Myo pri', scdata = acc_cancer_Tcells_caf,
-                      idents = 'cell_type', means = AverageMatrix_Filtered, pvals = all_common_pvals,
-                      gene.family = NULL,return_table = F,max_size = 3,p.adjust.method = "fdr",
-                      keep_significant_only = T,cluster_rows = T)
+p = my_plot_cpdb(cell_type1 = 'CD|Treg|gdT', cell_type2 = 'Luminal pri|Myo pri', scdata = acc_cancer_Tcells_caf,
+                      idents = 'cell_type', means = average_means, pvals = all_common_pvals,
+                      gene.family = NULL,return_table = F,max_size = 3,p.adjust.method = NULL,
+                      keep_significant_only = T,cluster_rows = T,scale = F,highlight = c("green","red"),highlight_size = 2)+
+  labs(color = "Significant in patients")
+p
+```
+```{r}
+pdf(file = params$data_out_dir %s+% "Common cancer-Tcells interactions in patients.pdf",width = 12,height = 10)
+p
+dev.off()
+
+```
+```{r fig.height=13, fig.width=20}
+p = my_plot_cpdb(cell_type1 = 'CD|Treg|gdT', cell_type2 = 'CAF', scdata = acc_cancer_Tcells_caf,caf = T,
+                      idents = 'cell_type', means = average_means, pvals = all_common_pvals,
+                      gene.family = NULL,return_table = F,max_size = 3,p.adjust.method = NULL,
+                      keep_significant_only = T,cluster_rows = T,scale = F,highlight = c("green","red"),highlight_size = 2)+
+  labs(color = "Significant in patients")
+p
 ```
 

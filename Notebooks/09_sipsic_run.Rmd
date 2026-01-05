@@ -29,7 +29,6 @@ library(GO.db)
 library(GOfuncR)
 library(org.Hs.eg.db) 
 suppressPackageStartupMessages(library(AnnotationDbi))
-
 suppressPackageStartupMessages(library(SiPSiC))
 suppressPackageStartupMessages(library(GSEABase))
 ```
@@ -60,6 +59,9 @@ all_children = get_child_nodes(c('GO:0002253',"GO:0002507","GO:0002682",
 ```
 
 
+```{r}
+all_children = all_children %>% filter(distance<=1)
+```
 
 
 ```{r}

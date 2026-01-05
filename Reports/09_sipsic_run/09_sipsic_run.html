@@ -2839,7 +2839,7 @@ border-radius: 0px;
 
 <h1 class="title toc-ignore">sipsic</h1>
 <h4 class="author">Avishai Wizel</h4>
-<h4 class="date">2025-12-10 10:50:42.074013</h4>
+<h4 class="date">2025-12-10 14:27:24.052197</h4>
 
 </div>
 
@@ -3008,7 +3008,6 @@ library(ComplexHeatmap)</code></pre>
 <pre class="r"><code>library(org.Hs.eg.db) </code></pre>
 <pre><code>## </code></pre>
 <pre class="r"><code>suppressPackageStartupMessages(library(AnnotationDbi))
-
 suppressPackageStartupMessages(library(SiPSiC))
 suppressPackageStartupMessages(library(GSEABase))</code></pre>
 <pre class="r"><code>source(&quot;./pipe.R&quot;)
@@ -3058,48 +3057,58 @@ calculatePathwayScores &lt;- function(pathwayToScore, countsMatrix) {
   )
   return(pathwayScoresObject$pathwayScores)
 }</code></pre>
-<pre class="r"><code>pathwayScoreLists &lt;- lapply(X = go_immune@.Data, calculatePathwayScores, acc@assays$RNA@counts)</code></pre>
-<pre><code>## activation_of_immune_response</code></pre>
-<pre><code>## activation_of_innate_immune_response</code></pre>
-<pre><code>## immune_response-activating_signal_transduction</code></pre>
-<pre><code>## complement_activation</code></pre>
-<pre><code>## tolerance_induction</code></pre>
-<pre><code>## lymphocyte_anergy</code></pre>
-<pre><code>## tolerance_induction_dependent_upon_immune_response</code></pre>
-<pre><code>## tolerance_induction_to_self_antigen</code></pre>
-<pre><code>## T_cell_tolerance_induction</code></pre>
-<pre><code>## regulation_of_tolerance_induction</code></pre>
-<pre><code>## positive_regulation_of_tolerance_induction</code></pre>
-<pre><code>## regulation_of_immune_system_process</code></pre>
-<pre><code>## regulation_of_antigen_processing_and_presentation</code></pre>
-<pre><code>## negative_regulation_of_immune_system_process</code></pre>
-<pre><code>## positive_regulation_of_immune_system_process</code></pre>
-<pre><code>## regulation_of_leukocyte_migration</code></pre>
-<pre><code>## regulation_of_leukocyte_activation</code></pre>
-<pre><code>## regulation_of_immune_effector_process</code></pre>
-<pre><code>## regulation_of_neutrophil_apoptotic_process</code></pre>
-<pre><code>## regulation_of_immune_response</code></pre>
-<pre><code>## regulation_of_hemopoiesis</code></pre>
-<pre><code>## antigen_processing_and_presentation</code></pre>
-<pre><code>## T_cell_antigen_processing_and_presentation</code></pre>
-<pre><code>## dendritic_cell_antigen_processing_and_presentation</code></pre>
-<pre><code>## antigen_processing_and_presentation_via_MHC_class_Ib</code></pre>
-<pre><code>## antigen_processing_and_presentation_of_peptide_or_polysaccharide_antigen_via_MHC_class_II</code></pre>
-<pre><code>## negative_regulation_of_antigen_processing_and_presentation</code></pre>
-<pre><code>## positive_regulation_of_antigen_processing_and_presentation</code></pre>
-<pre><code>## antigen_processing_and_presentation_of_endogenous_antigen</code></pre>
-<pre><code>## antigen_processing_and_presentation_of_exogenous_antigen</code></pre>
-<pre><code>## antigen_processing_and_presentation_of_peptide_antigen</code></pre>
-<pre><code>## lymphocyte_costimulation</code></pre>
-<pre><code>## T_cell_costimulation</code></pre>
-<pre><code>## leukocyte_activation</code></pre>
-<pre><code>## leukocyte_activation_involved_in_inflammatory_response</code></pre>
-<pre><code>## myeloid_leukocyte_activation</code></pre>
-<pre><code>## leukocyte_activation_involved_in_immune_response</code></pre>
-<pre><code>## negative_regulation_of_leukocyte_activation</code></pre>
-<pre><code>## positive_regulation_of_leukocyte_activation</code></pre>
-<pre><code>## lymphocyte_activation</code></pre>
-<pre class="r"><code>names(pathwayScoreLists) = names(go_immune) #set names
+<pre class="r"><code>pathwayScoreLists &lt;- lapply(X = canonical_pathways@.Data, calculatePathwayScores, acc@assays$RNA@counts)</code></pre>
+<pre><code>## HALLMARK_ADIPOGENESIS</code></pre>
+<pre><code>## HALLMARK_ALLOGRAFT_REJECTION</code></pre>
+<pre><code>## HALLMARK_ANDROGEN_RESPONSE</code></pre>
+<pre><code>## HALLMARK_ANGIOGENESIS</code></pre>
+<pre><code>## HALLMARK_APICAL_JUNCTION</code></pre>
+<pre><code>## HALLMARK_APICAL_SURFACE</code></pre>
+<pre><code>## HALLMARK_APOPTOSIS</code></pre>
+<pre><code>## HALLMARK_BILE_ACID_METABOLISM</code></pre>
+<pre><code>## HALLMARK_CHOLESTEROL_HOMEOSTASIS</code></pre>
+<pre><code>## HALLMARK_COAGULATION</code></pre>
+<pre><code>## HALLMARK_COMPLEMENT</code></pre>
+<pre><code>## HALLMARK_DNA_REPAIR</code></pre>
+<pre><code>## HALLMARK_E2F_TARGETS</code></pre>
+<pre><code>## HALLMARK_EPITHELIAL_MESENCHYMAL_TRANSITION</code></pre>
+<pre><code>## HALLMARK_ESTROGEN_RESPONSE_EARLY</code></pre>
+<pre><code>## HALLMARK_ESTROGEN_RESPONSE_LATE</code></pre>
+<pre><code>## HALLMARK_FATTY_ACID_METABOLISM</code></pre>
+<pre><code>## HALLMARK_G2M_CHECKPOINT</code></pre>
+<pre><code>## HALLMARK_GLYCOLYSIS</code></pre>
+<pre><code>## HALLMARK_HEDGEHOG_SIGNALING</code></pre>
+<pre><code>## HALLMARK_HEME_METABOLISM</code></pre>
+<pre><code>## HALLMARK_HYPOXIA</code></pre>
+<pre><code>## HALLMARK_IL2_STAT5_SIGNALING</code></pre>
+<pre><code>## HALLMARK_IL6_JAK_STAT3_SIGNALING</code></pre>
+<pre><code>## HALLMARK_INFLAMMATORY_RESPONSE</code></pre>
+<pre><code>## HALLMARK_INTERFERON_ALPHA_RESPONSE</code></pre>
+<pre><code>## HALLMARK_INTERFERON_GAMMA_RESPONSE</code></pre>
+<pre><code>## HALLMARK_KRAS_SIGNALING_DN</code></pre>
+<pre><code>## HALLMARK_KRAS_SIGNALING_UP</code></pre>
+<pre><code>## HALLMARK_MITOTIC_SPINDLE</code></pre>
+<pre><code>## HALLMARK_MTORC1_SIGNALING</code></pre>
+<pre><code>## HALLMARK_MYC_TARGETS_V1</code></pre>
+<pre><code>## HALLMARK_MYC_TARGETS_V2</code></pre>
+<pre><code>## HALLMARK_MYOGENESIS</code></pre>
+<pre><code>## HALLMARK_NOTCH_SIGNALING</code></pre>
+<pre><code>## HALLMARK_OXIDATIVE_PHOSPHORYLATION</code></pre>
+<pre><code>## HALLMARK_P53_PATHWAY</code></pre>
+<pre><code>## HALLMARK_PANCREAS_BETA_CELLS</code></pre>
+<pre><code>## HALLMARK_PEROXISOME</code></pre>
+<pre><code>## HALLMARK_PI3K_AKT_MTOR_SIGNALING</code></pre>
+<pre><code>## HALLMARK_PROTEIN_SECRETION</code></pre>
+<pre><code>## HALLMARK_REACTIVE_OXYGEN_SPECIES_PATHWAY</code></pre>
+<pre><code>## HALLMARK_SPERMATOGENESIS</code></pre>
+<pre><code>## HALLMARK_TGF_BETA_SIGNALING</code></pre>
+<pre><code>## HALLMARK_TNFA_SIGNALING_VIA_NFKB</code></pre>
+<pre><code>## HALLMARK_UNFOLDED_PROTEIN_RESPONSE</code></pre>
+<pre><code>## HALLMARK_UV_RESPONSE_DN</code></pre>
+<pre><code>## HALLMARK_UV_RESPONSE_UP</code></pre>
+<pre><code>## HALLMARK_WNT_BETA_CATENIN_SIGNALING</code></pre>
+<pre><code>## HALLMARK_XENOBIOTIC_METABOLISM</code></pre>
+<pre class="r"><code>names(pathwayScoreLists) = names(canonical_pathways) #set names
 pathwayScoreLists &lt;- pathwayScoreLists[!is.na(pathwayScoreLists)] #remove NA pathways
 pathwayScoresMatrix &lt;- as.data.frame(do.call(&quot;rbind&quot;, pathwayScoreLists)) # to df</code></pre>
 <pre class="r"><code>saveRDS(object = pathwayScoresMatrix,file = paste0(params$data_out_dir,basename(output$sipsic_matrix)))</code></pre>

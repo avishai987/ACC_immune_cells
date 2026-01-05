@@ -75,7 +75,15 @@ deg$fdr = p.adjust(deg$p_val)
 ```
 
 ```{r}
-volcano_plot(de_genes = deg,ident1 = "lum",ident2 = "myo",top_genes_text = 0,show_gene_names = c("CCL22","CCL28","CXCL2","CXCL3","CXCL17","C3","HLA-DRB1","HLA-DRB5"))
+volcano_plot(de_genes = deg,ident1 = "lum",ident2 = "myo",top_genes_text = 0,show_gene_names = c("CXCL1","CXCL2","CXCL3","C3","CCL22","CCL28","CXCL17","HLA-DRB1","HLA-DRB5"))
+```
+
+```{r}
+volcano_plot(de_genes = deg,ident1 = "lum",ident2 = "myo",top_genes_text = 0,show_gene_names = c("CXCL2","CXCL3","C3","RORC","FZD9","TNFSF10","ALCAM","NECTIN2"))
+```
+
+```{r}
+volcano_plot(de_genes = deg,ident1 = "lum",ident2 = "myo",top_genes_text = 0,show_gene_names = c("GAS6","THY1","CD93","SEMA4A","CD160","TGFBR3","CD200","JAM3","CD38","SEMA3C","CXCL14"))
 ```
 
 

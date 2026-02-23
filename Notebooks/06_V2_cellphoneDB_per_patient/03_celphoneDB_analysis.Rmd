@@ -37,9 +37,17 @@ output = pipeline$cpdb_analysis_per_patient$output
 
 ```{r}
 acc_cancer_Tcells_caf = readRDS(input$acc_cancer_Tcells_caf)
-
+acc_cancer_immune_caf = readRDS(input$acc_cancer_immune_caf)
 ```
 
+```{r}
+#define params
+p_value_threshold = 0.05
+min_patients_t_cells_patients = 3 #include interactions that in least this patients
+min_patients_all_immune = 4 #include interactions that in least this patients
+```
+
+# Plot functions
 ```{r}
 my_plot_cpdb <- function(...,caf = F) {
   p = plot_cpdb(...)
@@ -71,65 +79,77 @@ my_plot_cpdb <- function(...,caf = F) {
 }
 ```
 
+# Analysis- cancer cells with T cells
 
+## Read all patients results and find common significant interactions
 ```{r}
 all_pvals = list()
 all_means = list()
-for (patient in c("ACC22", "ACC15", "ACC7",  "ACC5")) {
-  seurat_data = dirname(input$create_data_report) %s+% "/cells_seurat_" %s+% patient %s+% ".RDS"
-  pvals = dirname(input$run_cpdb_per_patient_report) %s+% "/cpdb_out/statistical_analysis_pvalues_" %s+% patient %s+% ".txt"
-  means = dirname(input$run_cpdb_per_patient_report) %s+% "/cpdb_out/statistical_analysis_means_" %s+% patient %s+% ".txt"
+patients_with_t_cells = acc_cancer_Tcells_caf %>% subset(subset = cell_identity == "immune") %>% FetchData("patient.ident") %>% pull(patient.ident) %>% unique()
+for (patient in patients_with_t_cells) {
+  pvals = dirname(input$run_cpdb_per_patient_report) %s+% "/cpdb_out_T_cells/statistical_analysis_pvalues_" %s+% patient %s+% ".txt"
+  means = dirname(input$run_cpdb_per_patient_report) %s+% "/cpdb_out_T_cells/statistical_analysis_means_" %s+% patient %s+% ".txt"
   all_pvals[[patient]] = fread(pvals)
   all_means[[patient]] = fread(means) %>% as.data.frame()
 }
 ```
 
+## Build means and pvals tables 
 ```{r}
+
+# 1.Get significant interactions per patient
 all_cols_list = list()
 all_rows_list = list()
 all_significant_interactions =list()
 for (patient in names(all_pvals)) {
-  just_pvals = all_pvals[[patient]][,12:ncol(all_pvals[[patient]])] %>% as.matrix()
-  rownames(just_pvals) = all_pvals[[patient]]$id_cp_interaction
-  colnames(just_pvals) = colnames(all_pvals[[patient]][,12:ncol(all_pvals[[patient]])])
+  just_pvals = all_pvals[[patient]][,12:ncol(all_pvals[[patient]])] %>% as.matrix() #get only pvals removing metadata cols
+  rownames(just_pvals) = all_pvals[[patient]]$id_cp_interaction #set row names
+  colnames(just_pvals) = colnames(all_pvals[[patient]][,12:ncol(all_pvals[[patient]])]) #set col names
   
   
-  results = just_pvals < 0.05 
-  significant_indexes = which(results,arr.ind = TRUE) %>% as.data.frame()
-  all_significant_interactions[[patient]] = paste(rownames(results)[significant_indexes$row], colnames(results)[significant_indexes$col],sep = "~")
+  results = just_pvals < p_value_threshold #get logical matrix of significant results with same dim as pvals
+  significant_indexes = which(results,arr.ind = TRUE) %>% as.data.frame() # get indexes of significant results as df - row,col, row_names= id
+  
+    # create vector of "interaction~celltype" for significant results:
+  all_significant_interactions[[patient]] = paste(rownames(results)[significant_indexes$row],
+                                                  colnames(results)[significant_indexes$col],sep = "~") 
 
 
 }
 
+# 2.Find common interactions in at least min_patients
+all_significant_interactions_accum = Reduce(intersect, all_significant_interactions,accumulate = T) # get cumulative intersect
+all_significant_interactions_min_patients = all_significant_interactions_accum[[min_patients_t_cells_patients]] # get interactions common to at least min_patients
 
-all_significant_interactions_accum = Reduce(intersect, all_significant_interactions,accumulate = T)
-min_patients = 3 #include interactions that in least this patients
-
-all_significant_interactions_min_patients = all_significant_interactions_accum[[min_patients]]
+# 3. Build common pvals and means tables
 SplitCoords <- strsplit(all_significant_interactions_min_patients, split = "~") 
-all_common_cols = unique(sapply(SplitCoords, `[`, 2))
-all_common_pairs = unique(sapply(SplitCoords, `[`, 1))
+all_common_cells_pairs = unique(sapply(SplitCoords, `[`, 2))
+all_common_genes_pairs = unique(sapply(SplitCoords, `[`, 1))
 
-all_common_pvals = matrix(1, nrow = length(all_common_pairs), ncol = length(all_common_cols),
-                          dimnames = list(all_common_pairs, all_common_cols)) %>% as.data.frame()
+# create final common pvals table, with 1 (non significant) as default value
+all_common_pvals = matrix(1, nrow = length(all_common_genes_pairs), ncol = length(all_common_cells_pairs),
+                          dimnames = list(all_common_genes_pairs, all_common_cells_pairs)) %>% as.data.frame()
 
-
+#for each interaction found significant in at least min_patients, set the pval as 10^-n_patients significant
 for (interaction in all_significant_interactions_min_patients) {
+  # find in which patients this interaction is significant
   result_indices <- sapply(all_significant_interactions_accum, function(vec) {
     return(interaction %in% vec)
   })
   
   interacting_pair = strsplit(interaction,split = "~")[[1]][1]
   interacting_cells = strsplit(interaction,split = "~")[[1]][2]
-  all_common_pvals[interacting_pair, interacting_cells] <- 10^-max(which(result_indices))
+  all_common_pvals[interacting_pair, interacting_cells] <- 10^-max(which(result_indices)) # set pval as 10^-n_patients significant
 }
 
 
-all_common_pvals$id_cp_interaction = rownames(all_common_pvals)
+all_common_pvals$id_cp_interaction = rownames(all_common_pvals) #add interaction id column
 
-average_means = matrix(0, nrow = length(all_common_pairs), ncol = length(all_common_cols),
-                          dimnames = list(all_common_pairs, all_common_cols)) %>% as.data.frame()
-
+#4. Build means table
+# create final common means table, with 0 as default value
+average_means = matrix(0, nrow = length(all_common_genes_pairs), ncol = length(all_common_cells_pairs),
+                          dimnames = list(all_common_genes_pairs, all_common_cells_pairs)) %>% as.data.frame()
+#for each interaction found significant in at least min_patients, set the mean as average of *all* patients means
 for (interaction in SplitCoords) {
   all_means_for_interaction = c()
   for (means_df in all_means) {
@@ -146,15 +166,15 @@ average_means$id_cp_interaction = rownames(average_means)
 ```
 
 
-
-
-
 ```{r}
+# 5. Merge with metadata cols from one of the patients (here the first one)
 average_means = right_join(all_means[[1]][,1:11],average_means,by = "id_cp_interaction") %>% as.data.frame()
 all_common_pvals = right_join(all_means[[1]][,1:11],all_common_pvals,by = "id_cp_interaction") %>% as.data.frame()
 
 ```
 
+
+## Plot
 ```{r fig.height=10, fig.width=10}
 p = my_plot_cpdb(cell_type1 = 'CD|Treg|gdT', cell_type2 = 'Luminal pri|Myo pri', scdata = acc_cancer_Tcells_caf,
                       idents = 'cell_type', means = average_means, pvals = all_common_pvals,
@@ -163,12 +183,25 @@ p = my_plot_cpdb(cell_type1 = 'CD|Treg|gdT', cell_type2 = 'Luminal pri|Myo pri',
   labs(color = "Significant in patients")
 p
 ```
+
+```{r}
+names(p$data)
+raw_Data = p$data[,c("Var1","Var2","means","pvals","direction")] %>% na.omit()
+raw_Data$pvals = -log10(raw_Data$pvals)  
+colnames(raw_Data) = c("lr_pair","cell_types","means","common_in_patients","direction")
+fwrite(raw_Data,file = params$data_out_dir %s+% "Common_cancer_Tcells_interactions_in_patients.csv",sep = ",",
+       row.names = F, quote = FALSE)
+```
+
+
 ```{r}
 pdf(file = params$data_out_dir %s+% "Common cancer-Tcells interactions in patients.pdf",width = 12,height = 10)
 p
 dev.off()
 
 ```
+
+
 ```{r fig.height=13, fig.width=20}
 p = my_plot_cpdb(cell_type1 = 'CD|Treg|gdT', cell_type2 = 'CAF', scdata = acc_cancer_Tcells_caf,caf = T,
                       idents = 'cell_type', means = average_means, pvals = all_common_pvals,
@@ -177,4 +210,162 @@ p = my_plot_cpdb(cell_type1 = 'CD|Treg|gdT', cell_type2 = 'CAF', scdata = acc_ca
   labs(color = "Significant in patients")
 p
 ```
+```{r}
+names(p$data)
+raw_Data = p$data[,c("Var1","Var2","means","pvals","direction")] %>% na.omit()
+raw_Data$pvals = -log10(raw_Data$pvals)  
+colnames(raw_Data) = c("lr_pair","cell_types","means","common_in_patients","direction")
+fwrite(raw_Data,file = params$data_out_dir %s+% "Common_CAF-Tcells_interactions_in_patients.csv",sep = ",",
+       row.names = F, quote = FALSE)
+```
 
+```{r}
+pdf(file = params$data_out_dir %s+% "Common CAF-Tcells interactions in patients.pdf",width = 20,height = 13)
+p
+dev.off()
+
+```
+
+# Analysis- cancer cells with all immune cells
+
+## Read all patients results and find common significant interactions
+```{r}
+all_pvals = list()
+all_means = list()
+patients = acc_cancer_immune_caf %>% subset(subset = cell_identity == "immune") %>% FetchData("patient.ident") %>% pull(patient.ident) %>% unique()
+for (patient in patients) {
+  pvals = dirname(input$run_cpdb_per_patient_report) %s+% "/cpdb_out_immune/statistical_analysis_pvalues_" %s+% patient %s+% ".txt"
+  means = dirname(input$run_cpdb_per_patient_report) %s+% "/cpdb_out_immune/statistical_analysis_means_" %s+% patient %s+% ".txt"
+  all_pvals[[patient]] = fread(pvals)
+  all_means[[patient]] = fread(means) %>% as.data.frame()
+}
+```
+
+## Build means and pvals tables 
+```{r}
+
+# 1.Get significant interactions per patient
+all_cols_list = list()
+all_rows_list = list()
+all_significant_interactions =list()
+for (patient in names(all_pvals)) {
+  just_pvals = all_pvals[[patient]][,12:ncol(all_pvals[[patient]])] %>% as.matrix() #get only pvals removing metadata cols
+  rownames(just_pvals) = all_pvals[[patient]]$id_cp_interaction #set row names
+  colnames(just_pvals) = colnames(all_pvals[[patient]][,12:ncol(all_pvals[[patient]])]) #set col names
+  
+  
+  results = just_pvals < p_value_threshold #get logical matrix of significant results with same dim as pvals
+  significant_indexes = which(results,arr.ind = TRUE) %>% as.data.frame() # get indexes of significant results as df - row,col, row_names= id
+  
+    # create vector of "interaction~celltype" for significant results:
+  all_significant_interactions[[patient]] = paste(rownames(results)[significant_indexes$row],
+                                                  colnames(results)[significant_indexes$col],sep = "~") 
+
+
+}
+
+# 2.Find common interactions in at least min_patients
+all_significant_interactions_accum = Reduce(intersect, all_significant_interactions,accumulate = T) # get cumulative intersect
+all_significant_interactions_min_patients = all_significant_interactions_accum[[min_patients_all_immune]] # get interactions common to at least min_patients
+
+# 3. Build common pvals and means tables
+SplitCoords <- strsplit(all_significant_interactions_min_patients, split = "~") 
+all_common_cells_pairs = unique(sapply(SplitCoords, `[`, 2))
+all_common_genes_pairs = unique(sapply(SplitCoords, `[`, 1))
+
+# create final common pvals table, with 1 (non significant) as default value
+all_common_pvals = matrix(1, nrow = length(all_common_genes_pairs), ncol = length(all_common_cells_pairs),
+                          dimnames = list(all_common_genes_pairs, all_common_cells_pairs)) %>% as.data.frame()
+
+#for each interaction found significant in at least min_patients, set the pval as 10^-n_patients significant
+for (interaction in all_significant_interactions_min_patients) {
+  # find in which patients this interaction is significant
+  result_indices <- sapply(all_significant_interactions_accum, function(vec) {
+    return(interaction %in% vec)
+  })
+  
+  interacting_pair = strsplit(interaction,split = "~")[[1]][1]
+  interacting_cells = strsplit(interaction,split = "~")[[1]][2]
+  all_common_pvals[interacting_pair, interacting_cells] <- 10^-max(which(result_indices)) # set pval as 10^-n_patients significant
+}
+
+
+all_common_pvals$id_cp_interaction = rownames(all_common_pvals) #add interaction id column
+
+#4. Build means table
+# create final common means table, with 0 as default value
+average_means = matrix(0, nrow = length(all_common_genes_pairs), ncol = length(all_common_cells_pairs),
+                          dimnames = list(all_common_genes_pairs, all_common_cells_pairs)) %>% as.data.frame()
+#for each interaction found significant in at least min_patients, set the mean as average of *all* patients means
+for (interaction in SplitCoords) {
+  all_means_for_interaction = c()
+  for (means_df in all_means) {
+    all_means_for_interaction = c(all_means_for_interaction,means_df[means_df$id_cp_interaction ==interaction[1],interaction[2]])
+  }
+  
+  average_means[interaction[1],interaction[2]] <- mean(all_means_for_interaction)
+  
+}
+
+average_means$id_cp_interaction = rownames(average_means)
+
+
+```
+
+
+```{r}
+# 5. Merge with metadata cols from one of the patients (here the first one)
+average_means = right_join(all_means[[1]][,1:11],average_means,by = "id_cp_interaction") %>% as.data.frame()
+all_common_pvals = right_join(all_means[[1]][,1:11],all_common_pvals,by = "id_cp_interaction") %>% as.data.frame()
+
+```
+
+
+## Plot
+```{r fig.height=10, fig.width=8}
+p = my_plot_cpdb(cell_type1 = 'Macrophages|Basophils|Dendritic|Neutrophils|Naive B|Plasma B|T_cell', cell_type2 = 'Luminal pri|Myo pri', scdata = acc_cancer_immune_caf,
+                      idents = 'cell_type', means = average_means, pvals = all_common_pvals,
+                      gene.family = NULL,return_table = F,max_size = 3,p.adjust.method = NULL,
+                      keep_significant_only = T,cluster_rows = T,scale = F,highlight = c("green","red"),highlight_size = 2)+
+  labs(color = "Significant in patients")
+p
+```
+```{r}
+raw_Data = p$data[,c("Var1","Var2","means","pvals","direction")] %>% na.omit()
+raw_Data$pvals = -log10(raw_Data$pvals)  
+colnames(raw_Data) = c("lr_pair","cell_types","means","common_in_patients","direction")
+fwrite(raw_Data,file = params$data_out_dir %s+% "Common cancer-immune interactions in patients.csv",sep = ",",
+       row.names = F, quote = FALSE)
+```
+
+```{r}
+pdf(file = params$data_out_dir %s+% "Common cancer-immune interactions in patients.pdf",width = 8,height = 10)
+p
+dev.off()
+
+```
+
+
+```{r fig.height=14, fig.width=8}
+p = my_plot_cpdb(cell_type1 = 'Macrophages|Basophils|Dendritic|Neutrophils|Naive B|Plasma B|T_cell', cell_type2 = 'CAF', scdata = acc_cancer_immune_caf,caf = T,
+                      idents = 'cell_type', means = average_means, pvals = all_common_pvals,
+                      gene.family = NULL,return_table = F,max_size = 3,p.adjust.method = NULL,
+                      keep_significant_only = T,cluster_rows = T,scale = F,highlight = c("green","red"),highlight_size = 2)+
+  labs(color = "Significant in patients")
+p
+```
+
+```{r}
+raw_Data = p$data[,c("Var1","Var2","means","pvals","direction")] %>% na.omit()
+raw_Data$pvals = -log10(raw_Data$pvals)  
+colnames(raw_Data) = c("lr_pair","cell_types","means","common_in_patients","direction")
+fwrite(raw_Data,file = params$data_out_dir %s+% "Common CAF-immune interactions in patients.csv",sep = ",",
+       row.names = F, quote = FALSE)
+```
+
+```{r}
+pdf(file = params$data_out_dir %s+% "Common CAF-immune interactions in patients.pdf",width = 8,height = 14)
+p
+dev.off()
+
+```

@@ -1,4 +1,4 @@
-─ Session info ───────────────────────────────────────────────────────────────
+─ Session info ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
  setting  value
  version  R version 4.3.3 (2024-02-29)
  os       CS HUJI Debian GNU/Linux 12 (bookworm) 5786
@@ -8,11 +8,11 @@
  collate  en_IL.UTF-8
  ctype    en_IL.UTF-8
  tz       Asia/Jerusalem
- date     2025-12-11
- pandoc   3.6.3 @ /sci/labs/yotamd/lab_share/avishai.wizel/python_envs/miniconda/envs/erna_r/bin/ (via rmarkdown)
+ date     2026-01-05
+ pandoc   2.19.2 @ /sci/labs/yotamd/lab_share/avishai.wizel/python_envs/miniconda/envs/ACC_CD45/bin/ (via rmarkdown)
  quarto   NA
 
-─ Packages ───────────────────────────────────────────────────────────────────
+─ Packages ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
  package     * version date (UTC) lib source
  bslib         0.9.0   2025-01-30 [1] CRAN (R 4.3.3)
  cachem        1.1.0   2024-05-16 [1] CRAN (R 4.3.3)
@@ -64,10 +64,9 @@
  yaml          2.3.10  2024-07-26 [1] CRAN (R 4.3.3)
 
  [1] /sci/labs/yotamd/lab_share/avishai.wizel/python_envs/miniconda/envs/ACC_CD45/lib/R/library
- [2] /sci/labs/yotamd/lab_share/avishai.wizel/python_envs/miniconda/envs/erna_r/lib/R/library
  * ── Packages attached to the search path.
 
-─ Python configuration ───────────────────────────────────────────────────────
+─ Python configuration ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
  python:         /sci/labs/yotamd/lab_share/avishai.wizel/python_envs/miniconda/envs/cpdb/bin/python
  libpython:      /sci/labs/yotamd/lab_share/avishai.wizel/python_envs/miniconda/envs/cpdb/lib/libpython3.8.so
  pythonhome:     /sci/labs/yotamd/lab_share/avishai.wizel/python_envs/miniconda/envs/cpdb:/sci/labs/yotamd/lab_share/avishai.wizel/python_envs/miniconda/envs/cpdb
@@ -77,4 +76,4 @@
  
  NOTE: Python version was forced by use_python() function
 
-──────────────────────────────────────────────────────────────────────────────
+─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────

@@ -41,13 +41,36 @@ library(readxl)
 acc_cancer_cells = readRDS(input$cancer)
 acc_caf_cells =  readRDS(input$caf)
 t_cells_labled =  readRDS(input$t_cells_labled)
+immune_with_cell_types = readRDS(input$immune_with_cell_types)
+```
+
+```{r}
+all_immune_meta = FetchData(immune_with_cell_types, vars = c("immune_type"))%>%
+  mutate(immune_type = if_else(   #convert some T cell types to general T_cell label
+
+  condition = immune_type %in% c("CD8+ NKT-like", "Naive CD4+ T", "Effector CD8+ T"),
+  true = "T_cell",
+  false = immune_type
+))
+
+immune_with_cell_types = AddMetaData(object = immune_with_cell_types,metadata = all_immune_meta[,"immune_type",drop=F],col.name = "immune_type")
+```
+
+```{r fig.height=6, fig.width=8}
+DimPlot(immune_with_cell_types, reduction = "umap", group.by = "immune_type",pt.size = 1,label = T,repel  = T)
 ```
 
 
+# Add CAF signatures
+
 ```{r}
+
+
 caf_signatures = read_excel(path = input$caf_signatures,sheet = 3,skip = 1) 
 caf_signatures = lapply(caf_signatures, na.omit)
 names(caf_signatures) = names(caf_signatures) %>% gsub(pattern = "-",replacement = ".")
+
+#calculate CAF scores mean expression of signature genes
 for (signature_name in names(caf_signatures)) {
   signature_genes = caf_signatures[[signature_name]]
   signature_genes = signature_genes[signature_genes %in% rownames(acc_caf_cells)]
@@ -57,6 +80,7 @@ for (signature_name in names(caf_signatures)) {
 
 data = FetchData(acc_caf_cells,vars = names(caf_signatures))
 
+#get max signature per cell
 data$Max_signature <- apply(
   data, 
   MARGIN = 1, 
@@ -65,13 +89,13 @@ data$Max_signature <- apply(
     return(names(x)[max_index]) 
   }
 )
-
+#add to metadata
 acc_caf_cells = AddMetaData(object =acc_caf_cells,metadata = data[,"Max_signature",drop=F],col.name = "cell_identity")
 
 ```
 
+# write data for cellphoneDB per patient - T cells subtypes
 ```{r}
-
 patients_with_t_cells = unique(t_cells_labled$patient.ident)
 for (patient_name in patients_with_t_cells) {
   print(patient_name)
@@ -100,25 +124,93 @@ for (patient_name in patients_with_t_cells) {
   
   
   #write
-  dir.create(params$data_out_dir,showWarnings = F)
-  cells_identity_path = paste0(params$data_out_dir,"/cells_identity_",patient_name,".tsv")
-  cells_environment_path = paste0(params$data_out_dir,"/cells_environment_",patient_name,".tsv")
-  cells_counts_path = paste0(params$data_out_dir,"/cells_counts_",patient_name,".txt")
-  cells_seurat_path = paste0(params$data_out_dir,"/cells_seurat_",patient_name,".RDS")
-  
+  dir.create(paste0(params$data_out_dir,"/T_subtypes/"),showWarnings = F)
+  cells_identity_path = paste0(params$data_out_dir,"/T_subtypes/cells_identity_",patient_name,".tsv")
+  cells_environment_path = paste0(params$data_out_dir,"/T_subtypes/cells_environment_",patient_name,".tsv")
+  cells_counts_path = paste0(params$data_out_dir,"/T_subtypes/cells_counts_",patient_name,".txt")
+
   write.table(x = all_identity,file = cells_identity_path,row.names =F,sep = "\t")
   write.table(x = all_environment,file = cells_environment_path,row.names =F,sep = "\t")
   fwrite(as.data.frame(acc_cancer_Tcells_caf@assays[["RNA"]]@data), file = cells_counts_path,sep = "\t",row.names = T)
-  saveRDS(acc_cancer_Tcells_caf,file = cells_seurat_path)
-
 }
 ```
 
+# write data for cellphoneDB per patient - all immune cells
+```{r}
+patients = unique(immune_with_cell_types$patient.ident)
+for (patient_name in patients) {
+  print(patient_name)
+  patient_acc_data = subset(acc_cancer_cells,subset = patient.ident == patient_name)
+  patient_caf_data = subset(acc_caf_cells,subset = patient.ident == patient_name)
+  patient_immune_data = subset(immune_with_cell_types,subset = patient.ident == patient_name)
+  
+  #remove unclear lum-myo cells
+  patient_acc_data_no_mid = subset(patient_acc_data,subset = cell_identity != "mid")
+  
+  # merge cancer, immune and CAF
+  common_genes = rownames(patient_acc_data_no_mid) %>% intersect (rownames(patient_immune_data)) %>% intersect(rownames(patient_caf_data))
+  acc_cancer_and_cd45 = merge(patient_acc_data_no_mid[common_genes,],patient_immune_data[common_genes,])
+  overlapping_cells = colnames(patient_acc_data_no_mid) %>% intersect(colnames(patient_caf_data)) 
+  acc_cancer_immune_caf = merge(acc_cancer_and_cd45[common_genes,],patient_caf_data[common_genes,] )
+  
+  #metadata
+  metadata = FetchData(acc_cancer_immune_caf,vars = c("tissue","cell_identity","immune_type"))
+  metadata  = metadata %>%  mutate(cell_type = 
+                                     if_else(condition = cell_identity == "immune",
+                                             true = paste(immune_type,tissue),
+                                             false = paste(cell_identity, tissue)))
+  acc_cancer_immune_caf = AddMetaData(object = acc_cancer_immune_caf,metadata = metadata[,"cell_type",drop=F],col.name = "cell_type")
+  all_identity = data.frame(barcode_sample = rownames(metadata), cell_type = metadata$cell_type)
+  all_environment = data.frame(cell_type = metadata$cell_type, microenviroment = metadata$tissue)
+  
+  
+  #write
+  dir.create(paste0(params$data_out_dir,"/all_immune/"),showWarnings = F)
+  cells_identity_path = paste0(params$data_out_dir,"/all_immune/cells_identity_",patient_name,".tsv")
+  cells_environment_path = paste0(params$data_out_dir,"/all_immune/cells_environment_",patient_name,".tsv")
+  cells_counts_path = paste0(params$data_out_dir,"/all_immune/cells_counts_",patient_name,".txt")
 
+  write.table(x = all_identity,file = cells_identity_path,row.names =F,sep = "\t")
+  write.table(x = all_environment,file = cells_environment_path,row.names =F,sep = "\t")
+  fwrite(as.data.frame(acc_cancer_immune_caf@assays[["RNA"]]@data), file = cells_counts_path,sep = "\t",row.names = T)
+}
+```
+
+# create all patients data- all immune subtypes
+```{r}
+
+
+#remove unclear lum-myo cells
+acc_cancer_cells_no_mid = subset(acc_cancer_cells,subset = cell_identity != "mid")
+
+# merge cancer, immune and CAF
+common_genes = rownames(acc_cancer_cells_no_mid) %>% intersect (rownames(immune_with_cell_types)) %>% intersect(rownames(acc_caf_cells))
+acc_cancer_and_cd45 = merge(acc_cancer_cells_no_mid[common_genes,],immune_with_cell_types[common_genes,])
+overlapping_cells = colnames(acc_cancer_cells_no_mid) %>% intersect(colnames(acc_caf_cells)) 
+acc_cancer_immune_caf = merge(acc_cancer_and_cd45[common_genes,],acc_caf_cells[common_genes,] )
+```
 
 ```{r}
-#create all patients data
+metadata = FetchData(acc_cancer_immune_caf,vars = c("tissue","cell_identity","immune_type"))
 
+metadata  = metadata %>%  mutate(cell_type =
+                                   if_else(
+                                     condition = cell_identity == "immune",
+                                     true = paste(immune_type, tissue),
+                                     false = paste(cell_identity, tissue)))
+
+
+acc_cancer_immune_caf = AddMetaData(object = acc_cancer_immune_caf,metadata = metadata[,"cell_type",drop=F],col.name = "cell_type")
+
+```
+
+```{r}
+saveRDS(acc_cancer_immune_caf,file = paste0(params$data_out_dir, basename(output$acc_cancer_immune_caf)))
+```
+
+# create all patients data- T cell subtypes
+
+```{r}
 
 #remove unclear lum-myo cells
 acc_cancer_cells_no_mid = subset(acc_cancer_cells,subset = cell_identity != "mid")

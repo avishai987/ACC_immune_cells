@@ -2839,7 +2839,7 @@ border-radius: 0px;
 
 <h1 class="title toc-ignore">Create data</h1>
 <h4 class="author">Avishai Wizel</h4>
-<h4 class="date">2025-12-11 17:24:15.040115</h4>
+<h4 class="date">2026-01-05 12:52:40.406681</h4>
 
 </div>
 
@@ -2857,12 +2857,12 @@ library(Seurat)</code></pre>
 ## for R may have changed</code></pre>
 <pre class="r"><code>library(ggplot2)
 library(tidyverse)</code></pre>
-<pre><code>## ── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
+<pre><code>## ── Attaching core tidyverse packages ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── tidyverse 2.0.0 ──
 ## ✔ dplyr     1.1.4     ✔ readr     2.1.5
 ## ✔ forcats   1.0.0     ✔ stringr   1.5.2
 ## ✔ lubridate 1.9.4     ✔ tibble    3.3.0
 ## ✔ purrr     1.1.0     ✔ tidyr     1.3.1</code></pre>
-<pre><code>## ── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
+<pre><code>## ── Conflicts ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── tidyverse_conflicts() ──
 ## ✖ tidyr::extract()   masks magrittr::extract()
 ## ✖ dplyr::filter()    masks stats::filter()
 ## ✖ dplyr::lag()       masks stats::lag()
@@ -2908,10 +2908,24 @@ library(data.table)</code></pre>
 <pre class="r"><code>library(readxl)</code></pre>
 <pre class="r"><code>acc_cancer_cells = readRDS(input$cancer)
 acc_caf_cells =  readRDS(input$caf)
-t_cells_labled =  readRDS(input$t_cells_labled)</code></pre>
+t_cells_labled =  readRDS(input$t_cells_labled)
+immune_with_cell_types = readRDS(input$immune_with_cell_types)</code></pre>
+<pre class="r"><code>all_immune_meta = FetchData(immune_with_cell_types, vars = c(&quot;immune_type&quot;))%&gt;%
+  mutate(immune_type = if_else(   #convert some T cell types to general T_cell label
+
+  condition = immune_type %in% c(&quot;CD8+ NKT-like&quot;, &quot;Naive CD4+ T&quot;, &quot;Effector CD8+ T&quot;),
+  true = &quot;T_cell&quot;,
+  false = immune_type
+))
+
+immune_with_cell_types = AddMetaData(object = immune_with_cell_types,metadata = all_immune_meta[,&quot;immune_type&quot;,drop=F],col.name = &quot;immune_type&quot;)</code></pre>
+<div id="add-caf-signatures" class="section level1" number="1">
+<h1><span class="header-section-number">1</span> Add CAF signatures</h1>
 <pre class="r"><code>caf_signatures = read_excel(path = input$caf_signatures,sheet = 3,skip = 1) 
 caf_signatures = lapply(caf_signatures, na.omit)
 names(caf_signatures) = names(caf_signatures) %&gt;% gsub(pattern = &quot;-&quot;,replacement = &quot;.&quot;)
+
+#calculate CAF scores mean expression of signature genes
 for (signature_name in names(caf_signatures)) {
   signature_genes = caf_signatures[[signature_name]]
   signature_genes = signature_genes[signature_genes %in% rownames(acc_caf_cells)]
@@ -2921,6 +2935,7 @@ for (signature_name in names(caf_signatures)) {
 
 data = FetchData(acc_caf_cells,vars = names(caf_signatures))
 
+#get max signature per cell
 data$Max_signature &lt;- apply(
   data, 
   MARGIN = 1, 
@@ -2929,8 +2944,12 @@ data$Max_signature &lt;- apply(
     return(names(x)[max_index]) 
   }
 )
-
+#add to metadata
 acc_caf_cells = AddMetaData(object =acc_caf_cells,metadata = data[,&quot;Max_signature&quot;,drop=F],col.name = &quot;cell_identity&quot;)</code></pre>
+</div>
+<div id="write-data-for-cellphonedb-per-patient---t-cells-subtypes" class="section level1" number="2">
+<h1><span class="header-section-number">2</span> write data for
+cellphoneDB per patient - T cells subtypes</h1>
 <pre class="r"><code>patients_with_t_cells = unique(t_cells_labled$patient.ident)
 for (patient_name in patients_with_t_cells) {
   print(patient_name)
@@ -2959,34 +2978,109 @@ for (patient_name in patients_with_t_cells) {
   
   
   #write
-  dir.create(dirname(output$report))
-  cells_identity_path = paste0(dirname(output$report),&quot;/cells_identity_&quot;,patient_name,&quot;.tsv&quot;)
-  cells_environment_path = paste0(dirname(output$report),&quot;/cells_environment_&quot;,patient_name,&quot;.tsv&quot;)
-  cells_counts_path = paste0(dirname(output$report),&quot;/cells_counts_&quot;,patient_name,&quot;.txt&quot;)
-  cells_seurat_path = paste0(dirname(output$report),&quot;/cells_seurat_&quot;,patient_name,&quot;.RDS&quot;)
-  
+  dir.create(paste0(params$data_out_dir,&quot;/T_subtypes/&quot;),showWarnings = F)
+  cells_identity_path = paste0(params$data_out_dir,&quot;/T_subtypes/cells_identity_&quot;,patient_name,&quot;.tsv&quot;)
+  cells_environment_path = paste0(params$data_out_dir,&quot;/T_subtypes/cells_environment_&quot;,patient_name,&quot;.tsv&quot;)
+  cells_counts_path = paste0(params$data_out_dir,&quot;/T_subtypes/cells_counts_&quot;,patient_name,&quot;.txt&quot;)
+
   write.table(x = all_identity,file = cells_identity_path,row.names =F,sep = &quot;\t&quot;)
   write.table(x = all_environment,file = cells_environment_path,row.names =F,sep = &quot;\t&quot;)
   fwrite(as.data.frame(acc_cancer_Tcells_caf@assays[[&quot;RNA&quot;]]@data), file = cells_counts_path,sep = &quot;\t&quot;,row.names = T)
-  saveRDS(acc_cancer_Tcells_caf,file = cells_seurat_path)
-
 }</code></pre>
-<pre><code>## [1] &quot;ACC22&quot;</code></pre>
-<pre><code>## Warning in dir.create(dirname(output$report)):
-## &#39;Reports/06_V2_cellphoneDB_per_patient/01_create_data_for_cellphoneDB&#39; already
-## exists</code></pre>
-<pre><code>## [1] &quot;ACC15&quot;</code></pre>
-<pre><code>## Warning in dir.create(dirname(output$report)):
-## &#39;Reports/06_V2_cellphoneDB_per_patient/01_create_data_for_cellphoneDB&#39; already
-## exists</code></pre>
-<pre><code>## [1] &quot;ACC7&quot;</code></pre>
-<pre><code>## Warning in dir.create(dirname(output$report)):
-## &#39;Reports/06_V2_cellphoneDB_per_patient/01_create_data_for_cellphoneDB&#39; already
-## exists</code></pre>
-<pre><code>## [1] &quot;ACC5&quot;</code></pre>
-<pre><code>## Warning in dir.create(dirname(output$report)):
-## &#39;Reports/06_V2_cellphoneDB_per_patient/01_create_data_for_cellphoneDB&#39; already
-## exists</code></pre>
+<pre><code>## [1] &quot;ACC22&quot;
+## [1] &quot;ACC15&quot;
+## [1] &quot;ACC7&quot;
+## [1] &quot;ACC5&quot;</code></pre>
+</div>
+<div id="write-data-for-cellphonedb-per-patient---all-immune-cells" class="section level1" number="3">
+<h1><span class="header-section-number">3</span> write data for
+cellphoneDB per patient - all immune cells</h1>
+<pre class="r"><code>patients = unique(immune_with_cell_types$patient.ident)
+for (patient_name in patients) {
+  print(patient_name)
+  patient_acc_data = subset(acc_cancer_cells,subset = patient.ident == patient_name)
+  patient_caf_data = subset(acc_caf_cells,subset = patient.ident == patient_name)
+  patient_immune_data = subset(immune_with_cell_types,subset = patient.ident == patient_name)
+  
+  #remove unclear lum-myo cells
+  patient_acc_data_no_mid = subset(patient_acc_data,subset = cell_identity != &quot;mid&quot;)
+  
+  # merge cancer, immune and CAF
+  common_genes = rownames(patient_acc_data_no_mid) %&gt;% intersect (rownames(patient_immune_data)) %&gt;% intersect(rownames(patient_caf_data))
+  acc_cancer_and_cd45 = merge(patient_acc_data_no_mid[common_genes,],patient_immune_data[common_genes,])
+  overlapping_cells = colnames(patient_acc_data_no_mid) %&gt;% intersect(colnames(patient_caf_data)) 
+  acc_cancer_immune_caf = merge(acc_cancer_and_cd45[common_genes,],patient_caf_data[common_genes,] )
+  
+  #metadata
+  metadata = FetchData(acc_cancer_immune_caf,vars = c(&quot;tissue&quot;,&quot;cell_identity&quot;,&quot;immune_type&quot;))
+  metadata  = metadata %&gt;%  mutate(cell_type = 
+                                     if_else(condition = cell_identity == &quot;immune&quot;,
+                                             true = paste(immune_type,tissue),
+                                             false = paste(cell_identity, tissue)))
+  acc_cancer_immune_caf = AddMetaData(object = acc_cancer_immune_caf,metadata = metadata[,&quot;cell_type&quot;,drop=F],col.name = &quot;cell_type&quot;)
+  all_identity = data.frame(barcode_sample = rownames(metadata), cell_type = metadata$cell_type)
+  all_environment = data.frame(cell_type = metadata$cell_type, microenviroment = metadata$tissue)
+  
+  
+  #write
+  dir.create(paste0(params$data_out_dir,&quot;/all_immune/&quot;),showWarnings = F)
+  cells_identity_path = paste0(params$data_out_dir,&quot;/all_immune/cells_identity_&quot;,patient_name,&quot;.tsv&quot;)
+  cells_environment_path = paste0(params$data_out_dir,&quot;/all_immune/cells_environment_&quot;,patient_name,&quot;.tsv&quot;)
+  cells_counts_path = paste0(params$data_out_dir,&quot;/all_immune/cells_counts_&quot;,patient_name,&quot;.txt&quot;)
+
+  write.table(x = all_identity,file = cells_identity_path,row.names =F,sep = &quot;\t&quot;)
+  write.table(x = all_environment,file = cells_environment_path,row.names =F,sep = &quot;\t&quot;)
+  fwrite(as.data.frame(acc_cancer_immune_caf@assays[[&quot;RNA&quot;]]@data), file = cells_counts_path,sep = &quot;\t&quot;,row.names = T)
+}</code></pre>
+<pre><code>## [1] &quot;ACC22&quot;
+## [1] &quot;ACC15&quot;
+## [1] &quot;ACC7&quot;
+## [1] &quot;ACC2&quot;
+## [1] &quot;ACC5&quot;
+## [1] &quot;ACC19&quot;</code></pre>
+</div>
+<div id="create-all-patients-data--all-immune-subtypes" class="section level1" number="4">
+<h1><span class="header-section-number">4</span> create all patients
+data- all immune subtypes</h1>
+<pre class="r"><code>#remove unclear lum-myo cells
+acc_cancer_cells_no_mid = subset(acc_cancer_cells,subset = cell_identity != &quot;mid&quot;)
+
+# merge cancer, immune and CAF
+common_genes = rownames(acc_cancer_cells_no_mid) %&gt;% intersect (rownames(immune_with_cell_types)) %&gt;% intersect(rownames(acc_caf_cells))
+acc_cancer_and_cd45 = merge(acc_cancer_cells_no_mid[common_genes,],immune_with_cell_types[common_genes,])
+overlapping_cells = colnames(acc_cancer_cells_no_mid) %&gt;% intersect(colnames(acc_caf_cells)) 
+acc_cancer_immune_caf = merge(acc_cancer_and_cd45[common_genes,],acc_caf_cells[common_genes,] )</code></pre>
+<pre class="r"><code>metadata = FetchData(acc_cancer_immune_caf,vars = c(&quot;tissue&quot;,&quot;cell_identity&quot;,&quot;immune_type&quot;))
+
+metadata  = metadata %&gt;%  mutate(cell_type =
+                                   if_else(
+                                     condition = cell_identity == &quot;immune&quot;,
+                                     true = paste(immune_type, tissue),
+                                     false = paste(cell_identity, tissue)))
+
+
+acc_cancer_immune_caf = AddMetaData(object = acc_cancer_immune_caf,metadata = metadata[,&quot;cell_type&quot;,drop=F],col.name = &quot;cell_type&quot;)</code></pre>
+<pre class="r"><code>saveRDS(acc_cancer_immune_caf,file = paste0(params$data_out_dir, basename(output$acc_cancer_immune_caf)))</code></pre>
+</div>
+<div id="create-all-patients-data--t-cell-subtypes" class="section level1" number="5">
+<h1><span class="header-section-number">5</span> create all patients
+data- T cell subtypes</h1>
+<pre class="r"><code>#remove unclear lum-myo cells
+acc_cancer_cells_no_mid = subset(acc_cancer_cells,subset = cell_identity != &quot;mid&quot;)
+
+# merge cancer, immune and CAF
+common_genes = rownames(acc_cancer_cells_no_mid) %&gt;% intersect (rownames(t_cells_labled)) %&gt;% intersect(rownames(acc_caf_cells))
+acc_cancer_and_cd45 = merge(acc_cancer_cells_no_mid[common_genes,],t_cells_labled[common_genes,])
+overlapping_cells = colnames(acc_cancer_cells_no_mid) %&gt;% intersect(colnames(acc_caf_cells)) 
+acc_cancer_Tcells_caf = merge(acc_cancer_and_cd45[common_genes,],acc_caf_cells[common_genes,] )</code></pre>
+<pre class="r"><code>metadata = FetchData(acc_cancer_Tcells_caf,vars = c(&quot;tissue&quot;,&quot;cell_identity&quot;,&quot;t_cell_label&quot;))
+metadata  = metadata %&gt;%  mutate(cell_type = 
+                                   if_else(condition = cell_identity == &quot;immune&quot;,
+                                           true = paste(t_cell_label,tissue),
+                                           false = paste(cell_identity, tissue)))
+acc_cancer_Tcells_caf = AddMetaData(object = acc_cancer_Tcells_caf,metadata = metadata[,&quot;cell_type&quot;,drop=F],col.name = &quot;cell_type&quot;)</code></pre>
+<pre class="r"><code>saveRDS(acc_cancer_Tcells_caf,file = paste0(params$data_out_dir, basename(output$acc_cancer_Tcells_caf)))</code></pre>
+</div>
 
 
 

@@ -53,24 +53,16 @@ data_dir = r.script_params["cpdb_target_dir"] + cpdb_version
 db_utils.download_database(data_dir,cpdb_version=cpdb_version)
 ```
 
-```{python}
-acc_patients_with_tcells = ["ACC22", "ACC15", "ACC7",  "ACC5"]
-for variable in acc_patients_with_tcells:
-  print(variable)
 
-```
 
+# Run CellPhoneDB per patient - all immune cells
 ```{python}
-# r.input["cells_identity"]
-# r.input["counts"]
-# r.input["cells_identity"]
-# r.input["cells_environment"]
-# r.script_params["cpbd_output_dir"]
-acc_patients_with_tcells = ["ACC22", "ACC15", "ACC7",  "ACC5" ]
-for patient in acc_patients_with_tcells:
-  cells_counts_path = os.path.dirname(r.input["create_data_report"]) + "/cells_counts_" + patient + ".txt" 
-  cells_identity_path = os.path.dirname(r.input["create_data_report"]) + "/cells_identity_" + patient + ".tsv" 
-  cell_environment_path = os.path.dirname(r.input["create_data_report"]) + "/cells_environment_" + patient + ".tsv" 
+acc_patients = ["ACC22", "ACC15", "ACC7",  "ACC5" ,"ACC2","ACC19"]
+for patient in acc_patients:
+  print(patient)
+  cells_counts_path = os.path.dirname(r.input["create_data_report"]) + "/all_immune/cells_counts_" + patient + ".txt" 
+  cells_identity_path = os.path.dirname(r.input["create_data_report"]) + "/all_immune/cells_identity_" + patient + ".tsv" 
+  cell_environment_path = os.path.dirname(r.input["create_data_report"]) + "/all_immune/cells_environment_" + patient + ".tsv" 
 
   from cellphonedb.src.core.methods import cpdb_statistical_analysis_method
   deconvoluted, means, pvalues, significant_means = cpdb_statistical_analysis_method.call(
@@ -79,7 +71,27 @@ for patient in acc_patients_with_tcells:
       counts_file_path = cells_counts_path,             # mandatory: normalized count matrix.
       counts_data = 'hgnc_symbol',                     # defines the gene annotation in counts matrix.
       microenvs_file_path = cell_environment_path,
-      output_path = r.script_params["cpbd_output_dir"], # Path to save results.
+      output_path = r.script_params["cpbd_all_immune_output_dir"], # Path to save results.
+      output_suffix = patient
+  )
+```   
+
+# Run CellPhoneDB per patient - T subtypes
+```{python}
+acc_patients_with_tcells = ["ACC22", "ACC15", "ACC7",  "ACC5" ]
+for patient in acc_patients_with_tcells:
+  cells_counts_path = os.path.dirname(r.input["create_data_report"]) + "/T_subtypes/cells_counts_" + patient + ".txt" 
+  cells_identity_path = os.path.dirname(r.input["create_data_report"]) + "/T_subtypes/cells_identity_" + patient + ".tsv" 
+  cell_environment_path = os.path.dirname(r.input["create_data_report"]) + "/T_subtypes/cells_environment_" + patient + ".tsv" 
+
+  from cellphonedb.src.core.methods import cpdb_statistical_analysis_method
+  deconvoluted, means, pvalues, significant_means = cpdb_statistical_analysis_method.call(
+      cpdb_file_path = data_dir + '/cellphonedb.zip',                 # mandatory: CellPhoneDB database zip file.
+      meta_file_path = cells_identity_path, # mandatory: tsv file defining barcodes to cell label.
+      counts_file_path = cells_counts_path,             # mandatory: normalized count matrix.
+      counts_data = 'hgnc_symbol',                     # defines the gene annotation in counts matrix.
+      microenvs_file_path = cell_environment_path,
+      output_path = r.script_params["cpbd_t_cells_output_dir"], # Path to save results.
       output_suffix = patient
   )
 ```   

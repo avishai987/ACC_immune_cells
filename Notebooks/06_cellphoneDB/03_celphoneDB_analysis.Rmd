@@ -157,7 +157,7 @@ my_plot_cpdb <- function(...,caf = F) {
       theme(axis.title.y = element_text(angle = 90,size = 20))
       
   }else{
-    pg$plot$data  %<>%  mutate(direction =if_else(condition = grepl(pattern = "-CAF",x = Var2),true = "immune->CAF",false = "CAF->immune")) 
+    pg$plot$data  %<>%  mutate(direction =if_else(condition = grepl(pattern = "-.*CAF",x = Var2),true = "immune->CAF",false = "CAF->immune")) 
       pg$plot+facet_grid(cols = vars(direction),scales = "free_x")+ylab("Interacting pair") +
       theme(axis.title.y = element_text(angle = 90,size = 20))
   }
@@ -166,7 +166,7 @@ my_plot_cpdb <- function(...,caf = F) {
 ```
 
 # Costimulatory interactions {.tabset}
-```{r fig.height=12, fig.width=20, results='asis'}
+```{r fig.height=12, fig.width=25, results='asis'}
 
 print_tab(plt = 
             my_plot_cpdb(cell_type1 = 'CD|Treg|gdT', cell_type2 = 'Luminal pri|Myo pri', scdata = acc_cancer_Tcells_caf,
@@ -185,7 +185,7 @@ print_tab(plt =
   ,title = "LN")
 
 print_tab(plt = 
-            my_plot_cpdb(cell_type1 = 'CD|Treg|gdT', cell_type2 = 'CAF', scdata = acc_cancer_Tcells_caf,
+            my_plot_cpdb(cell_type1 = 'CD._.. pri|Treg pri', cell_type2 = 'CAF', scdata = acc_cancer_Tcells_caf,
                       idents = 'cell_type', means = means, pvals = pvals,
                       gene.family = 'costimulatory',return_table = F,max_size = 3,p.adjust.method = "fdr",keep_significant_only = T,cluster_rows = F,caf = T)+
             ggtitle("Costimulatory CAF")
@@ -226,7 +226,7 @@ print_tab(my_plot_cpdb(cell_type1 = 'CD|Treg|gdT', cell_type2 = 'Luminal LN|Myo 
 
 
 print_tab(plt = 
-            my_plot_cpdb(cell_type1 = 'CD|Treg|gdT', cell_type2 = 'CAF', scdata = acc_cancer_Tcells_caf,
+            my_plot_cpdb(cell_type1 = 'CD._.. pri|Treg pri', cell_type2 = 'CAF', scdata = acc_cancer_Tcells_caf,
                       idents = 'cell_type', means = means, pvals = pvals,
                       gene.family = 'coinhibitory',return_table = F,max_size = 3,p.adjust.method = "fdr",keep_significant_only = T,cluster_rows = F,caf = T)+
             ggtitle("coinhibitory CAF")

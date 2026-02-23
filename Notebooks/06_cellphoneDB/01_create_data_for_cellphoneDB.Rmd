@@ -32,6 +32,9 @@ library(tidyverse)
 library(dplyr)
 library(data.table)
 library(ComplexHeatmap)
+library(readxl)
+
+
 ```
 
 
@@ -41,6 +44,31 @@ acc_caf_cells =  readRDS(input$caf)
 t_cells_labled =  readRDS(input$t_cells_labled)
 ```
 
+```{r}
+caf_signatures = read_excel(path = input$caf_signatures,sheet = 3,skip = 1) 
+caf_signatures = lapply(caf_signatures, na.omit)
+names(caf_signatures) = names(caf_signatures) %>% gsub(pattern = "-",replacement = ".")
+for (signature_name in names(caf_signatures)) {
+  signature_genes = caf_signatures[[signature_name]]
+  signature_genes = signature_genes[signature_genes %in% rownames(acc_caf_cells)]
+  caf_score = acc_caf_cells@assays$RNA@data[signature_genes,] %>% colMeans()
+  acc_caf_cells = AddMetaData(object =acc_caf_cells,metadata = caf_score,col.name = signature_name)
+}
+
+data = FetchData(acc_caf_cells,vars = names(caf_signatures))
+
+data$Max_signature <- apply(
+  data, 
+  MARGIN = 1, 
+  FUN = function(x) {
+    max_index <- which.max(x)
+    return(names(x)[max_index]) 
+  }
+)
+
+acc_caf_cells = AddMetaData(object =acc_caf_cells,metadata = data[,"Max_signature",drop=F],col.name = "cell_identity")
+
+```
 
 
 ```{r}

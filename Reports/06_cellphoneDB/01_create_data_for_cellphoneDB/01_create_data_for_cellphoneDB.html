@@ -2839,7 +2839,7 @@ border-radius: 0px;
 
 <h1 class="title toc-ignore">Create data</h1>
 <h4 class="author">Avishai Wizel</h4>
-<h4 class="date">2025-10-07 22:34:55.70662</h4>
+<h4 class="date">2025-12-11 17:32:16.225842</h4>
 
 </div>
 
@@ -2857,17 +2857,17 @@ library(Seurat)</code></pre>
 ## for R may have changed</code></pre>
 <pre class="r"><code>library(ggplot2)
 library(tidyverse)</code></pre>
-<pre><code>## -- Attaching core tidyverse packages ----------------------------------------------------------------------------------------- tidyverse 2.0.0 --
-## v dplyr     1.1.4     v readr     2.1.5
-## v forcats   1.0.0     v stringr   1.5.2
-## v lubridate 1.9.4     v tibble    3.3.0
-## v purrr     1.1.0     v tidyr     1.3.1</code></pre>
-<pre><code>## -- Conflicts ----------------------------------------------------------------------------------------------------------- tidyverse_conflicts() --
-## x tidyr::extract()   masks magrittr::extract()
-## x dplyr::filter()    masks stats::filter()
-## x dplyr::lag()       masks stats::lag()
-## x purrr::set_names() masks magrittr::set_names()
-## i Use the conflicted package (&lt;http://conflicted.r-lib.org/&gt;) to force all conflicts to become errors</code></pre>
+<pre><code>## ── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
+## ✔ dplyr     1.1.4     ✔ readr     2.1.5
+## ✔ forcats   1.0.0     ✔ stringr   1.5.2
+## ✔ lubridate 1.9.4     ✔ tibble    3.3.0
+## ✔ purrr     1.1.0     ✔ tidyr     1.3.1</code></pre>
+<pre><code>## ── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
+## ✖ tidyr::extract()   masks magrittr::extract()
+## ✖ dplyr::filter()    masks stats::filter()
+## ✖ dplyr::lag()       masks stats::lag()
+## ✖ purrr::set_names() masks magrittr::set_names()
+## ℹ Use the conflicted package (&lt;http://conflicted.r-lib.org/&gt;) to force all conflicts to become errors</code></pre>
 <pre class="r"><code>library(dplyr)
 library(data.table)</code></pre>
 <pre><code>## 
@@ -2905,9 +2905,32 @@ library(data.table)</code></pre>
 ## This message can be suppressed by:
 ##   suppressPackageStartupMessages(library(ComplexHeatmap))
 ## ========================================</code></pre>
+<pre class="r"><code>library(readxl)</code></pre>
 <pre class="r"><code>acc_cancer_cells = readRDS(input$cancer)
 acc_caf_cells =  readRDS(input$caf)
 t_cells_labled =  readRDS(input$t_cells_labled)</code></pre>
+<pre class="r"><code>caf_signatures = read_excel(path = input$caf_signatures,sheet = 3,skip = 1) 
+caf_signatures = lapply(caf_signatures, na.omit)
+names(caf_signatures) = names(caf_signatures) %&gt;% gsub(pattern = &quot;-&quot;,replacement = &quot;.&quot;)
+for (signature_name in names(caf_signatures)) {
+  signature_genes = caf_signatures[[signature_name]]
+  signature_genes = signature_genes[signature_genes %in% rownames(acc_caf_cells)]
+  caf_score = acc_caf_cells@assays$RNA@data[signature_genes,] %&gt;% colMeans()
+  acc_caf_cells = AddMetaData(object =acc_caf_cells,metadata = caf_score,col.name = signature_name)
+}
+
+data = FetchData(acc_caf_cells,vars = names(caf_signatures))
+
+data$Max_signature &lt;- apply(
+  data, 
+  MARGIN = 1, 
+  FUN = function(x) {
+    max_index &lt;- which.max(x)
+    return(names(x)[max_index]) 
+  }
+)
+
+acc_caf_cells = AddMetaData(object =acc_caf_cells,metadata = data[,&quot;Max_signature&quot;,drop=F],col.name = &quot;cell_identity&quot;)</code></pre>
 <pre class="r"><code>#remove unclear lum-myo cells
 acc_cancer_cells_no_mid = subset(acc_cancer_cells,subset = cell_identity != &quot;mid&quot;)
 

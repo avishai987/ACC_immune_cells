@@ -110,51 +110,52 @@ pipeline[["immune_markers_ACC"]] = list(
 
 ####################################### cellphoneDB ######################################################
 
-pipeline[["cpdb_create_data"]] = list(
-  input = list(
-    script = "./Notebooks/06_cellphoneDB/01_create_data_for_cellphoneDB.Rmd",
-    t_cells_labled = pipeline$Tcells_types$output$t_cells_labled,
-    cancer = pipeline$cell_types$output$cancer,
-    caf = pipeline$cell_types$output$caf
-  ),
-  output = list(
-    report = "Reports/06_cellphoneDB/01_create_data_for_cellphoneDB/01_create_data_for_cellphoneDB.html",
-    cells_identity = "Reports/06_cellphoneDB/01_create_data_for_cellphoneDB/cells_identity.tsv",
-    cells_environment = "Reports/06_cellphoneDB/01_create_data_for_cellphoneDB/cells_environment.tsv",
-    counts = "Reports/06_cellphoneDB/01_create_data_for_cellphoneDB/counts.txt",
-    acc_cancer_Tcells_caf = "Reports/06_cellphoneDB/01_create_data_for_cellphoneDB/acc_cancer_Tcells_caf.RDS"
-    )
-)
-
-pipeline[["run_cpdb"]] = list(
-  input = list(
-    script = "./Notebooks/06_cellphoneDB/02_run_cellphoneDB.Rmd",
-    cells_identity = pipeline$cpdb_create_data$output$cells_identity,
-    cells_environment =  pipeline$cpdb_create_data$output$cells_environment,
-    counts =  pipeline$cpdb_create_data$output$counts
-  ),
-  output = list(
-    report = "Reports/06_cellphoneDB/02_run_cellphoneDB/02_run_cellphoneDB.html"
-  ),
-  params = list(
-    cpdb_conda_env = "/sci/labs/yotamd/lab_share/avishai.wizel/python_envs/miniconda/envs/cpdb",
-    cpdb_target_dir = "Reports/06_cellphoneDB/02_run_cellphoneDB/cpdb_data/",
-    cpbd_output_dir = "Reports/06_cellphoneDB/02_run_cellphoneDB/cpdb_out/"
-  )
-)
-
-pipeline[["cpdb_analysis"]] = list(
-  input = list(
-    script = "./Notebooks/06_cellphoneDB/03_celphoneDB_analysis.Rmd",
-    pvals = pipeline$run_cpdb$params$cpbd_output_dir %s+% "statistical_analysis_pvalues_.txt",
-    means =   pipeline$run_cpdb$params$cpbd_output_dir %s+% "statistical_analysis_means_.txt",
-    acc_cancer_Tcells_caf = pipeline$cpdb_create_data$output$acc_cancer_Tcells_caf,
-    signif_deg = pipeline$immune_markers_ACC$output$signif_deg
-    ),
-  output = list(
-    report = "Reports/06_cellphoneDB/03_celphoneDB_analysis/03_celphoneDB_analysis.html"
-  )
-)
+# pipeline[["cpdb_create_data"]] = list(
+#   input = list(
+#     script = "./Notebooks/06_cellphoneDB/01_create_data_for_cellphoneDB.Rmd",
+#     t_cells_labled = pipeline$Tcells_types$output$t_cells_labled,
+#     cancer = pipeline$cell_types$output$cancer,
+#     caf = pipeline$cell_types$output$caf,
+#     caf_signatures = "./input_data/NIHMS1678398-supplement-2.xlsx"
+#   ),
+#   output = list(
+#     report = "Reports/06_cellphoneDB/01_create_data_for_cellphoneDB/01_create_data_for_cellphoneDB.html",
+#     cells_identity = "Reports/06_cellphoneDB/01_create_data_for_cellphoneDB/cells_identity.tsv",
+#     cells_environment = "Reports/06_cellphoneDB/01_create_data_for_cellphoneDB/cells_environment.tsv",
+#     counts = "Reports/06_cellphoneDB/01_create_data_for_cellphoneDB/counts.txt",
+#     acc_cancer_Tcells_caf = "Reports/06_cellphoneDB/01_create_data_for_cellphoneDB/acc_cancer_Tcells_caf.RDS"
+#     )
+# )
+# 
+# pipeline[["run_cpdb"]] = list(
+#   input = list(
+#     script = "./Notebooks/06_cellphoneDB/02_run_cellphoneDB.Rmd",
+#     cells_identity = pipeline$cpdb_create_data$output$cells_identity,
+#     cells_environment =  pipeline$cpdb_create_data$output$cells_environment,
+#     counts =  pipeline$cpdb_create_data$output$counts
+#   ),
+#   output = list(
+#     report = "Reports/06_cellphoneDB/02_run_cellphoneDB/02_run_cellphoneDB.html"
+#   ),
+#   params = list(
+#     cpdb_conda_env = "/sci/labs/yotamd/lab_share/avishai.wizel/python_envs/miniconda/envs/cpdb",
+#     cpdb_target_dir = "Reports/06_cellphoneDB/02_run_cellphoneDB/cpdb_data/",
+#     cpbd_output_dir = "Reports/06_cellphoneDB/02_run_cellphoneDB/cpdb_out/"
+#   )
+# )
+# 
+# pipeline[["cpdb_analysis"]] = list(
+#   input = list(
+#     script = "./Notebooks/06_cellphoneDB/03_celphoneDB_analysis.Rmd",
+#     pvals = pipeline$run_cpdb$params$cpbd_output_dir %s+% "statistical_analysis_pvalues_.txt",
+#     means =   pipeline$run_cpdb$params$cpbd_output_dir %s+% "statistical_analysis_means_.txt",
+#     acc_cancer_Tcells_caf = pipeline$cpdb_create_data$output$acc_cancer_Tcells_caf,
+#     signif_deg = pipeline$immune_markers_ACC$output$signif_deg
+#     ),
+#   output = list(
+#     report = "Reports/06_cellphoneDB/03_celphoneDB_analysis/03_celphoneDB_analysis.html"
+#   )
+# )
 
 ####################################### cellphoneDB per patient ######################################################
 
@@ -163,10 +164,14 @@ pipeline[["cpdb_create_data_per_patient"]] = list(
     script = "./Notebooks/06_V2_cellphoneDB_per_patient/01_create_data_for_cellphoneDB.Rmd",
     t_cells_labled = pipeline$Tcells_types$output$t_cells_labled,
     cancer = pipeline$cell_types$output$cancer,
-    caf = pipeline$cell_types$output$caf
+    caf = pipeline$cell_types$output$caf,
+    caf_signatures = "./input_data/NIHMS1678398-supplement-2.xlsx",
+    immune_with_cell_types = pipeline$immune_identity$output$immune_with_cell_types
   ),
   output = list(
-    report = "Reports/06_V2_cellphoneDB_per_patient/01_create_data_for_cellphoneDB/01_create_data_for_cellphoneDB.html"
+    report = "Reports/06_V2_cellphoneDB_per_patient/01_create_data_for_cellphoneDB/01_create_data_for_cellphoneDB.html",
+    acc_cancer_Tcells_caf = "Reports/06_V2_cellphoneDB_per_patient/01_create_data_for_cellphoneDB/acc_cancer_Tcells_caf.RDS",
+    acc_cancer_immune_caf = "Reports/06_V2_cellphoneDB_per_patient/01_create_data_for_cellphoneDB/acc_cancer_immune_caf.RDS"
   )
 )
 
@@ -180,8 +185,10 @@ pipeline[["run_cpdb_per_patient"]] = list(
   ),
   params = list(
     cpdb_conda_env = "/sci/labs/yotamd/lab_share/avishai.wizel/python_envs/miniconda/envs/cpdb",
-    cpdb_target_dir = "Reports/06_cellphoneDB/02_run_cellphoneDB/cpdb_data/",
-    cpbd_output_dir = "Reports/06_V2_cellphoneDB_per_patient/02_run_cellphoneDB/cpdb_out/"
+    cpdb_target_dir = "Reports/06_V2_cellphoneDB_per_patient/02_run_cellphoneDB/cpdb_data/",
+    cpbd_all_immune_output_dir = "Reports/06_V2_cellphoneDB_per_patient/02_run_cellphoneDB/cpdb_out_immune/",
+    cpbd_t_cells_output_dir = "Reports/06_V2_cellphoneDB_per_patient/02_run_cellphoneDB/cpdb_out_T_cells/"
+    
   )
 )
 
@@ -190,7 +197,8 @@ pipeline[["cpdb_analysis_per_patient"]] = list(
     script = "./Notebooks/06_V2_cellphoneDB_per_patient/03_celphoneDB_analysis.Rmd",
     create_data_report = pipeline$cpdb_create_data_per_patient$output$report,
     run_cpdb_per_patient_report = pipeline$run_cpdb_per_patient$output$report,
-    acc_cancer_Tcells_caf = pipeline$cpdb_create_data$output$acc_cancer_Tcells_caf
+    acc_cancer_Tcells_caf = pipeline$cpdb_create_data_per_patient$output$acc_cancer_Tcells_caf,
+    acc_cancer_immune_caf = pipeline$cpdb_create_data_per_patient$output$acc_cancer_immune_caf
 
   ),
   output = list(
@@ -245,7 +253,7 @@ pipeline[["sipsic_run"]] = list(
   input = list(
     script = "./Notebooks/09_sipsic_run.Rmd",
     acc_cancer_pri = pipeline$cell_types$output$acc_cancer_pri,
-    canonical_pathways = "./input_data/c2.cp.kegg_legacy.v2025.1.Hs.symbols.gmt"
+    canonical_pathways = "./input_data/h.all.v2025.1.Hs.symbols.gmt"
   ),
   output = list(
     report = "Reports/09_sipsic_run/09_sipsic_run.html",
@@ -279,7 +287,7 @@ for (i in 1:length(pipeline)) {
   mkfile = mkfile +   make_comment(c("============", names(pipeline)[[i]], "============")) + # comment
     make_rule(names(pipeline)[[i]], unlist(pipeline[[i]]$output), paste("@echo  $@ is up to date") ) #define rule output
   if(is.null(pipeline[[i]]$shell)){
-    mkfile = mkfile + make_rule(targets = unlist(pipeline[[i]]$output), deps = unlist(pipeline[[i]]$input), #run rscript, add & for grouped tagets
+    mkfile = mkfile + make_rule(targets = c(unlist(pipeline[[i]]$output),"&"), deps = unlist(pipeline[[i]]$input), #run rscript, add & for grouped tagets
                                 script =paste("Rscript render.R",
                                               names(pipeline)[[i]]
                                 ))

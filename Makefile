@@ -2,7 +2,7 @@
 
 .Phony: all
 
-all: pre_process cell_types immune_identity starCAT Tcells_types umap_clustering immune_markers_ACC cpdb_create_data run_cpdb cpdb_analysis create_data_for_CIBERSORT Dou_CIBERSORT_analysis
+all: pre_process cell_types immune_identity starCAT Tcells_types umap_clustering immune_markers_ACC cpdb_create_data_per_patient run_cpdb_per_patient cpdb_analysis_per_patient create_data_for_CIBERSORT Dou_CIBERSORT_analysis sipsic_run sipsic_analysis
 
 # ============
 # pre_process
@@ -11,7 +11,7 @@ all: pre_process cell_types immune_identity starCAT Tcells_types umap_clustering
 pre_process: ./Reports/01_pre-process/01_pre-process.html ./Reports/01_pre-process/acc_immune.RDS
 	@echo  $@ is up to date
 
-./Reports/01_pre-process/01_pre-process.html ./Reports/01_pre-process/acc_immune.RDS: ./Notebooks/01_pre-process.Rmd ./input_data/raw_counts/Feb24_1 ./input_data/raw_counts/Feb24_2 ./input_data/raw_counts/SN0276364 ./input_data/raw_counts/SN0276892 ./input_data/raw_counts/GSE210171_acc_scrnaseq_counts.txt
+./Reports/01_pre-process/01_pre-process.html ./Reports/01_pre-process/acc_immune.RDS &: ./Notebooks/01_pre-process.Rmd ./input_data/raw_counts/Feb24_1 ./input_data/raw_counts/Feb24_2 ./input_data/raw_counts/SN0276364 ./input_data/raw_counts/SN0276892 ./input_data/raw_counts/GSE210171_acc_scrnaseq_counts.txt
 	Rscript render.R pre_process
 
 # ============
@@ -21,7 +21,7 @@ pre_process: ./Reports/01_pre-process/01_pre-process.html ./Reports/01_pre-proce
 cell_types: ./Reports/02_cell_type_assignment/02_cell_type_assignment.html ./Reports/02_cell_type_assignment/immune.RDS ./Reports/02_cell_type_assignment/cancer.RDS ./Reports/02_cell_type_assignment/acc_cancer_pri.RDS ./Reports/02_cell_type_assignment/caf.RDS
 	@echo  $@ is up to date
 
-./Reports/02_cell_type_assignment/02_cell_type_assignment.html ./Reports/02_cell_type_assignment/immune.RDS ./Reports/02_cell_type_assignment/cancer.RDS ./Reports/02_cell_type_assignment/acc_cancer_pri.RDS ./Reports/02_cell_type_assignment/caf.RDS: ./Notebooks/02_cell_type_assignment.Rmd ./Reports/01_pre-process/acc_immune.RDS input_data/oncotarget-05-12528-s001_acchigh.txt
+./Reports/02_cell_type_assignment/02_cell_type_assignment.html ./Reports/02_cell_type_assignment/immune.RDS ./Reports/02_cell_type_assignment/cancer.RDS ./Reports/02_cell_type_assignment/acc_cancer_pri.RDS ./Reports/02_cell_type_assignment/caf.RDS &: ./Notebooks/02_cell_type_assignment.Rmd ./Reports/01_pre-process/acc_immune.RDS input_data/oncotarget-05-12528-s001_acchigh.txt
 	Rscript render.R cell_types
 
 # ============
@@ -31,7 +31,7 @@ cell_types: ./Reports/02_cell_type_assignment/02_cell_type_assignment.html ./Rep
 immune_identity: ./Reports/03_immune_cell_types/03_immune_cell_types.html ./Reports/03_immune_cell_types/immune_with_cell_types.RDS ./Reports/03_immune_cell_types/starCAT_input/matrix.mtx.gz ./Reports/03_immune_cell_types/starCAT_input/barcodes.tsv.gz ./Reports/03_immune_cell_types/starCAT_input/features.tsv.gz
 	@echo  $@ is up to date
 
-./Reports/03_immune_cell_types/03_immune_cell_types.html ./Reports/03_immune_cell_types/immune_with_cell_types.RDS ./Reports/03_immune_cell_types/starCAT_input/matrix.mtx.gz ./Reports/03_immune_cell_types/starCAT_input/barcodes.tsv.gz ./Reports/03_immune_cell_types/starCAT_input/features.tsv.gz: ./Notebooks/03_immune_cell_types.Rmd ./Reports/02_cell_type_assignment/immune.RDS
+./Reports/03_immune_cell_types/03_immune_cell_types.html ./Reports/03_immune_cell_types/immune_with_cell_types.RDS ./Reports/03_immune_cell_types/starCAT_input/matrix.mtx.gz ./Reports/03_immune_cell_types/starCAT_input/barcodes.tsv.gz ./Reports/03_immune_cell_types/starCAT_input/features.tsv.gz &: ./Notebooks/03_immune_cell_types.Rmd ./Reports/02_cell_type_assignment/immune.RDS
 	Rscript render.R immune_identity
 
 # ============
@@ -41,17 +41,17 @@ immune_identity: ./Reports/03_immune_cell_types/03_immune_cell_types.html ./Repo
 starCAT: ./Reports/04_starCAT/ACC.rf_usage_normalized.txt ./Reports/04_starCAT/ACC.scores.txt
 	@echo  $@ is up to date
 
-./Reports/04_starCAT/ACC.rf_usage_normalized.txt ./Reports/04_starCAT/ACC.scores.txt: ./Reports/03_immune_cell_types/starCAT_input/matrix.mtx.gz ./Reports/03_immune_cell_types/starCAT_input/barcodes.tsv.gz ./Reports/03_immune_cell_types/starCAT_input/features.tsv.gz
+./Reports/04_starCAT/ACC.rf_usage_normalized.txt ./Reports/04_starCAT/ACC.scores.txt: ./Reports/03_immune_cell_types/starCAT_input/matrix.mtx.gz
 	mkdir -p ./Reports/04_starCAT; starcat --reference "TCAT.V1" --counts ./Reports/03_immune_cell_types/starCAT_input/matrix.mtx.gz --output-dir ./Reports/04_starCAT --name "ACC"
 
 # ============
 # Tcells_types
 # ============
 
-Tcells_types: ./Reports/04_Tcells_types/04_Tcells_types.html ./Reports/04_Tcells_types/t_cells_labled.RDS
+Tcells_types: ./Reports/04_Tcells_types/04_Tcells_types.html ./Reports/04_Tcells_types/t_cells_labled.RDS ./Reports/04_Tcells_types/immune_with_Tcells.RDS
 	@echo  $@ is up to date
 
-./Reports/04_Tcells_types/04_Tcells_types.html ./Reports/04_Tcells_types/t_cells_labled.RDS: ./Notebooks/04_Tcells_types.Rmd ./Reports/03_immune_cell_types/immune_with_cell_types.RDS ./Reports/04_starCAT/ACC.rf_usage_normalized.txt ./Reports/04_starCAT/ACC.scores.txt
+./Reports/04_Tcells_types/04_Tcells_types.html ./Reports/04_Tcells_types/t_cells_labled.RDS ./Reports/04_Tcells_types/immune_with_Tcells.RDS &: ./Notebooks/04_Tcells_types.Rmd ./Reports/03_immune_cell_types/immune_with_cell_types.RDS ./Reports/04_starCAT/ACC.rf_usage_normalized.txt ./Reports/04_starCAT/ACC.scores.txt
 	Rscript render.R Tcells_types
 
 # ============
@@ -61,7 +61,7 @@ Tcells_types: ./Reports/04_Tcells_types/04_Tcells_types.html ./Reports/04_Tcells
 umap_clustering: ./Reports/04_UMAP_clustering/04_UMAP_clustering.html
 	@echo  $@ is up to date
 
-./Reports/04_UMAP_clustering/04_UMAP_clustering.html: ./Notebooks/04_UMAP_clustering.Rmd ./Reports/01_pre-process/acc_immune.RDS
+./Reports/04_UMAP_clustering/04_UMAP_clustering.html &: ./Notebooks/04_UMAP_clustering.Rmd ./Reports/01_pre-process/acc_immune.RDS
 	Rscript render.R umap_clustering
 
 # ============
@@ -71,47 +71,47 @@ umap_clustering: ./Reports/04_UMAP_clustering/04_UMAP_clustering.html
 immune_markers_ACC: ./Reports/05_immune_markers_ACC/05_immune_markers_ACC.html ./Reports/05_immune_markers_ACC/signif_deg.rds
 	@echo  $@ is up to date
 
-./Reports/05_immune_markers_ACC/05_immune_markers_ACC.html ./Reports/05_immune_markers_ACC/signif_deg.rds: ./Notebooks/05_immune_markers_ACC.Rmd ./Reports/02_cell_type_assignment/acc_cancer_pri.RDS input_data/all_direct_and_indirect_annotations_to_GO_immune_system_process.txt
+./Reports/05_immune_markers_ACC/05_immune_markers_ACC.html ./Reports/05_immune_markers_ACC/signif_deg.rds &: ./Notebooks/05_immune_markers_ACC.Rmd ./Reports/02_cell_type_assignment/acc_cancer_pri.RDS input_data/all_direct_and_indirect_annotations_to_GO_immune_system_process.txt
 	Rscript render.R immune_markers_ACC
 
 # ============
-# cpdb_create_data
+# cpdb_create_data_per_patient
 # ============
 
-cpdb_create_data: Reports/06_cellphoneDB/01_create_data_for_cellphoneDB/01_create_data_for_cellphoneDB.html Reports/06_cellphoneDB/01_create_data_for_cellphoneDB/cells_identity.tsv Reports/06_cellphoneDB/01_create_data_for_cellphoneDB/cells_environment.tsv Reports/06_cellphoneDB/01_create_data_for_cellphoneDB/counts.txt Reports/06_cellphoneDB/01_create_data_for_cellphoneDB/acc_cancer_cd45_caf.RDS
+cpdb_create_data_per_patient: Reports/06_V2_cellphoneDB_per_patient/01_create_data_for_cellphoneDB/01_create_data_for_cellphoneDB.html Reports/06_V2_cellphoneDB_per_patient/01_create_data_for_cellphoneDB/acc_cancer_Tcells_caf.RDS Reports/06_V2_cellphoneDB_per_patient/01_create_data_for_cellphoneDB/acc_cancer_immune_caf.RDS
 	@echo  $@ is up to date
 
-Reports/06_cellphoneDB/01_create_data_for_cellphoneDB/01_create_data_for_cellphoneDB.html Reports/06_cellphoneDB/01_create_data_for_cellphoneDB/cells_identity.tsv Reports/06_cellphoneDB/01_create_data_for_cellphoneDB/cells_environment.tsv Reports/06_cellphoneDB/01_create_data_for_cellphoneDB/counts.txt Reports/06_cellphoneDB/01_create_data_for_cellphoneDB/acc_cancer_cd45_caf.RDS: ./Notebooks/06_cellphoneDB/01_create_data_for_cellphoneDB.Rmd ./Reports/04_Tcells_types/t_cells_labled.RDS ./Reports/02_cell_type_assignment/cancer.RDS ./Reports/02_cell_type_assignment/caf.RDS
-	Rscript render.R cpdb_create_data
+Reports/06_V2_cellphoneDB_per_patient/01_create_data_for_cellphoneDB/01_create_data_for_cellphoneDB.html Reports/06_V2_cellphoneDB_per_patient/01_create_data_for_cellphoneDB/acc_cancer_Tcells_caf.RDS Reports/06_V2_cellphoneDB_per_patient/01_create_data_for_cellphoneDB/acc_cancer_immune_caf.RDS &: ./Notebooks/06_V2_cellphoneDB_per_patient/01_create_data_for_cellphoneDB.Rmd ./Reports/04_Tcells_types/t_cells_labled.RDS ./Reports/02_cell_type_assignment/cancer.RDS ./Reports/02_cell_type_assignment/caf.RDS ./input_data/NIHMS1678398-supplement-2.xlsx ./Reports/03_immune_cell_types/immune_with_cell_types.RDS
+	Rscript render.R cpdb_create_data_per_patient
 
 # ============
-# run_cpdb
+# run_cpdb_per_patient
 # ============
 
-run_cpdb: Reports/06_cellphoneDB/02_run_cellphoneDB/02_run_cellphoneDB.html
+run_cpdb_per_patient: Reports/06_V2_cellphoneDB_per_patient/02_run_cellphoneDB/02_run_cellphoneDB.html
 	@echo  $@ is up to date
 
-Reports/06_cellphoneDB/02_run_cellphoneDB/02_run_cellphoneDB.html: ./Notebooks/06_cellphoneDB/02_run_cellphoneDB.Rmd Reports/06_cellphoneDB/01_create_data_for_cellphoneDB/cells_identity.tsv Reports/06_cellphoneDB/01_create_data_for_cellphoneDB/cells_environment.tsv Reports/06_cellphoneDB/01_create_data_for_cellphoneDB/counts.txt
-	Rscript render.R run_cpdb
+Reports/06_V2_cellphoneDB_per_patient/02_run_cellphoneDB/02_run_cellphoneDB.html &: ./Notebooks/06_V2_cellphoneDB_per_patient/02_run_cellphoneDB.Rmd Reports/06_V2_cellphoneDB_per_patient/01_create_data_for_cellphoneDB/01_create_data_for_cellphoneDB.html
+	Rscript render.R run_cpdb_per_patient
 
 # ============
-# cpdb_analysis
+# cpdb_analysis_per_patient
 # ============
 
-cpdb_analysis: Reports/06_cellphoneDB/03_celphoneDB_analysis/03_celphoneDB_analysis.html
+cpdb_analysis_per_patient: Reports/06_V2_cellphoneDB_per_patient/03_celphoneDB_analysis/03_celphoneDB_analysis.html
 	@echo  $@ is up to date
 
-Reports/06_cellphoneDB/03_celphoneDB_analysis/03_celphoneDB_analysis.html: ./Notebooks/06_cellphoneDB/03_celphoneDB_analysis.Rmd Reports/06_cellphoneDB/02_run_cellphoneDB/cpdb_out/statistical_analysis_pvalues_.txt Reports/06_cellphoneDB/02_run_cellphoneDB/cpdb_out/statistical_analysis_means_.txt Reports/06_cellphoneDB/01_create_data_for_cellphoneDB/acc_cancer_cd45_caf.RDS ./Reports/05_immune_markers_ACC/signif_deg.rds
-	Rscript render.R cpdb_analysis
+Reports/06_V2_cellphoneDB_per_patient/03_celphoneDB_analysis/03_celphoneDB_analysis.html &: ./Notebooks/06_V2_cellphoneDB_per_patient/03_celphoneDB_analysis.Rmd Reports/06_V2_cellphoneDB_per_patient/01_create_data_for_cellphoneDB/01_create_data_for_cellphoneDB.html Reports/06_V2_cellphoneDB_per_patient/02_run_cellphoneDB/02_run_cellphoneDB.html Reports/06_V2_cellphoneDB_per_patient/01_create_data_for_cellphoneDB/acc_cancer_Tcells_caf.RDS Reports/06_V2_cellphoneDB_per_patient/01_create_data_for_cellphoneDB/acc_cancer_immune_caf.RDS
+	Rscript render.R cpdb_analysis_per_patient
 
 # ============
 # create_data_for_CIBERSORT
 # ============
 
-create_data_for_CIBERSORT: Reports/07_create_data_for_CIBERSORT.Rmd/06_Dou_CIBERSORT.html
+create_data_for_CIBERSORT: Reports/07_create_data_for_CIBERSORT/07_create_data_for_CIBERSORT.html Reports/07_create_data_for_CIBERSORT/tpm_per_cell_for_making_signature_matrix.txt Reports/07_create_data_for_CIBERSORT/dou_exprs.tsv
 	@echo  $@ is up to date
 
-Reports/07_create_data_for_CIBERSORT.Rmd/06_Dou_CIBERSORT.html: ./Notebooks/07_create_data_for_CIBERSORT.Rmd Reports/06_cellphoneDB/01_create_data_for_cellphoneDB/acc_cancer_cd45_caf.RDS input_data/Dou_PMC8450584/PMC8450584_DataSheet_1.xlsx
+Reports/07_create_data_for_CIBERSORT/07_create_data_for_CIBERSORT.html Reports/07_create_data_for_CIBERSORT/tpm_per_cell_for_making_signature_matrix.txt Reports/07_create_data_for_CIBERSORT/dou_exprs.tsv &: ./Notebooks/07_create_data_for_CIBERSORT.Rmd ./Reports/04_Tcells_types/immune_with_Tcells.RDS ./Reports/02_cell_type_assignment/cancer.RDS ./Reports/02_cell_type_assignment/caf.RDS input_data/Dou_PMC8450584/PMC8450584_DataSheet_1.xlsx
 	Rscript render.R create_data_for_CIBERSORT
 
 # ============
@@ -121,5 +121,25 @@ Reports/07_create_data_for_CIBERSORT.Rmd/06_Dou_CIBERSORT.html: ./Notebooks/07_c
 Dou_CIBERSORT_analysis: Reports/08_Dou_CIBERSORT_analsyis/08_Dou_CIBERSORT_analsyis.html
 	@echo  $@ is up to date
 
-Reports/08_Dou_CIBERSORT_analsyis/08_Dou_CIBERSORT_analsyis.html: ./Notebooks/08_Dou_CIBERSORT_analsyis.Rmd input_data/Dou_PMC8450584/PMC8450584_DataSheet_2.xlsx input_data/CIBERSORTx_result/CIBERSORTx_Job9_Results_07_27_25-16_46.csv
+Reports/08_Dou_CIBERSORT_analsyis/08_Dou_CIBERSORT_analsyis.html &: ./Notebooks/08_Dou_CIBERSORT_analsyis.Rmd input_data/Dou_PMC8450584/PMC8450584_DataSheet_2.xlsx input_data/CIBERSORTx_result/CIBERSORTx_Job16_Results_2025_09_29.csv
 	Rscript render.R Dou_CIBERSORT_analysis
+
+# ============
+# sipsic_run
+# ============
+
+sipsic_run: Reports/09_sipsic_run/09_sipsic_run.html Reports/09_sipsic_run/sipsic_matrix.RDS
+	@echo  $@ is up to date
+
+Reports/09_sipsic_run/09_sipsic_run.html Reports/09_sipsic_run/sipsic_matrix.RDS &: ./Notebooks/09_sipsic_run.Rmd ./Reports/02_cell_type_assignment/acc_cancer_pri.RDS ./input_data/h.all.v2025.1.Hs.symbols.gmt
+	Rscript render.R sipsic_run
+
+# ============
+# sipsic_analysis
+# ============
+
+sipsic_analysis: Reports/10_sipsic_analysis/10_sipsic_analysis.html
+	@echo  $@ is up to date
+
+Reports/10_sipsic_analysis/10_sipsic_analysis.html &: ./Notebooks/10_sipsic_analysis.Rmd ./Reports/02_cell_type_assignment/acc_cancer_pri.RDS Reports/09_sipsic_run/sipsic_matrix.RDS
+	Rscript render.R sipsic_analysis

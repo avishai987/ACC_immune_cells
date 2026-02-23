@@ -1,0 +1,133 @@
+---
+title: "Dou_correlations"
+output: html_document
+---
+
+```{r}
+# load dou_exprs
+```
+
+```{r}
+library(GSVA)
+library(dplyr)
+library(tibble)
+library(ComplexHeatmap)
+library(circlize)
+library(writexl)
+library(GSEABase)
+```
+
+```{r}
+# read excel
+library(readxl)
+dou_markers = readxl::read_excel("./input_data/Dou_PMC8450584/PMC8450584_DataSheet_1.xlsx",sheet = 3,col_names = F,skip = 6) %>% t() %>%  as.data.frame()
+rownames(dou_markers) <- NULL
+colnames(dou_markers)  = dou_markers[1,]
+dou_markers = dou_markers[-1,]
+#remove 35 to 40 cols
+dou_markers = dou_markers[,-(29:35)]
+# to list
+dou_markers_list = list()
+for (i in 1:ncol(dou_markers)) {
+  col_name = colnames(dou_markers)[i]
+  dou_markers_list[[col_name]] = dou_markers[,i,drop=T] %>% na.omit() %>% as.vector()
+}
+
+dou_markers_list[["Myo"]]=  c("TP63","TP73","CAV1","CDH3","KRT5","KRT14","ACTA2","TAGLN","MYLK","DKK3")
+dou_markers_list[["Luminal"]] = c("KIT","EHF","ELF5","KRT7","CLDN3","CLDN4","CD24","LGALS3","LCN2","SLPI")
+dou_markers_list[["T_exhausion"]] = c("PDCD1", "LAG3", "HAVCR2", "TIGIT", "TOX")
+```
+
+```{r}
+gsva_results <- gsva(expr = as.matrix(dou_exprs), 
+                     gset.idx.list = dou_markers_list, 
+                     method = "ssgsea")
+
+t_subtypes = c("CD8-T-cells", "T-helper-cells", 
+"Tcm-cells", "Tem-cells", "Tfh-cells", "Tgd-cells", "Th1-cells", 
+"Th17-cells", "Th2-cells", "Treg-cells","Activated_CD4_T_cell", 
+"Activated_CD8_T_cell", "Central_memory_CD4_T_cel", "Central_memory_CD8_T_cell", 
+"Effector_memeory_CD4_T_cell", "Effector_memeory_CD8_T_cell", 
+"Gamma_delta_T_cell", "Regulatory_T_cell", 
+"T_follicular_helper_cell", "Type_1_T_helper_cell", "Type_17_T_helper_cell", 
+"Type_2_T_helper_cell","T_exhausion"
+)
+t_subtypes_score = gsva_results[t_subtypes,]/ gsva_results["T-cells",]
+luminal_score = gsva_results["Luminal",] - gsva_results["Myo",]
+
+```
+
+```{r}
+dou_survival = readxl::read_excel("./input_data/Dou_PMC8450584/PMC8450584_DataSheet_2.xlsx",sheet = 1,col_names = T,skip = 1) %>% as.data.frame()
+dou_survival= dou_survival[dou_survival$"Case Number" != "P-50",]
+dou_survival_orig = dou_survival
+dou_survival = dou_survival[,c( "Case Number","Locoregional recurrence-free survival (LRRFS)","Distant metastasis-free survival time (DMFS)")]
+rownames(dou_survival) = NULL
+dou_survival = column_to_rownames(dou_survival,var = "Case Number")
+rownames(dou_survival) = rownames(dou_survival) %>% gsub(pattern = "-",replacement = "_")
+t_subtypes_to_merge = t_subtypes_score %>% t() %>% as.data.frame()
+merged_df = merge(t_subtypes_to_merge, dou_survival, by = "row.names") %>% column_to_rownames("Row.names")
+
+luminal_score_to_merge = luminal_score%>% as.data.frame() %>% setNames("Luminal_Myo_score")
+merged_df_luminal = merge(luminal_score_to_merge, merged_df, by = "row.names") %>% column_to_rownames("Row.names")
+```
+
+```{r fig.height=8, fig.width=10}
+data_to_plot = merged_df_luminal %>% dplyr::select(c("Luminal_Myo_score", "CD8-T-cells","Locoregional recurrence-free survival (LRRFS)", "Distant metastasis-free survival time (DMFS)","Treg-cells","T_exhausion",
+                                                     "Activated_CD4_T_cell", "Activated_CD8_T_cell","Regulatory_T_cell",
+                                                     ))
+
+Heatmap(cor(data_to_plot), col = colorRamp2(c(-1, 0, 1), c("blue", "white", "red")), 
+        show_row_names = T, show_column_names = T)
+```
+```{r}
+dou_survival = dou_survival_orig %>% dplyr::select(Histopathology,`Case Number`)
+rownames(dou_survival) = NULL
+dou_survival = dou_survival %>% column_to_rownames("Case Number")
+rownames(dou_survival) = rownames(dou_survival) %>% gsub(pattern = "-",replacement = "_")
+
+merged_df_luminal_histopathology = merge(dou_survival, merged_df_luminal, by = "row.names") %>% column_to_rownames("Row.names")
+```
+
+
+```{r}
+score_threshold = median(merged_df_luminal_histopathology$Luminal_Myo_score)
+#stacked barplot
+merged_df_luminal_histopathology$Luminal_Myo_score_group = ifelse(merged_df_luminal_histopathology$Luminal_Myo_score > score_threshold, "High", "Low")
+
+# Convert all text to lowercase (or use str_to_title() for capitalized)
+merged_df_luminal_histopathology$Histopathology <- tolower(merged_df_luminal_histopathology$Histopathology)
+
+# Remove leading and trailing whitespace
+merged_df_luminal_histopathology$Histopathology <- trimws(merged_df_luminal_histopathology$Histopathology)
+
+# Replace multiple spaces (or other whitespace) with a single space
+merged_df_luminal_histopathology$Histopathology <- gsub("[[:space:]]+", " ", merged_df_luminal_histopathology$Histopathology)
+merged_df_luminal_histopathology$Histopathology <- gsub("mixed， solid component<30%", "mixed, solid component<30%", merged_df_luminal_histopathology$Histopathology)
+
+
+my_colors <- c(
+  "solid" = "red",
+  "mixed cribriform-solid type" = "pink",
+  "mixed, solid component<30%" = "coral1",
+  "mixed" = "orange",
+  "cribriform" = "blue",
+  "tubular" = "deepskyblue",
+  "mix of tubular and cribriform" = "cyan",
+  "unknown" = "grey",
+  "adenoid cystic carcinoma ex pleomorphic adenomas" = "black"
+)
+
+merged_df_luminal_histopathology$Histopathology <- factor(merged_df_luminal_histopathology$Histopathology, levels = c(
+names(my_colors)
+))
+
+
+ggplot(merged_df_luminal_histopathology, aes(x = Luminal_Myo_score_group , fill = Histopathology)) +
+  geom_bar(position = "fill") +
+  labs(y = "Proportion", fill = "Luminal Score Group") +
+  theme_minimal()+
+    scale_fill_manual(values = my_colors) 
+
+```
+

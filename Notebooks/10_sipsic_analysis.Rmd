@@ -54,6 +54,7 @@ acc[["sipsic"]] = CreateAssayObject(counts = pathwayScoresMatrix)
 acc = SetIdent(acc, value = "cell_identity")
 pathways_names = gsub(rownames(pathwayScoresMatrix), pattern = "_", replacement = "-")
 
+
 pathway_markers = FindMarkers(
     object = acc,
     ident.1 = "Luminal",
@@ -63,7 +64,8 @@ pathway_markers = FindMarkers(
     logfc.threshold = 0,
     densify = T,
     pseudocount.use = 0.001,
-    features = pathways_names
+    features = pathways_names,
+    
   )
   pathway_markers$fdr = p.adjust(pathway_markers$p_val,method = "fdr",n = 
                                    length(rownames(acc@assays$sipsic)))
@@ -73,5 +75,269 @@ pathway_markers = FindMarkers(
 ```{r fig.height=8, fig.width=15}
 volcano_plot(de_genes = pathway_markers,top_genes_text = 10,title = "acc",ident1 = "Luminal",
     ident2 = "Myo",)
+```
+```{r}
+#heatmap of all pathways
+library(ComplexHeatmap)
+library(circlize)
+fc_data = pathway_markers %>% arrange(fdr) %>% filter(fdr < 0.1) %>% dplyr::select(avg_log2FC) %>% as.matrix()
+fc_data = 2^fc_data
+fdr_data = pathway_markers %>% arrange(fdr) %>% filter(fdr < 0.1) %>% dplyr::select(fdr)
+fdr_df_sig = fdr_data
+fdr_df_sig[] <- lapply(fdr_data, as.numeric)
+
+convert <- function(vec) {
+  symnum(vec, corr = FALSE, na = FALSE, cutpoints = c(0, 
+    0.001, 0.01, 0.05, 0.1, 1), symbols = c("***", "**", "*", ".", " ")) %>% as.character()
+} 
+
+fdr_df_sig[] = apply(fdr_data, MARGIN = 1, FUN = convert)
+col_fun = colorRamp2(c(min(fc_data), 1, max(fc_data)), c("blue", "white", "red"))
+p = Heatmap(fc_data, name = "avg_log2FC", show_row_names = T, show_column_names = F, cluster_rows = T, cluster_columns = F, col = col_fun,
+        cell_fun = function(j, i, x, y, width, height, fill) {
+        grid.text(fdr_df_sig[i, j], x, y, gp = gpar(fontsize = 8))
+}, show_heatmap_legend = F, row_names_gp = gpar(fontsize = 10))
+
+lgd = Legend(title = "log2 Fold change",
+ col_fun = col_fun)
+```
+
+```{r fig.height=6, fig.width=8}
+draw(p, padding = unit(c(2, 2, 2, 100), "mm"))
+draw(lgd,x = unit(0.85, "npc"), y = unit(0.85, "npc"))
+```
+```{r fig.width=12}
+# heatmap of pathway genes
+#TODO: load with path
+immune_genes = lapply(go_immune@.Data, function(x) x@geneIds)
+                      
+genes = immune_genes[names(immune_genes) %in% c(
+  "positive_regulation_of_antigen_processing_and_presentation",
+  "negative_regulation_of_antigen_processing_and_presentation"
+)]
+#complex heatmap of pathway genes
+genes = genes %>% as.data.frame()
+all_genes = unlist(genes) %>% unique()
+genes = genes[all_genes %in% rownames(acc@assays$RNA),]
+metadata = FetchData(acc,vars = c("cell_identity","patient.ident"))
+
+expression_data = acc@assays$RNA@data[all_genes,] %>% as.data.frame() %>% t() %>% as.data.frame()
+expression_data = merge(expression_data,metadata,by = "row.names") %>% column_to_rownames("Row.names")
+expression_data = expression_data %>% group_by(cell_identity,patient.ident) %>% summarise_all(mean) %>% 
+  mutate(id = paste(patient.ident,cell_identity,sep = "_")) %>%
+  filter(!grepl("mid",id)) %>%
+  column_to_rownames("id") %>%
+  dplyr::select(-c(cell_identity,patient.ident))  
+
+
+expression_data = expression_data [ colMeans(expression_data )>0] %>% 
+  # scale() %>% 
+   as.matrix() 
+
+genes_anot = data.frame(gene = colnames(expression_data), pathway = sapply(colnames(expression_data), function(gene) {
+  pathway_name = names(genes)[sapply(genes, function(pathway_genes) gene %in% pathway_genes)]
+  if (length(pathway_name) > 0) {
+    return(pathway_name)
+  } else {
+    return(NA)
+  }
+}))
+
+cells_anot = data.frame( cell_identity = sapply(rownames(expression_data), function(cell) {
+  str_split(cell, pattern = "_")[[1]][2]
+}), patient.ident = sapply(rownames(expression_data), function(cell) {
+  str_split(cell, pattern = "_")[[1]][1]}))
+
+
+col_fun = colorRamp2(c(min(expression_data), 0, max(expression_data)), c("blue", "white", "red"))
+
+Heatmap(
+  expression_data,
+  name = "log2(TPM+1)",
+  show_row_names = T,
+  show_column_names = T,
+  cluster_rows = F,
+  cluster_columns = T,
+  col = col_fun,
+  show_heatmap_legend = F,
+  row_names_gp = gpar(fontsize = 10),
+  top_annotation = HeatmapAnnotation(pathway = genes_anot$pathway, col = list(
+    pathway = c(
+      "positive_regulation_of_antigen_processing_and_presentation" = "green",
+      "negative_regulation_of_antigen_processing_and_presentation" = "purple"
+    )
+  )),
+  left_annotation = rowAnnotation(
+    cell_identity = cells_anot$cell_identity,
+    col = list(cell_identity = c(
+      "Luminal" = "red", "Myo" = "blue"
+    ))
+  ), column_split = genes_anot$pathway, row_split = cells_anot$patient.ident
+)
+```
+
+
+```{r}
+sipsic_expression = acc@assays$sipsic@data %>% as.data.frame() %>% t() %>% as.data.frame()
+colnames(sipsic_expression) = gsub("_", "-", colnames(sipsic_expression))
+sipsic_expression = merge(sipsic_expression,metadata,by = "row.names") %>% column_to_rownames("Row.names") 
+sipsic_expression = sipsic_expression %>% group_by(cell_identity) %>% summarise_all(mean) %>% 
+  mutate(id = paste(cell_identity,sep = "_")) %>%
+  filter(!grepl("mid",id)) %>%
+  column_to_rownames("id") %>%
+  dplyr::select(-c(cell_identity,patient.ident)) %>% t() %>% as.data.frame()
+```
+
+```{r}
+acc = SetIdent(acc, value = "cell_identity")
+pathways_names = gsub(rownames(pathwayScoresMatrix), pattern = "_", replacement = "-")
+logFC_df = data.frame(row.names = pathways_names)
+fdr_df = data.frame(row.names = pathways_names)
+
+for (patient in unique(acc$patient.ident)) {
+  model_data = subset(acc, subset = patient.ident == patient)
+
+  pathway_markers = FindMarkers(
+      object = model_data,
+      ident.1 = "Luminal",
+      ident.2 = "Myo",
+      assay = "sipsic",
+      slot = "counts",
+      logfc.threshold = 0,
+      densify = T,
+      pseudocount.use = 0.001,
+      features = pathways_names
+    
+  )
+  avg_log2FC = pathway_markers[pathways_names, "avg_log2FC", drop = F]
+  colnames(avg_log2FC) = patient
+  pathway_markers$fdr = p.adjust(pathway_markers$p_val,method = "fdr",n = length(rownames(acc@assays$sipsic)))
+  fdr = pathway_markers[pathways_names, "fdr", drop = F]
+  colnames(fdr) = patient
+  
+  logFC_df = cbind(logFC_df, avg_log2FC)
+  fdr_df = cbind(fdr_df, fdr)
+}
+#replace na with log2FC of 0
+logFC_df[is.na(logFC_df)] = 0
+#replace na with fdr of 1
+fdr_df[is.na(fdr_df)] = 1
+```
+
+# Heatmap with asterisks
+
+
+
+```{r}
+# Description
+fdr_df_sig = fdr_df
+fdr_df_sig[] <- lapply(fdr_df_sig, as.numeric)
+
+convert <- function(vec) {
+  symnum(vec, corr = FALSE, na = FALSE, cutpoints = c(0, 
+    0.001, 0.01, 0.05, 0.1, 1), symbols = c("***", "**", "*", ".", " ")) %>% as.character()
+} 
+
+fdr_df_sig[] = apply(fdr_df_sig, MARGIN = 2, FUN = convert)
+```
+
+
+```{r fig.height=8, fig.width=9}
+col_fun = circlize::colorRamp2(c(min(logFC_df), 0, max(logFC_df)), c("blue", "white", "red"))
+p = ComplexHeatmap::Heatmap(logFC_df, name = "log2FC lum/myo", col = col_fun,
+    cell_fun = function(j, i, x, y, width, height, fill) {
+        grid.text(fdr_df_sig[i, j], x, y, gp = gpar(fontsize = 8))
+}, row_names_gp = gpar(fontsize = 10), clustering_method_rows = "average", clustering_distance_rows = "euclidean",
+show_heatmap_legend = F)
+
+```
+```{r fig.height=6, fig.width=8}
+
+lgd = Legend(title = "log2 Fold change",
+ col_fun = col_fun)
+```
+
+```{r fig.height=8, fig.width=12}
+draw(p, padding = unit(c(2, 2, 2, 100), "mm"))
+draw(lgd,x = unit(0.75, "npc"), y = unit(0.75, "npc"))
+```
+
+
+## deg of pathways per patient
+
+```{r}
+acc = SetIdent(acc, value = "cell_identity")
+pathways_names = gsub(rownames(pathwayScoresMatrix), pattern = "_", replacement = "-")
+logFC_df = data.frame(row.names = all_genes)
+fdr_df = data.frame(row.names = all_genes)
+
+for (patient in unique(acc$patient.ident)) {
+  model_data = subset(acc, subset = patient.ident == patient)
+
+  pathway_markers = FindMarkers(
+      object = model_data,
+      ident.1 = "Luminal",
+      ident.2 = "Myo",
+      assay = "RNA",
+      slot = "counts",
+      logfc.threshold = 0,
+      densify = T,
+      features = all_genes
+    
+  )
+  avg_log2FC = pathway_markers[all_genes, "avg_log2FC", drop = F]
+  colnames(avg_log2FC) = patient
+  pathway_markers$fdr = p.adjust(pathway_markers$p_val,method = "fdr",n = length(rownames(acc@assays$RNA)))
+  fdr = pathway_markers[all_genes, "fdr", drop = F]
+  colnames(fdr) = patient
+  
+  logFC_df = cbind(logFC_df, avg_log2FC)
+  fdr_df = cbind(fdr_df, fdr)
+}
+#replace na with log2FC of 0
+logFC_df[is.na(logFC_df)] = 0
+#replace na with fdr of 1
+fdr_df[is.na(fdr_df)] = 1
+```
+
+```{r}
+# heatmap
+fdr_df_sig = fdr_df
+fdr_df_sig[] <- lapply(fdr_df_sig, as.numeric)
+
+convert <- function(vec) {
+  symnum(vec, corr = FALSE, na = FALSE, cutpoints = c(0, 
+    0.001, 0.01, 0.05, 0.1, 1), symbols = c("***", "**", "*", ".", " ")) %>% as.character()
+} 
+
+fdr_df_sig[] = apply(fdr_df_sig, MARGIN = 2, FUN = convert)
+```
+
+```{r}
+genes_anot = data.frame(gene = rownames(logFC_df), pathway = sapply(rownames(logFC_df), function(gene) {
+  pathway_name = names(genes)[sapply(genes, function(pathway_genes) gene %in% pathway_genes)]
+  if (length(pathway_name) > 0) {
+    return(pathway_name)
+  } else {
+    return(NA)
+  }
+}))
+```
+
+
+```{r fig.height=7, fig.width=8}
+col_fun = circlize::colorRamp2(c(min(logFC_df), 0, max(logFC_df)), c("blue", "white", "red"))
+p = ComplexHeatmap::Heatmap(logFC_df, name = "log2FC lum/myo", col = col_fun,
+    cell_fun = function(j, i, x, y, width, height, fill) {
+        grid.text(fdr_df_sig[i, j], x, y, gp = gpar(fontsize = 8))
+}, row_names_gp = gpar(fontsize = 8), clustering_method_rows = "average", clustering_distance_rows = "euclidean",
+row_split = genes_anot$pathway,
+right_annotation  = rowAnnotation(pathway = genes_anot$pathway, col = list(
+    pathway = c(
+      "positive_regulation_of_antigen_processing_and_presentation" = "green",
+      "negative_regulation_of_antigen_processing_and_presentation" = "purple"
+    )
+  )))
+p
 ```
 

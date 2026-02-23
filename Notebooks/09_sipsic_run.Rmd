@@ -109,13 +109,20 @@ calculatePathwayScores <- function(pathwayToScore, countsMatrix) {
 
 
 ```{r}
-pathwayScoreLists <- lapply(X = canonical_pathways@.Data, calculatePathwayScores, acc@assays$RNA@counts)
-names(pathwayScoreLists) = names(canonical_pathways) #set names
+pathwayScoreLists <- lapply(X = go_immune@.Data, calculatePathwayScores, acc@assays$RNA@counts)
+names(pathwayScoreLists) = names(go_immune) #set names
 pathwayScoreLists <- pathwayScoreLists[!is.na(pathwayScoreLists)] #remove NA pathways
 pathwayScoresMatrix <- as.data.frame(do.call("rbind", pathwayScoreLists)) # to df
 ```
 
 ```{r}
 saveRDS(object = pathwayScoresMatrix,file = paste0(params$data_out_dir,basename(output$sipsic_matrix)))
+```
+
+```{r}
+#save immune genes as list
+immune_genes = lapply(go_immune@.Data, function(x) x@geneIds)
+#TODO: add this path to make pipe
+saveRDS(object = immune_genes,file = paste0(params$data_out_dir,"immune_genes.rds"))
 ```
 

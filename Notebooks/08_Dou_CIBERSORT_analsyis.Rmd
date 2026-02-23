@@ -138,14 +138,11 @@ ggplot(df, aes(x = LumCategory, fill = Histopathology)) +
 deconv_result_with_survival = deconv_result %>% as.data.frame()
 deconv_result_with_survival = deconv_result_with_survival %>% 
   select(-c("Mixture", "P-value", "Correlation","RMSE"))
+
+
 t_cells_names = c( "CD8_Naive", "CD4_Naive", "CD8_CM", "CD4_CM", "CD4_EM", "CD8_EM", "gdT",
                    "Treg", "CD8_TEMRA","MAIT")
 deconv_result_with_survival$t_cells_ratio = rowSums(deconv_result_with_survival[, colnames(deconv_result_with_survival) %in% t_cells_names])
-
-for (t_type in t_cells_names) {
-  t_type_ratio = deconv_result_with_survival[,t_type]/rowSums(deconv_result_with_survival[,t_cells_names])
-  deconv_result_with_survival[,paste0(t_type,"_ratio")] = t_type_ratio
-}
 
 
 # Immune cells ratio
@@ -154,11 +151,7 @@ immune_cells_names = c( "Naive B", "CD8_Naive", "CD4_Naive",
 "gdT", "Treg", "CD8_TEMRA", "Macrophages", "Basophils", "Neutrophils", 
 "MAIT", "Plasma B", "Myeloid Dendritic")
 
-non_t_cells_names =  c( "Naive B","Plasmacytoid Dendritic", 
- "Macrophages", "Basophils", "Neutrophils", 
-"MAIT", "Plasma B", "Myeloid Dendritic")
-
-for (cell_name in non_t_cells_names) {
+for (cell_name in immune_cells_names) {
   cell_ratio = deconv_result_with_survival[,cell_name]/rowSums(deconv_result_with_survival[,immune_cells_names])
   deconv_result_with_survival[,paste0(cell_name,"_ratio")] = cell_ratio
 }
@@ -186,11 +179,7 @@ deconv_result_with_survival["Locoregional recurrence-free survival (LRRFS)"] = d
 deconv_result_with_survival["Distant metastasis-free survival time (DMFS)" ] = dou_survival["Distant metastasis-free survival time (DMFS)" ]
 
 
-for (t_type in t_cells_names) {
-    deconv_result_with_survival[,t_type] <- NULL
-}
-
-for (cell_name in non_t_cells_names) {
+for (cell_name in immune_cells_names) {
     deconv_result_with_survival[,cell_name] <- NULL
 }
 
@@ -252,23 +241,17 @@ p
 ```
 
 ```{r}
-cell_type = "CD8_TEMRA"
-data = data.frame(fraction = deconv_result[[cell_type]],
-                  TIS = dou_survival$`T cell infiltration score (TIS)`)
+cell_type = "lum_ratio"
+data = data.frame(fraction = deconv_result_with_survival[[cell_type]],
+                  TIS = deconv_result_with_survival$`T cell infiltration score (TIS)`)
 
 library(ggplot2)
 library(ggpubr) 
-# יצירת גרף הפיזור הבסיסי
-p <- ggplot(data, aes(x = fraction, y = TIS)) +
-  geom_point() + # הוספת נקודות הפיזור
-  labs(title = "cell type vs. score",
-       x = paste (cell_type, "fraction"),
-       y = "T cell infiltration score") +
-  theme_minimal()+ # רקע נקי יותר +
-  geom_smooth(method = "lm", se = FALSE, color = "blue") +
-  stat_cor(aes(label = paste(..rr.label.., ..p.label.., sep = "~`, `~")),
-           label.x = 0.04, label.y = 0.62) 
-p
+
+ggscatter(data, x = "fraction", y = "TIS", add = "reg.line") +
+  stat_cor() + theme_minimal()+  geom_smooth(method = "lm", se = FALSE, color = "blue") +xlab(cell_type)
+
+
 ```
 
 # cell types- survival

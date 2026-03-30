@@ -108,54 +108,6 @@ pipeline[["immune_markers_ACC"]] = list(
 )
 
 
-####################################### cellphoneDB ######################################################
-
-# pipeline[["cpdb_create_data"]] = list(
-#   input = list(
-#     script = "./Notebooks/06_cellphoneDB/01_create_data_for_cellphoneDB.Rmd",
-#     t_cells_labled = pipeline$Tcells_types$output$t_cells_labled,
-#     cancer = pipeline$cell_types$output$cancer,
-#     caf = pipeline$cell_types$output$caf,
-#     caf_signatures = "./input_data/NIHMS1678398-supplement-2.xlsx"
-#   ),
-#   output = list(
-#     report = "Reports/06_cellphoneDB/01_create_data_for_cellphoneDB/01_create_data_for_cellphoneDB.html",
-#     cells_identity = "Reports/06_cellphoneDB/01_create_data_for_cellphoneDB/cells_identity.tsv",
-#     cells_environment = "Reports/06_cellphoneDB/01_create_data_for_cellphoneDB/cells_environment.tsv",
-#     counts = "Reports/06_cellphoneDB/01_create_data_for_cellphoneDB/counts.txt",
-#     acc_cancer_Tcells_caf = "Reports/06_cellphoneDB/01_create_data_for_cellphoneDB/acc_cancer_Tcells_caf.RDS"
-#     )
-# )
-# 
-# pipeline[["run_cpdb"]] = list(
-#   input = list(
-#     script = "./Notebooks/06_cellphoneDB/02_run_cellphoneDB.Rmd",
-#     cells_identity = pipeline$cpdb_create_data$output$cells_identity,
-#     cells_environment =  pipeline$cpdb_create_data$output$cells_environment,
-#     counts =  pipeline$cpdb_create_data$output$counts
-#   ),
-#   output = list(
-#     report = "Reports/06_cellphoneDB/02_run_cellphoneDB/02_run_cellphoneDB.html"
-#   ),
-#   params = list(
-#     cpdb_conda_env = "/sci/labs/yotamd/lab_share/avishai.wizel/python_envs/miniconda/envs/cpdb",
-#     cpdb_target_dir = "Reports/06_cellphoneDB/02_run_cellphoneDB/cpdb_data/",
-#     cpbd_output_dir = "Reports/06_cellphoneDB/02_run_cellphoneDB/cpdb_out/"
-#   )
-# )
-# 
-# pipeline[["cpdb_analysis"]] = list(
-#   input = list(
-#     script = "./Notebooks/06_cellphoneDB/03_celphoneDB_analysis.Rmd",
-#     pvals = pipeline$run_cpdb$params$cpbd_output_dir %s+% "statistical_analysis_pvalues_.txt",
-#     means =   pipeline$run_cpdb$params$cpbd_output_dir %s+% "statistical_analysis_means_.txt",
-#     acc_cancer_Tcells_caf = pipeline$cpdb_create_data$output$acc_cancer_Tcells_caf,
-#     signif_deg = pipeline$immune_markers_ACC$output$signif_deg
-#     ),
-#   output = list(
-#     report = "Reports/06_cellphoneDB/03_celphoneDB_analysis/03_celphoneDB_analysis.html"
-#   )
-# )
 
 ####################################### cellphoneDB per patient ######################################################
 

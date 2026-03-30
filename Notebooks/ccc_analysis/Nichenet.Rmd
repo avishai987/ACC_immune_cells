@@ -1,0 +1,70 @@
+---
+title: "Nichenet"
+output: html_document
+---
+
+
+```{r}
+# # filter results to cell types of interest
+# lum_myo_results <- liana_results %>%
+#   subset(source == "Luminal" & target == "CD8_CM") %>%
+#   dplyr::rename(ligand=ligand.complex, receptor=receptor.complex)
+# 
+# # filter results to top N interactions
+# n <- 50
+# top_n_lum <- lum_myo_results %>%
+#   arrange(aggregate_rank) %>%
+#   slice_head(n = n) %>%
+#   mutate(id = fct_inorder(paste0(ligand, " -> ", receptor)))
+# 
+# # visualize median rank
+# top_n_lum %>%
+#   ggplot(aes(y = aggregate_rank, x = id)) +
+#   geom_bar(stat = "identity") +
+#   xlab("Interaction") + ylab("LIANA's aggregate rank") +
+#   theme_cowplot() +
+#   theme(axis.text.x = element_text(size = 8, angle = 60, hjust = 1, vjust = 1))
+```
+
+
+```{r}
+ligand_target_matrix <- readRDS(url("https://zenodo.org/record/3260758/files/ligand_target_matrix.rds"))
+
+```
+
+```{r}
+ligands = p$data$interaction %>% str_split(pattern = " -> ", simplify = T) %>% .[,1] %>% unique()
+
+# ligands <- unique(top_n_lum$ligand)
+# ligands <- ligands[ligands %in% colnames(ligand_target_matrix)]
+# ligands
+```
+
+```{r}
+background_expressed_genes  <- get_expressed_genes("Myo", acc_cancer_immune_caf, pct = 0.05) %>% .[. %in% rownames(ligand_target_matrix)]
+
+```
+
+
+```{r}
+DE_table_receiver <-  FindMarkers(
+  object = acc_cancer_immune_caf[1:100],
+  ident.1 = "Luminal",
+  ident.2 = "Myo",
+  group.by = "cell_type",
+  min.pct = 0.05
+) %>% rownames_to_column("gene")
+```
+
+```{r}
+geneset_oi <- DE_table_receiver %>% filter(p_val_adj <= 0.05 & abs(avg_log2FC) >= 0.25) %>% pull(gene)
+geneset_oi <- geneset_oi %>% .[. %in% rownames(ligand_target_matrix)]
+```
+
+```{r}
+nichenet_activities <- predict_ligand_activities(
+  geneset = geneset_oi,
+  background_expressed_genes = background_expressed_genes,
+  ligand_target_matrix = ligand_target_matrix, potential_ligands = ligands
+)
+```

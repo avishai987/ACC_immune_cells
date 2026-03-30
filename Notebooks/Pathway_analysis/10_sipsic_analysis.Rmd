@@ -37,6 +37,9 @@ output = pipeline$sipsic_analysis$output
 
 ```{r}
 acc = readRDS(input$acc_cancer_pri)
+
+
+go_immune = readRDS(paste0("Reports/09_sipsic_run/","immune_genes.rds"))
 ```
 
 # DE pathways
@@ -61,6 +64,8 @@ pathway_markers = FindMarkers(
     ident.2 = "Myo",
     assay = "sipsic",
     slot = "counts",
+    test.use = "LR",
+    latent.vars = "patient.ident",
     logfc.threshold = 0,
     densify = T,
     pseudocount.use = 0.001,
@@ -112,8 +117,7 @@ draw(lgd,x = unit(0.85, "npc"), y = unit(0.85, "npc"))
 immune_genes = lapply(go_immune@.Data, function(x) x@geneIds)
                       
 genes = immune_genes[names(immune_genes) %in% c(
-  "positive_regulation_of_antigen_processing_and_presentation",
-  "negative_regulation_of_antigen_processing_and_presentation"
+  "tolerance_induction_to_self_antigen"
 )]
 #complex heatmap of pathway genes
 genes = genes %>% as.data.frame()
@@ -330,14 +334,44 @@ col_fun = circlize::colorRamp2(c(min(logFC_df), 0, max(logFC_df)), c("blue", "wh
 p = ComplexHeatmap::Heatmap(logFC_df, name = "log2FC lum/myo", col = col_fun,
     cell_fun = function(j, i, x, y, width, height, fill) {
         grid.text(fdr_df_sig[i, j], x, y, gp = gpar(fontsize = 8))
-}, row_names_gp = gpar(fontsize = 8), clustering_method_rows = "average", clustering_distance_rows = "euclidean",
-row_split = genes_anot$pathway,
-right_annotation  = rowAnnotation(pathway = genes_anot$pathway, col = list(
-    pathway = c(
-      "positive_regulation_of_antigen_processing_and_presentation" = "green",
-      "negative_regulation_of_antigen_processing_and_presentation" = "purple"
-    )
-  )))
+}, row_names_gp = gpar(fontsize = 8), clustering_method_rows = "average", clustering_distance_rows = "euclidean")
 p
+```
+# heatmap of genes expression
+
+```{r}
+metadata = FetchData(acc,vars = c("cell_identity","patient.ident"))
+expression_data = acc@assays$RNA@data[all_genes,] %>% as.data.frame() %>% t() %>% as.data.frame()
+expression_data = merge(expression_data,metadata,by = "row.names") %>% column_to_rownames("Row.names") 
+expression_data = expression_data %>% group_by(patient.ident,cell_identity) %>% summarise_all(mean) %>% 
+  filter(!grepl("mid",cell_identity)) %>% as.data.frame()
+rownames(expression_data) = paste(expression_data$patient.ident,expression_data$cell_identity,sep = "_")
+expression_data[,c("patient.ident","cell_identity")] = NULL
+```
+
+```{r}
+col_fun = colorRamp2(
+  c(0, 0.0001, max(expression_data)), 
+  c("white", "lightblue", "red")
+)
+Heatmap(
+  expression_data,
+  name = "log2(TPM+1)",
+  show_row_names = T,
+  show_column_names = T,
+  cluster_rows = F,
+  cluster_columns = T,
+  col = col_fun,
+  show_heatmap_legend = T,
+  row_names_gp = gpar(fontsize = 10),
+  left_annotation = rowAnnotation(
+    cell_identity = sapply(rownames(expression_data), function(cell) {
+      str_split(cell, pattern = "_")[[1]][2]
+    }),
+    col = list(cell_identity = c(
+      "Luminal" = "green", "Myo" = "orange"
+    ))
+  )
+)
 ```
 

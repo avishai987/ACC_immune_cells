@@ -1,0 +1,280 @@
+lr_pair,cell_types,means,common_in_patients,direction
+Adenosine-byNT5E-and-SLC29A1-ADORA3,pan.dCAF pri-Macrophages pri,3.0966,4,CAF->immune
+Adenosine-byNT5E-and-SLC29A1-ADORA3,pan.iCAF pri-Macrophages pri,4.351,5,CAF->immune
+ADORA3-ENTPD1,Macrophages pri-pan.iCAF pri,3.871,5,immune->CAF
+ADORA3-ENTPD1,Macrophages pri-pan.myCAF pri,4.2662,5,immune->CAF
+ADORA3-ENTPD1,Macrophages pri-pan.pCAF pri,4.27875,4,immune->CAF
+ANXA1-FPR1,pan.dCAF pri-Myeloid Dendritic pri,7.8364,5,CAF->immune
+ANXA1-FPR1,pan.iCAF pri-Myeloid Dendritic pri,7.9258,5,CAF->immune
+ANXA1-FPR1,pan.pCAF pri-Myeloid Dendritic pri,6.90525,4,CAF->immune
+ANXA1-FPR3,pan.dCAF pri-Macrophages pri,7.1618,5,CAF->immune
+ANXA1-FPR3,pan.dCAF pri-Myeloid Dendritic pri,6.64,5,CAF->immune
+ANXA1-FPR3,pan.iCAF pri-Macrophages pri,7.251,5,CAF->immune
+ANXA1-FPR3,pan.iCAF pri-Myeloid Dendritic pri,6.7296,5,CAF->immune
+ANXA1-FPR3,pan.pCAF pri-Macrophages pri,6.94175,4,CAF->immune
+ANXA1-FPR3,pan.pCAF pri-Myeloid Dendritic pri,5.9265,4,CAF->immune
+APOE-TREM2-receptor,pan.dCAF pri-Macrophages pri,5.1988,5,CAF->immune
+APOE-TREM2-receptor,pan.pCAF pri-Macrophages pri,5.26975,4,CAF->immune
+APP-CD74,pan.dCAF pri-Macrophages pri,10.1398,5,CAF->immune
+APP-CD74,pan.dCAF pri-Myeloid Dendritic pri,9.9134,5,CAF->immune
+APP-CD74,pan.iCAF pri-Macrophages pri,9.7098,5,CAF->immune
+APP-CD74,pan.iCAF pri-Myeloid Dendritic pri,9.4834,5,CAF->immune
+APP-CD74,pan.pCAF pri-Macrophages pri,10.3035,4,CAF->immune
+APP-CD74,pan.pCAF pri-Myeloid Dendritic pri,10.11375,4,CAF->immune
+APP-SORL1,pan.dCAF pri-Myeloid Dendritic pri,4.2272,4,CAF->immune
+APP-SORL1,pan.pCAF pri-Myeloid Dendritic pri,4.2335,4,CAF->immune
+APP-TREM2-receptor,pan.dCAF pri-Macrophages pri,6.882,5,CAF->immune
+APP-TREM2-receptor,pan.dCAF pri-Myeloid Dendritic pri,3.8052,4,CAF->immune
+APP-TREM2-receptor,pan.iCAF pri-Macrophages pri,6.4518,5,CAF->immune
+APP-TREM2-receptor,pan.iCAF pri-Myeloid Dendritic pri,3.3752,4,CAF->immune
+APP-TREM2-receptor,pan.pCAF pri-Macrophages pri,6.884,4,CAF->immune
+APP-TREM2-receptor,pan.pCAF pri-Myeloid Dendritic pri,3.9525,4,CAF->immune
+AREG-EGFR,Myeloid Dendritic pri-pan.dCAF pri,3.7296,4,immune->CAF
+AREG-EGFR,Myeloid Dendritic pri-pan.iCAF pri,4.7992,5,immune->CAF
+BMP8A-ACVR-1A2A-receptor,Myeloid Dendritic pri-pan.dCAF pri,2.1928,5,immune->CAF
+BMP8A-ACVR1-BMPR2,Myeloid Dendritic pri-pan.dCAF pri,2.1394,5,immune->CAF
+BMP8A-ACVR1-BMPR2,Myeloid Dendritic pri-pan.pCAF pri,2.49925,4,immune->CAF
+BMP8A-BMPR1A-BMPR2,Myeloid Dendritic pri-pan.dCAF pri,1.759,5,immune->CAF
+BMP8A-BMR1A-ACR2A,Myeloid Dendritic pri-pan.dCAF pri,1.817,5,immune->CAF
+C3-C3AR1,pan.iCAF pri-Macrophages pri,7.6232,5,CAF->immune
+C3-C3AR1,pan.iCAF pri-Myeloid Dendritic pri,5.4056,4,CAF->immune
+C3-integrin-aMb2-complex,pan.iCAF pri-Macrophages pri,5.653,5,CAF->immune
+C3-integrin-aMb2-complex,pan.iCAF pri-Myeloid Dendritic pri,5.151,4,CAF->immune
+C4A-C5AR2,pan.dCAF pri-Macrophages pri,1.535,4,CAF->immune
+C4A-C5AR2,pan.iCAF pri-Macrophages pri,2.0498,5,CAF->immune
+C4A-C5AR2,pan.myCAF pri-Macrophages pri,2.6746,5,CAF->immune
+CCL2-CCR2,pan.dCAF pri-Myeloid Dendritic pri,2.5964,5,CAF->immune
+CCL2-CCR2,pan.iCAF pri-Myeloid Dendritic pri,2.108,4,CAF->immune
+CCL2-CCR2,pan.pCAF pri-Myeloid Dendritic pri,3.3045,4,CAF->immune
+CD1B-complex-IL6ST,Myeloid Dendritic pri-pan.dCAF pri,2.872,4,immune->CAF
+CD1B-complex-IL6ST,Myeloid Dendritic pri-pan.iCAF pri,3.174,4,immune->CAF
+CD1B-complex-IL6ST,Myeloid Dendritic pri-pan.myCAF pri,2.55775,4,immune->CAF
+CD1B-complex-IL6ST,Myeloid Dendritic pri-pan.pCAF pri,2.758,4,immune->CAF
+CD248-IL6R,pan.dCAF pri-Macrophages pri,3.896,5,CAF->immune
+CD248-IL6R,pan.dCAF pri-Myeloid Dendritic pri,3.6296,5,CAF->immune
+CD248-IL6R,pan.iCAF pri-Macrophages pri,3.685,5,CAF->immune
+CD248-IL6R,pan.iCAF pri-Myeloid Dendritic pri,3.4186,4,CAF->immune
+CD248-IL6R,pan.myCAF pri-Macrophages pri,3.889,5,CAF->immune
+CD248-IL6R,pan.pCAF pri-Macrophages pri,5.134,4,CAF->immune
+CD248-IL6R,pan.pCAF pri-Myeloid Dendritic pri,5.032,4,CAF->immune
+CD320-JAML,pan.dCAF pri-Myeloid Dendritic pri,4.8576,5,CAF->immune
+CD320-JAML,pan.iCAF pri-Myeloid Dendritic pri,4.7296,5,CAF->immune
+CD34-SELL,pan.iCAF pri-Myeloid Dendritic pri,3.972,5,CAF->immune
+CD80-NGFR,Myeloid Dendritic pri-pan.iCAF pri,1.2096,4,immune->CAF
+CD93-IFNGR1,Macrophages pri-pan.dCAF pri,5.5068,4,immune->CAF
+CD93-IFNGR1,Macrophages pri-pan.iCAF pri,5.655,4,immune->CAF
+CD93-IFNGR1,Macrophages pri-pan.pCAF pri,6.04325,4,immune->CAF
+CD93-IFNGR1,Myeloid Dendritic pri-pan.dCAF pri,3.8096,4,immune->CAF
+CD99-PILRA,pan.dCAF pri-Macrophages pri,7.3724,5,CAF->immune
+CD99-PILRA,pan.dCAF pri-Myeloid Dendritic pri,6.9144,5,CAF->immune
+CD99-PILRA,pan.iCAF pri-Macrophages pri,7.212,5,CAF->immune
+CD99-PILRA,pan.iCAF pri-Myeloid Dendritic pri,6.7538,5,CAF->immune
+CD99-PILRA,pan.myCAF pri-Macrophages pri,6.5834,5,CAF->immune
+CD99-PILRA,pan.myCAF pri-Myeloid Dendritic pri,6.1252,5,CAF->immune
+CD99-PILRA,pan.pCAF pri-Macrophages pri,7.722,4,CAF->immune
+CD99-PILRA,pan.pCAF pri-Myeloid Dendritic pri,6.8625,4,CAF->immune
+Cholesterol-byLIPA-RORA,Myeloid Dendritic pri-pan.dCAF pri,3.429,4,immune->CAF
+Cholesterol-byLIPA-RORA,Myeloid Dendritic pri-pan.iCAF pri,3.5382,4,immune->CAF
+CLU-TREM2-receptor,pan.dCAF pri-Macrophages pri,4.0852,4,CAF->immune
+CSF1-CSF1R,pan.dCAF pri-Macrophages pri,6.3848,5,CAF->immune
+CSF1-CSF1R,pan.dCAF pri-Myeloid Dendritic pri,5.5828,5,CAF->immune
+CSF1-CSF1R,pan.iCAF pri-Macrophages pri,6.4462,5,CAF->immune
+CSF1-CSF1R,pan.iCAF pri-Myeloid Dendritic pri,5.6442,5,CAF->immune
+CSF1-CSF1R,pan.pCAF pri-Macrophages pri,6.42275,4,CAF->immune
+CSF1-CSF1R,pan.pCAF pri-Myeloid Dendritic pri,5.61325,4,CAF->immune
+CX3CL1-CX3CR1,pan.dCAF pri-Macrophages pri,3.0802,4,CAF->immune
+CX3CL1-CX3CR1,pan.dCAF pri-Myeloid Dendritic pri,2.3886,4,CAF->immune
+CXCL12-CXCR4,pan.dCAF pri-Macrophages pri,8.887,5,CAF->immune
+CXCL12-CXCR4,pan.dCAF pri-Myeloid Dendritic pri,8.9398,5,CAF->immune
+CXCL12-CXCR4,pan.iCAF pri-Macrophages pri,10.0878,5,CAF->immune
+CXCL12-CXCR4,pan.iCAF pri-Myeloid Dendritic pri,10.1402,5,CAF->immune
+CXCL12-CXCR4,pan.pCAF pri-Myeloid Dendritic pri,7.87025,4,CAF->immune
+CXCL14-CXCR4,pan.dCAF pri-Macrophages pri,8.8834,5,CAF->immune
+CXCL14-CXCR4,pan.dCAF pri-Myeloid Dendritic pri,8.936,5,CAF->immune
+CXCL14-CXCR4,pan.iCAF pri-Macrophages pri,11.3244,5,CAF->immune
+CXCL14-CXCR4,pan.iCAF pri-Myeloid Dendritic pri,11.377,5,CAF->immune
+DHEAsulfate-bySULT2B-PPARD,pan.iCAF pri-Macrophages pri,2.3584,4,CAF->immune
+Dihydrotestosterone-bySRD5A3-AR,Myeloid Dendritic pri-pan.iCAF pri,1.3676,5,immune->CAF
+Dihydrotestosterone-bySRD5A3-AR,Myeloid Dendritic pri-pan.pCAF pri,1.55525,4,immune->CAF
+EFNB1-EPHB2,pan.dCAF pri-Macrophages pri,1.2818,4,CAF->immune
+EFNB1-EPHB2,pan.pCAF pri-Macrophages pri,2.16075,4,CAF->immune
+FN1-integrin-a4b1-complex,pan.dCAF pri-Macrophages pri,6.0818,5,CAF->immune
+FN1-integrin-a4b1-complex,pan.dCAF pri-Myeloid Dendritic pri,5.814,5,CAF->immune
+FN1-integrin-a4b1-complex,pan.myCAF pri-Myeloid Dendritic pri,5.1248,5,CAF->immune
+FN1-integrin-a4b1-complex,pan.pCAF pri-Macrophages pri,6.19875,4,CAF->immune
+FN1-integrin-a4b1-complex,pan.pCAF pri-Myeloid Dendritic pri,6.0355,4,CAF->immune
+FN1-integrin-a5b1-complex,pan.dCAF pri-Myeloid Dendritic pri,5.2124,5,CAF->immune
+FN1-integrin-a5b1-complex,pan.pCAF pri-Myeloid Dendritic pri,5.65775,4,CAF->immune
+GAS6-AXL,pan.dCAF pri-Myeloid Dendritic pri,5.0538,4,CAF->immune
+GAS6-AXL,pan.pCAF pri-Myeloid Dendritic pri,5.70925,4,CAF->immune
+GAS6-MERTK,pan.dCAF pri-Macrophages pri,4.9782,5,CAF->immune
+GAS6-MERTK,pan.iCAF pri-Macrophages pri,4.9698,5,CAF->immune
+GAS6-MERTK,pan.pCAF pri-Macrophages pri,5.20875,4,CAF->immune
+HBEGF-EGFR,Myeloid Dendritic pri-pan.dCAF pri,2.8782,4,immune->CAF
+HBEGF-EGFR,Myeloid Dendritic pri-pan.pCAF pri,3.44075,4,immune->CAF
+HBEGF-ERBB2,Myeloid Dendritic pri-pan.dCAF pri,3.0706,4,immune->CAF
+HBEGF-ERBB2,Myeloid Dendritic pri-pan.iCAF pri,3.0502,5,immune->CAF
+HBEGF-ERBB2,Myeloid Dendritic pri-pan.pCAF pri,2.9705,4,immune->CAF
+HEBP1-FPR3,pan.dCAF pri-Macrophages pri,3.7324,4,CAF->immune
+HEBP1-FPR3,pan.dCAF pri-Myeloid Dendritic pri,2.92,4,CAF->immune
+HEBP1-FPR3,pan.iCAF pri-Macrophages pri,3.9348,4,CAF->immune
+HEBP1-FPR3,pan.iCAF pri-Myeloid Dendritic pri,3.413,5,CAF->immune
+HEBP1-FPR3,pan.myCAF pri-Macrophages pri,4.1284,4,CAF->immune
+HEBP1-FPR3,pan.myCAF pri-Myeloid Dendritic pri,3.6068,5,CAF->immune
+HEBP1-FPR3,pan.pCAF pri-Macrophages pri,4.55725,4,CAF->immune
+HEBP1-FPR3,pan.pCAF pri-Myeloid Dendritic pri,3.542,4,CAF->immune
+HLA F-LILRB1,pan.dCAF pri-Macrophages pri,3.2468,4,CAF->immune
+HLA F-LILRB1,pan.myCAF pri-Macrophages pri,4.0794,5,CAF->immune
+HLA F-LILRB2,pan.dCAF pri-Macrophages pri,3.6308,4,CAF->immune
+HLA F-LILRB2,pan.iCAF pri-Macrophages pri,3.3646,5,CAF->immune
+HLA F-LILRB2,pan.myCAF pri-Macrophages pri,4.4632,5,CAF->immune
+HLA F-LILRB2,pan.myCAF pri-Myeloid Dendritic pri,4.5384,5,CAF->immune
+HLA F-LILRB2,pan.pCAF pri-Macrophages pri,3.7905,4,CAF->immune
+HLA G-LILRB1,pan.dCAF pri-Macrophages pri,3.528,5,CAF->immune
+HLA G-LILRB1,pan.iCAF pri-Macrophages pri,2.9996,5,CAF->immune
+HLA G-LILRB1,pan.myCAF pri-Macrophages pri,3.9768,5,CAF->immune
+HLA G-LILRB1,pan.myCAF pri-Myeloid Dendritic pri,4.0754,5,CAF->immune
+HLA G-LILRB2,pan.dCAF pri-Macrophages pri,3.9124,5,CAF->immune
+HLA G-LILRB2,pan.iCAF pri-Macrophages pri,3.384,5,CAF->immune
+HLA G-LILRB2,pan.myCAF pri-Macrophages pri,4.3608,5,CAF->immune
+HLA G-LILRB2,pan.myCAF pri-Myeloid Dendritic pri,4.4358,5,CAF->immune
+HLA G-LILRB2,pan.pCAF pri-Macrophages pri,3.73475,4,CAF->immune
+ICAM1-integrin-aMb2-complex,pan.dCAF pri-Macrophages pri,3.8416,5,CAF->immune
+ICAM1-integrin-aMb2-complex,pan.dCAF pri-Myeloid Dendritic pri,3.3396,4,CAF->immune
+ICAM1-integrin-aXb2-complex,pan.dCAF pri-Macrophages pri,3.9786,5,CAF->immune
+ICAM1-integrin-aXb2-complex,pan.dCAF pri-Myeloid Dendritic pri,4.1302,4,CAF->immune
+IGF1-IGF1R,Macrophages pri-pan.iCAF pri,2.627,4,immune->CAF
+IL1B-IL1-receptor,Macrophages pri-pan.pCAF pri,5.466,4,immune->CAF
+IL1B-IL1-receptor,Myeloid Dendritic pri-pan.pCAF pri,4.95675,4,immune->CAF
+IL1RN-IL1-receptor,Macrophages pri-pan.pCAF pri,2.9525,4,immune->CAF
+IL1RN-IL1-receptor,Myeloid Dendritic pri-pan.pCAF pri,2.97575,4,immune->CAF
+integrin-aVb1-complex-ADGRE2,pan.dCAF pri-Myeloid Dendritic pri,3.5334,5,CAF->immune
+integrin-aVb1-complex-ADGRE2,pan.pCAF pri-Myeloid Dendritic pri,3.637,4,CAF->immune
+JAG1-CD46,pan.myCAF pri-Macrophages pri,5.7618,5,CAF->immune
+JAG1-CD46,pan.myCAF pri-Myeloid Dendritic pri,5.5284,5,CAF->immune
+JAG1-NOTCH4,pan.myCAF pri-Myeloid Dendritic pri,3.7158,5,CAF->immune
+JAM2-integrin-a4b1-complex,pan.dCAF pri-Myeloid Dendritic pri,3.7846,5,CAF->immune
+JAM2-integrin-a4b1-complex,pan.iCAF pri-Macrophages pri,3.8208,5,CAF->immune
+JAM2-integrin-a4b1-complex,pan.iCAF pri-Myeloid Dendritic pri,3.553,5,CAF->immune
+JAM2-integrin-a4b1-complex,pan.pCAF pri-Myeloid Dendritic pri,3.57575,4,CAF->immune
+JAM3-integrin-aMb2-complex,pan.dCAF pri-Macrophages pri,5.1766,5,CAF->immune
+JAM3-integrin-aMb2-complex,pan.dCAF pri-Myeloid Dendritic pri,4.6746,4,CAF->immune
+JAM3-integrin-aMb2-complex,pan.iCAF pri-Macrophages pri,4.987,5,CAF->immune
+JAM3-integrin-aMb2-complex,pan.iCAF pri-Myeloid Dendritic pri,4.4852,5,CAF->immune
+JAM3-integrin-aMb2-complex,pan.myCAF pri-Macrophages pri,5.266,5,CAF->immune
+JAM3-integrin-aMb2-complex,pan.myCAF pri-Myeloid Dendritic pri,4.7642,5,CAF->immune
+JAM3-integrin-aMb2-complex,pan.pCAF pri-Macrophages pri,5.55375,4,CAF->immune
+JAM3-integrin-aMb2-complex,pan.pCAF pri-Myeloid Dendritic pri,5.1515,4,CAF->immune
+LGALS3-MERTK,pan.dCAF pri-Macrophages pri,8.0354,5,CAF->immune
+LGALS3-MERTK,pan.iCAF pri-Macrophages pri,8.1084,5,CAF->immune
+LGALS3-MERTK,pan.pCAF pri-Macrophages pri,7.804,4,CAF->immune
+LGALS9-HAVCR2,pan.dCAF pri-Macrophages pri,4.5282,5,CAF->immune
+LGALS9-HAVCR2,pan.dCAF pri-Myeloid Dendritic pri,4.2378,5,CAF->immune
+LGALS9-P4HB,Myeloid Dendritic pri-pan.dCAF pri,7.0764,5,immune->CAF
+LGALS9-P4HB,Myeloid Dendritic pri-pan.iCAF pri,6.7922,5,immune->CAF
+LGALS9-P4HB,Myeloid Dendritic pri-pan.pCAF pri,7.6035,4,immune->CAF
+LPAR1-ADGRE5,pan.dCAF pri-Macrophages pri,4.2924,5,CAF->immune
+LPAR1-ADGRE5,pan.dCAF pri-Myeloid Dendritic pri,5.0388,5,CAF->immune
+LPAR1-ADGRE5,pan.iCAF pri-Myeloid Dendritic pri,5.1764,5,CAF->immune
+OSM-LIFR,Macrophages pri-pan.pCAF pri,3.8245,4,immune->CAF
+OSM-LIFR,Myeloid Dendritic pri-pan.pCAF pri,3.1495,4,immune->CAF
+OSM-OSMR,Macrophages pri-pan.dCAF pri,4.5294,5,immune->CAF
+OSM-OSMR,Macrophages pri-pan.iCAF pri,4.4754,5,immune->CAF
+OSM-OSMR,Macrophages pri-pan.myCAF pri,4.806,5,immune->CAF
+OSM-OSMR,Macrophages pri-pan.pCAF pri,4.708,4,immune->CAF
+OSM-OSMR,Myeloid Dendritic pri-pan.dCAF pri,4.0484,4,immune->CAF
+OSM-OSMR,Myeloid Dendritic pri-pan.iCAF pri,3.994,5,immune->CAF
+OSM-OSMR,Myeloid Dendritic pri-pan.myCAF pri,4.3248,5,immune->CAF
+OSM-OSMR,Myeloid Dendritic pri-pan.pCAF pri,4.03325,4,immune->CAF
+PDGFB-PDGFR-complex,Macrophages pri-pan.dCAF pri,4.1208,5,immune->CAF
+PDGFB-PDGFR-complex,Macrophages pri-pan.iCAF pri,4.8938,5,immune->CAF
+PDGFB-PDGFR-complex,Macrophages pri-pan.pCAF pri,3.83675,4,immune->CAF
+PDGFB-PDGFR-complex,Myeloid Dendritic pri-pan.iCAF pri,3.8574,5,immune->CAF
+PDGFB-PDGFRA,Macrophages pri-pan.dCAF pri,4.1208,4,immune->CAF
+PDGFB-PDGFRA,Macrophages pri-pan.iCAF pri,5.0716,5,immune->CAF
+PDGFB-PDGFRA,Macrophages pri-pan.pCAF pri,3.83675,4,immune->CAF
+PDGFB-PDGFRA,Myeloid Dendritic pri-pan.iCAF pri,4.0352,5,immune->CAF
+PDGFB-PDGFRB,Macrophages pri-pan.dCAF pri,5.6428,5,immune->CAF
+PDGFB-PDGFRB,Macrophages pri-pan.iCAF pri,5.3692,5,immune->CAF
+PDGFB-PDGFRB,Macrophages pri-pan.myCAF pri,6.6542,5,immune->CAF
+PDGFB-PDGFRB,Macrophages pri-pan.pCAF pri,6.14225,4,immune->CAF
+PDGFB-PDGFRB,Myeloid Dendritic pri-pan.dCAF pri,4.6064,5,immune->CAF
+PDGFB-PDGFRB,Myeloid Dendritic pri-pan.myCAF pri,5.6178,5,immune->CAF
+PDGFB-PDGFRB,Myeloid Dendritic pri-pan.pCAF pri,5.05,4,immune->CAF
+PDGFC-PDGFRA,Macrophages pri-pan.iCAF pri,4.39,4,immune->CAF
+PLAU-PLAUR,pan.dCAF pri-Macrophages pri,7.3538,5,CAF->immune
+PLAU-PLAUR,pan.dCAF pri-Myeloid Dendritic pri,7.9902,5,CAF->immune
+PLAU-PLAUR,pan.iCAF pri-Macrophages pri,6.942,5,CAF->immune
+PLAU-PLAUR,pan.iCAF pri-Myeloid Dendritic pri,7.5784,5,CAF->immune
+PPIA-BSG,Myeloid Dendritic pri-pan.myCAF pri,8.0968,4,immune->CAF
+PPIA-BSG,Myeloid Dendritic pri-pan.pCAF pri,8.04125,4,immune->CAF
+ProstaglandinE2-byPTGES-PTGER4,pan.dCAF pri-Myeloid Dendritic pri,3.5748,4,CAF->immune
+ProstaglandinF2a-byAKR1B1-PTGFR,Macrophages pri-pan.iCAF pri,4.95025,4,immune->CAF
+ProstaglandinF2a-byAKR1B1-PTGFR,Myeloid Dendritic pri-pan.iCAF pri,3.6775,4,immune->CAF
+RARRES2-CCRL2,pan.dCAF pri-Myeloid Dendritic pri,4.6256,4,CAF->immune
+RARRES2-CCRL2,pan.iCAF pri-Myeloid Dendritic pri,4.2602,4,CAF->immune
+RARRES2-CCRL2,pan.pCAF pri-Myeloid Dendritic pri,5.47075,4,CAF->immune
+SEMA3A-NRP1,pan.dCAF pri-Macrophages pri,3.0512,4,CAF->immune
+SEMA3A-NRP1,pan.pCAF pri-Macrophages pri,3.90625,4,CAF->immune
+SEMA4A-PLXND1,Macrophages pri-pan.myCAF pri,3.892,4,immune->CAF
+SEMA4A-PLXND1,Myeloid Dendritic pri-pan.myCAF pri,4.3224,4,immune->CAF
+SIRPA-CD47,Macrophages pri-pan.dCAF pri,3.2526,4,immune->CAF
+Testosterone-byHSD17B12-AR,Macrophages pri-pan.iCAF pri,1.9142,5,immune->CAF
+Testosterone-byHSD17B12-AR,Macrophages pri-pan.pCAF pri,2.1445,4,immune->CAF
+TGFB2-TGFbeta-receptor1,pan.dCAF pri-Macrophages pri,1.5422,4,CAF->immune
+TGFB3-TGFbeta-receptor1,pan.dCAF pri-Macrophages pri,4.5544,5,CAF->immune
+TGFB3-TGFbeta-receptor1,pan.dCAF pri-Myeloid Dendritic pri,3.1364,4,CAF->immune
+TGFB3-TGFbeta-receptor1,pan.pCAF pri-Macrophages pri,4.10525,4,CAF->immune
+THY1-ADGRE2,pan.dCAF pri-Myeloid Dendritic pri,5.709,5,CAF->immune
+THY1-ADGRE2,pan.iCAF pri-Myeloid Dendritic pri,4.4778,5,CAF->immune
+THY1-ADGRE2,pan.myCAF pri-Myeloid Dendritic pri,4.739,5,CAF->immune
+THY1-ADGRE2,pan.pCAF pri-Myeloid Dendritic pri,6.1105,4,CAF->immune
+THY1-ADGRE5,pan.dCAF pri-Macrophages pri,5.6974,5,CAF->immune
+THY1-ADGRE5,pan.dCAF pri-Myeloid Dendritic pri,6.4434,5,CAF->immune
+THY1-ADGRE5,pan.pCAF pri-Macrophages pri,6.0195,4,CAF->immune
+THY1-ADGRE5,pan.pCAF pri-Myeloid Dendritic pri,6.742,4,CAF->immune
+THY1-integrin-aMb2-complex,pan.dCAF pri-Macrophages pri,6.5422,5,CAF->immune
+THY1-integrin-aMb2-complex,pan.dCAF pri-Myeloid Dendritic pri,6.0408,5,CAF->immune
+THY1-integrin-aMb2-complex,pan.iCAF pri-Macrophages pri,5.311,5,CAF->immune
+THY1-integrin-aMb2-complex,pan.iCAF pri-Myeloid Dendritic pri,4.809,5,CAF->immune
+THY1-integrin-aMb2-complex,pan.myCAF pri-Macrophages pri,5.572,5,CAF->immune
+THY1-integrin-aMb2-complex,pan.myCAF pri-Myeloid Dendritic pri,5.0704,5,CAF->immune
+THY1-integrin-aMb2-complex,pan.pCAF pri-Macrophages pri,6.97375,4,CAF->immune
+THY1-integrin-aMb2-complex,pan.pCAF pri-Myeloid Dendritic pri,6.571,4,CAF->immune
+THY1-integrin-aXb2-complex,pan.dCAF pri-Macrophages pri,6.6796,5,CAF->immune
+THY1-integrin-aXb2-complex,pan.dCAF pri-Myeloid Dendritic pri,6.8308,5,CAF->immune
+THY1-integrin-aXb2-complex,pan.iCAF pri-Macrophages pri,5.4482,5,CAF->immune
+THY1-integrin-aXb2-complex,pan.iCAF pri-Myeloid Dendritic pri,5.5996,5,CAF->immune
+THY1-integrin-aXb2-complex,pan.myCAF pri-Macrophages pri,5.709,5,CAF->immune
+THY1-integrin-aXb2-complex,pan.myCAF pri-Myeloid Dendritic pri,5.8606,5,CAF->immune
+THY1-integrin-aXb2-complex,pan.pCAF pri-Macrophages pri,7.05775,4,CAF->immune
+THY1-integrin-aXb2-complex,pan.pCAF pri-Myeloid Dendritic pri,7.386,4,CAF->immune
+TNC-integrin-a4b1-complex,pan.pCAF pri-Myeloid Dendritic pri,4.23425,4,CAF->immune
+TNFSF12-TNFRSF12A,Myeloid Dendritic pri-pan.dCAF pri,3.053,4,immune->CAF
+TNFSF12-TNFRSF12A,Myeloid Dendritic pri-pan.pCAF pri,3.68375,4,immune->CAF
+TYROBP-CD44,Macrophages pri-pan.dCAF pri,8.4166,5,immune->CAF
+TYROBP-CD44,Macrophages pri-pan.iCAF pri,8.5918,5,immune->CAF
+TYROBP-CD44,Macrophages pri-pan.myCAF pri,8.6338,5,immune->CAF
+TYROBP-CD44,Macrophages pri-pan.pCAF pri,8.83675,4,immune->CAF
+TYROBP-CD44,Myeloid Dendritic pri-pan.dCAF pri,8.1548,4,immune->CAF
+TYROBP-CD44,Myeloid Dendritic pri-pan.iCAF pri,8.3302,5,immune->CAF
+TYROBP-CD44,Myeloid Dendritic pri-pan.myCAF pri,8.3724,5,immune->CAF
+TYROBP-CD44,Myeloid Dendritic pri-pan.pCAF pri,8.5195,4,immune->CAF
+VCAM1-integrin-a4b1-complex,pan.dCAF pri-Myeloid Dendritic pri,2.9994,4,CAF->immune
+VCAM1-integrin-a4b1-complex,pan.pCAF pri-Myeloid Dendritic pri,3.6685,4,CAF->immune
+VEGFA-NRP1,Myeloid Dendritic pri-pan.dCAF pri,3.0784,4,immune->CAF
+VEGFA-NRP1,Myeloid Dendritic pri-pan.myCAF pri,3.2218,4,immune->CAF
+VEGFA-NRP1,Myeloid Dendritic pri-pan.pCAF pri,3.90925,4,immune->CAF
+VEGFB-FLT1,pan.dCAF pri-Myeloid Dendritic pri,1.1408,4,CAF->immune
+VEGFB-NRP1,pan.dCAF pri-Macrophages pri,4.211,5,CAF->immune
+VSIR-HLA E,Myeloid Dendritic pri-pan.dCAF pri,8.1724,4,immune->CAF
+VSIR-HLA E,Myeloid Dendritic pri-pan.pCAF pri,8.55825,4,immune->CAF
+VSIR-HLA F,Myeloid Dendritic pri-pan.dCAF pri,5.4624,5,immune->CAF
+VSIR-HLA F,Myeloid Dendritic pri-pan.myCAF pri,6.2946,5,immune->CAF
+VSIR-HLA F,Myeloid Dendritic pri-pan.pCAF pri,5.55275,4,immune->CAF
+WNT2B-FRZB,Myeloid Dendritic pri-pan.myCAF pri,4.5304,5,immune->CAF
+WNT2B-SFRP1,Myeloid Dendritic pri-pan.iCAF pri,2.213,4,immune->CAF
+WNT2B-SFRP2,Myeloid Dendritic pri-pan.dCAF pri,5.518,5,immune->CAF
+WNT2B-SFRP2,Myeloid Dendritic pri-pan.pCAF pri,4.6825,4,immune->CAF
+WNT2B-SFRP4,Myeloid Dendritic pri-pan.dCAF pri,3.2292,5,immune->CAF
+WNT2B-SFRP4,Myeloid Dendritic pri-pan.pCAF pri,2.889,4,immune->CAF

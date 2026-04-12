@@ -1,0 +1,78 @@
+lr_pair,cell_types,means,common_in_patients,direction
+APP-CD74,Luminal pri-Macrophages pri,11.2752,5,cancer->immune
+APP-CD74,Luminal pri-Myeloid Dendritic pri,11.0494,5,cancer->immune
+APP-CD74,Myo pri-Macrophages pri,10.5834,5,cancer->immune
+APP-CD74,Myo pri-Myeloid Dendritic pri,10.3572,5,cancer->immune
+APP-SORL1,Luminal pri-Myeloid Dendritic pri,5.363,4,cancer->immune
+APP-TNFRSF21,Luminal pri-Macrophages pri,5.8554,5,cancer->immune
+APP-TREM2-receptor,Luminal pri-Macrophages pri,8.0176,5,cancer->immune
+APP-TREM2-receptor,Luminal pri-Myeloid Dendritic pri,4.9408,4,cancer->immune
+APP-TREM2-receptor,Myo pri-Macrophages pri,7.3256,5,cancer->immune
+AREG-EGFR,Myeloid Dendritic pri-Luminal pri,4.551,5,immune->cancer
+AREG-EGFR,Myeloid Dendritic pri-Myo pri,5.8612,5,immune->cancer
+BMP8A-BMPR1B-BMPR2,Myeloid Dendritic pri-Luminal pri,1.89,4,immune->cancer
+CD1B-complex-IL6ST,Myeloid Dendritic pri-Luminal pri,1.6425,4,immune->cancer
+CD226-NECTIN2,Myeloid Dendritic pri-Luminal pri,2.1594,4,immune->cancer
+CD93-IFNGR1,Macrophages pri-Myo pri,5.1384,5,immune->cancer
+CEACAM1-CD209,Luminal pri-Macrophages pri,3.3258,5,cancer->immune
+CX3CL1-CX3CR1,Luminal pri-Macrophages pri,6.134,5,cancer->immune
+CX3CL1-CX3CR1,Luminal pri-Myeloid Dendritic pri,5.2492,5,cancer->immune
+Desmosterol-byDHCR7-NR1H2,Luminal pri-Macrophages pri,4.461,5,cancer->immune
+Desmosterol-byDHCR7-NR1H2,Luminal pri-Myeloid Dendritic pri,4.486,5,cancer->immune
+DSC2-DSG2,Macrophages pri-Luminal pri,3.8168,4,immune->cancer
+DSC2-DSG2,Macrophages pri-Myo pri,3.0978,4,immune->cancer
+DSC2-DSG2,Myeloid Dendritic pri-Luminal pri,2.7772,4,immune->cancer
+DSC2-DSG2,Myeloid Dendritic pri-Myo pri,2.0586,4,immune->cancer
+EFNA5-EPHB2,Luminal pri-Macrophages pri,4.406,5,cancer->immune
+EFNB2-EPHB2,Luminal pri-Macrophages pri,1.5448,5,cancer->immune
+EREG-EGFR,Myeloid Dendritic pri-Luminal pri,1.9754,5,immune->cancer
+EREG-EGFR,Myeloid Dendritic pri-Myo pri,3.2858,5,immune->cancer
+GAS6-AXL,Myo pri-Myeloid Dendritic pri,7.339,5,cancer->immune
+GAS6-MERTK,Myo pri-Macrophages pri,7.2634,5,cancer->immune
+HBEGF-EGFR,Myeloid Dendritic pri-Luminal pri,3.6396,5,immune->cancer
+HBEGF-EGFR,Myeloid Dendritic pri-Myo pri,4.9496,5,immune->cancer
+HBEGF-ERBB2,Myeloid Dendritic pri-Luminal pri,4.4888,5,immune->cancer
+HBEGF-ERBB2,Myeloid Dendritic pri-Myo pri,3.4448,5,immune->cancer
+HEBP1-FPR3,Luminal pri-Macrophages pri,4.7882,5,cancer->immune
+HEBP1-FPR3,Luminal pri-Myeloid Dendritic pri,4.2664,5,cancer->immune
+HEBP1-FPR3,Myo pri-Macrophages pri,4.2208,5,cancer->immune
+HEBP1-FPR3,Myo pri-Myeloid Dendritic pri,3.699,5,cancer->immune
+HLA G-LILRB1,Luminal pri-Macrophages pri,2.8666,5,cancer->immune
+HLA G-LILRB2,Luminal pri-Macrophages pri,3.2506,5,cancer->immune
+IGF1-IGF1R,Macrophages pri-Luminal pri,3.7058,5,immune->cancer
+IGF1-integrin-a6b4-complex,Macrophages pri-Luminal pri,3.1516,5,immune->cancer
+IGF1-integrin-a6b4-complex,Macrophages pri-Myo pri,4.3856,5,immune->cancer
+IL1RAP-PTPRF,Macrophages pri-Luminal pri,5.3342,5,immune->cancer
+IL1RAP-PTPRF,Macrophages pri-Myo pri,4.8282,5,immune->cancer
+IL1RAP-PTPRF,Myeloid Dendritic pri-Luminal pri,4.5024,4,immune->cancer
+IL1RAP-PTPRF,Myeloid Dendritic pri-Myo pri,3.9966,4,immune->cancer
+IL34-CSF1R,Luminal pri-Macrophages pri,6.2016,5,cancer->immune
+IL34-CSF1R,Luminal pri-Myeloid Dendritic pri,5.3998,5,cancer->immune
+integrin-aVb1-complex-ADGRE2,Luminal pri-Myeloid Dendritic pri,2.9486,5,cancer->immune
+LGALS3-MERTK,Luminal pri-Macrophages pri,7.5844,5,cancer->immune
+LGALS9-P4HB,Myeloid Dendritic pri-Luminal pri,7.3346,5,immune->cancer
+LGALS9-P4HB,Myeloid Dendritic pri-Myo pri,6.8726,5,immune->cancer
+PGF-NRP1,Luminal pri-Macrophages pri,3.7684,5,cancer->immune
+PRNP-ADGRG6,Macrophages pri-Luminal pri,4.2696,4,immune->cancer
+ProstaglandinE2-byPTGES2-PTGER4,Luminal pri-Macrophages pri,4.1764,5,cancer->immune
+ProstaglandinE2-byPTGES3-PTGER4,Luminal pri-Macrophages pri,7.0072,5,cancer->immune
+ProstaglandinE2-byPTGES3-PTGER4,Luminal pri-Myeloid Dendritic pri,7.3156,5,cancer->immune
+ProstaglandinE2-byPTGES3-PTGER4,Myo pri-Myeloid Dendritic pri,7.2558,5,cancer->immune
+SEMA3E-PLXND1,Luminal pri-Macrophages pri,3.2286,5,cancer->immune
+SEMA4A-PLXND1,Myo pri-Macrophages pri,4.577,5,cancer->immune
+SEMA4A-PLXND1,Myo pri-Myeloid Dendritic pri,3.6096,5,cancer->immune
+SEMA4C-PLXNB2,Myo pri-Macrophages pri,4.4684,5,cancer->immune
+SEMA4C-PLXNB2,Myo pri-Myeloid Dendritic pri,4.714,5,cancer->immune
+SIRPA-CD47,Macrophages pri-Luminal pri,3.8674,5,immune->cancer
+TF-TFRC,Luminal pri-Macrophages pri,3.8358,5,cancer->immune
+TGFB2-TGFbeta-receptor1,Luminal pri-Macrophages pri,2.1936,5,cancer->immune
+TNFSF12-TNFRSF12A,Myeloid Dendritic pri-Luminal pri,3.505,5,immune->cancer
+TYROBP-CD44,Macrophages pri-Luminal pri,8.5466,5,immune->cancer
+TYROBP-CD44,Macrophages pri-Myo pri,9.151,5,immune->cancer
+TYROBP-CD44,Myeloid Dendritic pri-Luminal pri,8.2848,5,immune->cancer
+TYROBP-CD44,Myeloid Dendritic pri-Myo pri,8.8894,5,immune->cancer
+VEGFA-NRP2,Myeloid Dendritic pri-Myo pri,2.053,4,immune->cancer
+WNT2B-FZD3-LRP6,Myeloid Dendritic pri-Luminal pri,1.4078,4,immune->cancer
+WNT2B-FZD6-LRP6,Myeloid Dendritic pri-Luminal pri,2.1772,5,immune->cancer
+WNT2B-FZD7-LRP6,Myeloid Dendritic pri-Luminal pri,2.152,5,immune->cancer
+WNT2B-SFRP1,Myeloid Dendritic pri-Myo pri,2.3664,5,immune->cancer

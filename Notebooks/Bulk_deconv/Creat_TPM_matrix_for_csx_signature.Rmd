@@ -1,0 +1,151 @@
+---
+title: "Creat_TPM_matrix_for_csx_signature"
+author: "Avishai Wizel"
+date: '`r Sys.time()`'
+output: 
+  html_document: 
+    code_folding: hide
+    toc: yes
+    toc_collapse: yes
+    toc_float: 
+      collapsed: TRUE
+    number_sections: true
+    toc_depth: 2
+    df_print: paged
+params: 
+  data_out_dir: "./temp_data/" 
+---
+```{r}
+library(stringi)
+library(Seurat)
+library(ggplot2)
+library(tidyverse)
+library(dplyr)
+library(data.table)
+library(print.rmd.tabs)
+```
+
+
+```{r}
+source("./pipe.R")
+input = pipeline$TPM_for_signature_matrix$input
+output = pipeline$TPM_for_signature_matrix$output
+```
+
+
+
+
+```{r}
+acc_cancer_cells = readRDS(input$cancer)
+acc_caf_cells =  readRDS(input$caf)
+t_cells_labled =  readRDS(input$t_cells_labled)
+immune_with_cell_types = readRDS(input$immune_with_cell_types)
+```
+
+
+# Create TPM matrix
+Create TPM matrix with cell type in col names , later upload to cibersort to create signature matrix from TPM using.
+use genes that were identified as markers of the existing cell types 
+use cancer cells +CAF + immune + T cells 
+
+
+```{r}
+# add T cell labels to immune and update immune type for T cells
+immune_with_cell_types = AddMetaData(object = immune_with_cell_types,
+                                     metadata =t_cells_labled$t_cell_label,col.name = "t_cell_label")
+
+immune_with_cell_types@meta.data = immune_with_cell_types@meta.data %>%
+  mutate(immune_type =
+           case_when(
+             immune_type %in% c("Naive CD4+ T", "Effector CD8+ T", "CD8+ NKT-like") ~ t_cell_label,
+             TRUE ~ immune_type
+           )
+  )
+  
+
+
+#remove unclear lum-myo cells
+acc_cancer_cells_no_mid = subset(acc_cancer_cells,subset = cell_identity != "mid")
+
+
+# merge cancer, immune and CAF
+common_genes = rownames(acc_cancer_cells_no_mid) %>% intersect (rownames(immune_with_cell_types)) %>% intersect(rownames(acc_caf_cells))
+acc_cancer_and_cd45 = merge(acc_cancer_cells_no_mid[common_genes,],immune_with_cell_types[common_genes,])
+overlapping_cells = colnames(acc_cancer_cells_no_mid) %>% intersect(colnames(acc_caf_cells)) 
+acc_cancer_immune_caf = merge(acc_cancer_and_cd45[common_genes,],acc_caf_cells[common_genes,] )
+
+```
+
+```{r}
+#acc_cancer_immune_caf  = subset(acc_cancer_immune_caf,subset = tissue == "pri") # subset only primary tumors
+```
+
+
+```{r}
+metadata = FetchData(acc_cancer_immune_caf,vars = c("tissue","cell_identity","immune_type","t_cell_label"))
+
+metadata  = metadata %>%  mutate(cell_type =
+                                   if_else(
+                                     condition = cell_identity == "immune",
+                                     true = immune_type,
+                                     false = cell_identity))
+
+
+acc_cancer_immune_caf = AddMetaData(object = acc_cancer_immune_caf,metadata = metadata[,"cell_type",drop=F],col.name = "cell_type")
+Idents(acc_cancer_immune_caf) <- acc_cancer_immune_caf@meta.data$cell_type
+
+```
+
+
+## Setvar genes
+```{r}
+acc_cancer_immune_caf = acc_cancer_immune_caf %>% FindVariableFeatures(nfeatures = 20000,selection.method = "vst")
+var_genes = VariableFeatures(acc_cancer_immune_caf)
+```
+
+```{r}
+# acc cell types markers
+myo_genes = c("TP63","TP73","CAV1","CDH3","KRT5","KRT14","ACTA2","TAGLN","MYLK","DKK3")
+lum_genes = c("KIT","EHF","ELF5","KRT7","CLDN3","CLDN4","CD24","LGALS3","LCN2","SLPI")
+CAF_genes = c("COL3A1","COL1A2")
+
+```
+
+```{r}
+#CD45 markers from starCAT
+library(readxl)
+starCAT_top_genes = readxl::read_excel(,path = "./input_data/starCAT/starCAT_PMC11092745_Supplementary_Tables.xlsx", 
+                   sheet = "S2 - cGEP Top Genes",skip = 2)
+
+names(starCAT_top_genes) = gsub(x = names(starCAT_top_genes) ,pattern = "-",replacement = "_") #set valin names
+names(starCAT_top_genes) = gsub(x = names(starCAT_top_genes) ,pattern = "/",replacement = ".") #set valin names
+
+#take only signature that found in data
+starCAT_top_genes = starCAT_top_genes[,colnames(starCAT_top_genes) %in% unique(immune_with_Tcells$immune_type)]
+
+# combine all unique geness
+genes_for_signature = c(var_genes,myo_genes,lum_genes,CAF_genes,unlist(starCAT_top_genes)) %>% unique()
+
+genes_for_signature = genes_for_signature[genes_for_signature %in% rownames(acc_cancer_immune_caf)]
+```
+
+
+
+## set matrix
+```{r}
+# get linear TPM values for signature genes
+tpm_for_signature_matrix = acc_cancer_immune_caf@assays$RNA@counts[genes_for_signature,] %>% data.frame(check.names = F)
+tpm_for_signature_matrix = tpm_for_signature_matrix %>%  rownames_to_column(var = "gene")
+rownames(tpm_for_signature_matrix) = NULL
+
+tpm_for_signature_matrix = tpm_for_signature_matrix %>% as.matrix()
+
+#set colnames to be cell type (req for cibersort)
+colnames(tpm_for_signature_matrix)[2:length(colnames(tpm_for_signature_matrix))] <- unname(acc_cancer_immune_caf$cell_type)
+```
+
+
+```{r}
+fwrite(x = tpm_for_signature_matrix,file = params$data_out_dir %s+% basename(output$tpm_matrix) ,sep = "\t",
+       row.names = F, quote = FALSE)
+```

@@ -137,9 +137,9 @@ pipeline[["run_cpdb_per_patient"]] = list(
   ),
   params = list(
     cpdb_conda_env = "/sci/labs/yotamd/lab_share/avishai.wizel/python_envs/miniconda/envs/cpdb",
-    cpdb_target_dir = "Reports/06_V2_cellphoneDB_per_patient/02_run_cellphoneDB/cpdb_data/",
-    cpbd_all_immune_output_dir = "Reports/06_V2_cellphoneDB_per_patient/02_run_cellphoneDB/cpdb_out_immune/",
-    cpbd_t_cells_output_dir = "Reports/06_V2_cellphoneDB_per_patient/02_run_cellphoneDB/cpdb_out_T_cells/"
+    cpdb_target_dir = "Reports/ccc_analysis/06_V2_cellphoneDB_per_patient/02_run_cellphoneDB/cpdb_data/",
+    cpbd_all_immune_output_dir = "Reports/ccc_analysis/06_V2_cellphoneDB_per_patient/02_run_cellphoneDB/cpdb_out_immune/",
+    cpbd_t_cells_output_dir = "Reports/ccc_analysis/06_V2_cellphoneDB_per_patient/02_run_cellphoneDB/cpdb_out_T_cells/"
     
   )
 )
@@ -174,22 +174,38 @@ pipeline[["liana"]] = list(
 
 
 
-######################################## Dou et al CIBERSORT ###############################################
+######################################## Bulk deconvolution ###############################################
 
-pipeline[["create_data_for_CIBERSORT"]] = list(
+pipeline[["TPM_for_signature_matrix"]] = list(
   input = list(
-    script = "./Notebooks/Bulk_deconv/07_create_data_for_CIBERSORT.Rmd",
-    immune_with_Tcells = pipeline$Tcells_types$output$immune_with_Tcells,
+    script = "./Notebooks/Bulk_deconv/Creat_TPM_matrix_for_csx_signature.Rmd",
+    t_cells_labled = pipeline$Tcells_types$output$t_cells_labled,
     cancer = pipeline$cell_types$output$cancer,
     caf = pipeline$cell_types$output$caf,
-    dou_acc = "input_data/Dou_PMC8450584/PMC8450584_DataSheet_1.xlsx"
+    immune_with_cell_types = pipeline$immune_identity$output$immune_with_cell_types
   ),
   output = list(
     report = "Reports/Bulk_deconv/07_create_data_for_CIBERSORT/07_create_data_for_CIBERSORT.html",
-    tpm_matrix = "Reports/Bulk_deconv/07_create_data_for_CIBERSORT/tpm_per_cell_for_making_signature_matrix.txt",
-    dou_exprs = "Reports/Bulk_deconv/07_create_data_for_CIBERSORT/dou_exprs.tsv"
+    tpm_matrix = "Reports/Bulk_deconv/07_create_data_for_CIBERSORT/tpm_per_cell_for_making_signature_matrix.txt"
   )
 )
+
+
+# pipeline[["TPM_for_signature_matrix.Rmd"]] = list(
+#   input = list(
+#     script = "./Notebooks/Bulk_deconv/Creat_TPM_matrix_for_csx_signature.Rmd",
+#     t_cells_labled = pipeline$Tcells_types$output$t_cells_labled,
+#     cancer = pipeline$cell_types$output$cancer,
+#     caf = pipeline$cell_types$output$caf,
+#     immune_with_cell_types = pipeline$immune_identity$output$immune_with_cell_types,
+#     dou_acc = "input_data/Dou_PMC8450584/PMC8450584_DataSheet_1.xlsx"
+#   ),
+#   output = list(
+#     report = "Reports/Bulk_deconv/07_create_data_for_CIBERSORT/07_create_data_for_CIBERSORT.html",
+#     tpm_matrix = "Reports/Bulk_deconv/07_create_data_for_CIBERSORT/tpm_per_cell_for_making_signature_matrix.txt",
+#     dou_exprs = "Reports/Bulk_deconv/07_create_data_for_CIBERSORT/dou_exprs.tsv"
+#   )
+# )
 
 # pipeline[["run_cibersortX_alert"]] = list(
 #   input = list(

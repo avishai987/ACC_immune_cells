@@ -2,7 +2,7 @@
 
 .Phony: all
 
-all: pre_process cell_types immune_identity starCAT Tcells_types umap_clustering immune_markers_ACC cpdb_create_data_per_patient run_cpdb_per_patient cpdb_analysis_per_patient liana create_data_for_CIBERSORT Dou_CIBERSORT_analysis sipsic_run sipsic_analysis
+all: pre_process cell_types immune_identity starCAT Tcells_types umap_clustering immune_markers_ACC cpdb_create_data_per_patient run_cpdb_per_patient cpdb_analysis_per_patient liana TPM_for_signature_matrix Dou_CIBERSORT_analysis sipsic_run sipsic_analysis
 
 # ============
 # pre_process
@@ -115,14 +115,14 @@ Reports/07_Liana_Nichenet/07_Liana_Nichenet.html &: ./Notebooks/ccc_analysis/Lia
 	Rscript render.R liana
 
 # ============
-# create_data_for_CIBERSORT
+# TPM_for_signature_matrix
 # ============
 
-create_data_for_CIBERSORT: Reports/Bulk_deconv/07_create_data_for_CIBERSORT/07_create_data_for_CIBERSORT.html Reports/Bulk_deconv/07_create_data_for_CIBERSORT/tpm_per_cell_for_making_signature_matrix.txt Reports/Bulk_deconv/07_create_data_for_CIBERSORT/dou_exprs.tsv
+TPM_for_signature_matrix: Reports/Bulk_deconv/07_create_data_for_CIBERSORT/07_create_data_for_CIBERSORT.html Reports/Bulk_deconv/07_create_data_for_CIBERSORT/tpm_per_cell_for_making_signature_matrix.txt
 	@echo  $@ is up to date
 
-Reports/Bulk_deconv/07_create_data_for_CIBERSORT/07_create_data_for_CIBERSORT.html Reports/Bulk_deconv/07_create_data_for_CIBERSORT/tpm_per_cell_for_making_signature_matrix.txt Reports/Bulk_deconv/07_create_data_for_CIBERSORT/dou_exprs.tsv &: ./Notebooks/Bulk_deconv/07_create_data_for_CIBERSORT.Rmd ./Reports/04_Tcells_types/immune_with_Tcells.RDS ./Reports/02_cell_type_assignment/cancer.RDS ./Reports/02_cell_type_assignment/caf.RDS input_data/Dou_PMC8450584/PMC8450584_DataSheet_1.xlsx
-	Rscript render.R create_data_for_CIBERSORT
+Reports/Bulk_deconv/07_create_data_for_CIBERSORT/07_create_data_for_CIBERSORT.html Reports/Bulk_deconv/07_create_data_for_CIBERSORT/tpm_per_cell_for_making_signature_matrix.txt &: ./Notebooks/Bulk_deconv/Creat_TPM_matrix_for_csx_signature.Rmd ./Reports/04_Tcells_types/t_cells_labled.RDS ./Reports/02_cell_type_assignment/cancer.RDS ./Reports/02_cell_type_assignment/caf.RDS ./Reports/03_immune_cell_types/immune_with_cell_types.RDS
+	Rscript render.R TPM_for_signature_matrix
 
 # ============
 # Dou_CIBERSORT_analysis

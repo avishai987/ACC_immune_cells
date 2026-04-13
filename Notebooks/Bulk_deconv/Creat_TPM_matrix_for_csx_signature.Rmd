@@ -30,6 +30,8 @@ library(print.rmd.tabs)
 source("./pipe.R")
 input = pipeline$TPM_for_signature_matrix$input
 output = pipeline$TPM_for_signature_matrix$output
+script_params = pipeline$TPM_for_signature_matrix$params
+
 ```
 
 
@@ -77,7 +79,10 @@ acc_cancer_immune_caf = merge(acc_cancer_and_cd45[common_genes,],acc_caf_cells[c
 ```
 
 ```{r}
-#acc_cancer_immune_caf  = subset(acc_cancer_immune_caf,subset = tissue == "pri") # subset only primary tumors
+if (script_params$only_primary){
+  print("Using only primary tumors for signature creation")
+  acc_cancer_immune_caf  = subset(acc_cancer_immune_caf,subset = tissue == "pri") # subset only primary tumors
+}
 ```
 
 
@@ -99,7 +104,8 @@ Idents(acc_cancer_immune_caf) <- acc_cancer_immune_caf@meta.data$cell_type
 
 ## Setvar genes
 ```{r}
-acc_cancer_immune_caf = acc_cancer_immune_caf %>% FindVariableFeatures(nfeatures = 20000,selection.method = "vst")
+cat("use top", script_params[["top_var_genes"]], "variable genes for signature creation")
+acc_cancer_immune_caf = acc_cancer_immune_caf %>% FindVariableFeatures(nfeatures = script_params[["top_var_genes"]],selection.method = "vst")
 var_genes = VariableFeatures(acc_cancer_immune_caf)
 ```
 
@@ -120,8 +126,6 @@ starCAT_top_genes = readxl::read_excel(,path = "./input_data/starCAT/starCAT_PMC
 names(starCAT_top_genes) = gsub(x = names(starCAT_top_genes) ,pattern = "-",replacement = "_") #set valin names
 names(starCAT_top_genes) = gsub(x = names(starCAT_top_genes) ,pattern = "/",replacement = ".") #set valin names
 
-#take only signature that found in data
-starCAT_top_genes = starCAT_top_genes[,colnames(starCAT_top_genes) %in% unique(immune_with_Tcells$immune_type)]
 
 # combine all unique geness
 genes_for_signature = c(var_genes,myo_genes,lum_genes,CAF_genes,unlist(starCAT_top_genes)) %>% unique()
@@ -129,6 +133,9 @@ genes_for_signature = c(var_genes,myo_genes,lum_genes,CAF_genes,unlist(starCAT_t
 genes_for_signature = genes_for_signature[genes_for_signature %in% rownames(acc_cancer_immune_caf)]
 ```
 
+```{r}
+length(genes_for_signature)
+```
 
 
 ## set matrix
@@ -144,6 +151,10 @@ tpm_for_signature_matrix = tpm_for_signature_matrix %>% as.matrix()
 colnames(tpm_for_signature_matrix)[2:length(colnames(tpm_for_signature_matrix))] <- unname(acc_cancer_immune_caf$cell_type)
 ```
 
+```{r}
+tpm_for_signature_matrix[1:10,1:10]
+dim(tpm_for_signature_matrix)
+```
 
 ```{r}
 fwrite(x = tpm_for_signature_matrix,file = params$data_out_dir %s+% basename(output$tpm_matrix) ,sep = "\t",

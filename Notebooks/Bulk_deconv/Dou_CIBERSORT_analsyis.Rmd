@@ -132,20 +132,31 @@ ggplot(df, aes(x = LumCategory, fill = Histopathology)) +
 ```
 
 
-# immune inflatration correlation
+# fraction-clinical correlations
 ```{r}
-# T cells ratio
+# make case number in dou_survival the same format as in deconv_result
+dou_survival$`Case Number` = gsub(pattern = "-", replacement = "_", dou_survival$`Case Number`)
+
 deconv_result_with_survival = deconv_result %>% as.data.frame()
+
+clinical_cols = c("Immune infiltration score (IIS)", "T cell infiltration score (TIS)","Antigen presenting machinery (APM)","indel_TMB","Tumour mutational burden (TMB)","Locoregional recurrence-free survival (LRRFS)","Distant metastasis-free survival time (DMFS)")
+# join clinical data to deconv result
+deconv_result_with_survival  =  inner_join(deconv_result_with_survival, dou_survival %>% select(clinical_cols,"Case Number")
+                                           ,by = c("Mixture" = "Case Number"))
+
+# remove columns that are not cell types or clinical data
 deconv_result_with_survival = deconv_result_with_survival %>% 
   select(-c("Mixture", "P-value", "Correlation","RMSE"))
 
-
+# calculate  T cells ratio
 t_cells_names = c( "CD8_Naive", "CD4_Naive", "CD8_CM", "CD4_CM", "CD4_EM", "CD8_EM", "gdT",
                    "Treg", "CD8_TEMRA","MAIT")
+
+cell_types_cols = c("t_cells_ratio", "immune_cells_ratio", "lum_ratio")
 deconv_result_with_survival$t_cells_ratio = rowSums(deconv_result_with_survival[, colnames(deconv_result_with_survival) %in% t_cells_names])
 
 
-# Immune cells ratio
+# Calculate Immune cells ratio
 immune_cells_names = c( "Naive B", "CD8_Naive", "CD4_Naive", 
 "CD8_CM", "CD4_CM", "CD4_EM", "CD8_EM", "Plasmacytoid Dendritic", 
 "gdT", "Treg", "CD8_TEMRA", "Macrophages", "Basophils", "Neutrophils", 
@@ -154,6 +165,7 @@ immune_cells_names = c( "Naive B", "CD8_Naive", "CD4_Naive",
 for (cell_name in immune_cells_names) {
   cell_ratio = deconv_result_with_survival[,cell_name]/rowSums(deconv_result_with_survival[,immune_cells_names])
   deconv_result_with_survival[,paste0(cell_name,"_ratio")] = cell_ratio
+  cell_types_cols = c(cell_types_cols, paste0(cell_name,"_ratio"))
 }
 
 
@@ -162,30 +174,20 @@ deconv_result_with_survival$immune_cells_ratio = rowSums(deconv_result_with_surv
 
 deconv_result_with_survival$lum_ratio = deconv_result_with_survival$Luminal/(deconv_result_with_survival$Luminal + deconv_result_with_survival$Myo)
 
-deconv_result_with_survival$myo_ratio = deconv_result_with_survival$Myo/(deconv_result_with_survival$Luminal + deconv_result_with_survival$Myo)
-deconv_result_with_survival$Luminal = NULL
-deconv_result_with_survival$Myo = NULL
-
-
-deconv_result_with_survival$`Immune infiltration score (IIS)` = dou_survival$`Immune infiltration score (IIS)`
-deconv_result_with_survival$`T cell infiltration score (TIS)` = dou_survival$`T cell infiltration score (TIS)`
-deconv_result_with_survival["Antigen presenting machinery (APM)"] = dou_survival["Antigen presenting machinery (APM)"]
-deconv_result_with_survival["Antigen presenting machinery (APM)"] = dou_survival["Antigen presenting machinery (APM)"]
-deconv_result_with_survival["indel_TMB"] = dou_survival["indel_TMB"]
-deconv_result_with_survival["Tumour mutational burden (TMB)"] = dou_survival["Tumour mutational burden (TMB)"]
-"Tumour mutational burden (TMB)"
-deconv_result_with_survival["indel_TMB"] = dou_survival["indel_TMB"]
-deconv_result_with_survival["Locoregional recurrence-free survival (LRRFS)"] = dou_survival["Locoregional recurrence-free survival (LRRFS)"]
-deconv_result_with_survival["Distant metastasis-free survival time (DMFS)" ] = dou_survival["Distant metastasis-free survival time (DMFS)" ]
-
-
+# remove original immune cells columns
 for (cell_name in immune_cells_names) {
     deconv_result_with_survival[,cell_name] <- NULL
 }
 
+deconv_result_with_survival$Myo <- NULL
+deconv_result_with_survival$Luminal <- NULL
+```
+
+```{r}
+# calculate correlation between cell types and clinical data
 correlation_matrix <- cor(
-  x = deconv_result_with_survival[,1:22],
-  y = deconv_result_with_survival[,23:length(deconv_result_with_survival)],
+  x = deconv_result_with_survival[,cell_types_cols],
+  y = deconv_result_with_survival[,clinical_cols],
   method = "pearson" 
 )
 all_pairs = expand.grid(
@@ -208,7 +210,6 @@ all_pvals = matrix(
 ) %>% as.data.frame()
 rownames(all_pvals) = rownames(correlation_matrix)
 colnames(all_pvals) = colnames(correlation_matrix)
-
 
 ```
 

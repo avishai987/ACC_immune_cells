@@ -185,28 +185,38 @@ pipeline[["TPM_for_signature_matrix"]] = list(
     immune_with_cell_types = pipeline$immune_identity$output$immune_with_cell_types
   ),
   output = list(
-    report = "Reports/Bulk_deconv/07_create_data_for_CIBERSORT/07_create_data_for_CIBERSORT.html",
-    tpm_matrix = "Reports/Bulk_deconv/07_create_data_for_CIBERSORT/tpm_per_cell_for_making_signature_matrix.txt"
+    report = "Reports/Bulk_deconv/Creat_TPM_matrix_for_csx_signature/Creat_TPM_matrix_for_csx_signature.html",
+    tpm_matrix = "Reports/Bulk_deconv/Creat_TPM_matrix_for_csx_signature/acc_tpm_for_signature_matrix.txt"
+  ),
+  params = list(
+    only_primary = F,
+    top_var_genes = 10000
   )
 )
 
 
-# pipeline[["TPM_for_signature_matrix.Rmd"]] = list(
-#   input = list(
-#     script = "./Notebooks/Bulk_deconv/Creat_TPM_matrix_for_csx_signature.Rmd",
-#     t_cells_labled = pipeline$Tcells_types$output$t_cells_labled,
-#     cancer = pipeline$cell_types$output$cancer,
-#     caf = pipeline$cell_types$output$caf,
-#     immune_with_cell_types = pipeline$immune_identity$output$immune_with_cell_types,
-#     dou_acc = "input_data/Dou_PMC8450584/PMC8450584_DataSheet_1.xlsx"
-#   ),
-#   output = list(
-#     report = "Reports/Bulk_deconv/07_create_data_for_CIBERSORT/07_create_data_for_CIBERSORT.html",
-#     tpm_matrix = "Reports/Bulk_deconv/07_create_data_for_CIBERSORT/tpm_per_cell_for_making_signature_matrix.txt",
-#     dou_exprs = "Reports/Bulk_deconv/07_create_data_for_CIBERSORT/dou_exprs.tsv"
-#   )
-# )
+pipeline[["create_dou_matrix"]] = list(
+  input = list(
+    script = "./Notebooks/Bulk_deconv/create_dou_matrix.Rmd",
+    dou_acc = "input_data/Dou_PMC8450584/PMC8450584_DataSheet_1.xlsx",
+    dou_clinical = "input_data/Dou_PMC8450584/PMC8450584_DataSheet_2.xlsx"
+  ),
+  output = list(
+    dou_exprs = "Reports/Bulk_deconv/create_dou_matrix/dou_exprs.tsv",
+    report = "Reports/Bulk_deconv/create_dou_matrix/create_dou_matrix.html"
+  )
+)
 
+pipeline[["create_ferrarotto_matrix"]] = list(
+  input = list(
+    script = "./Notebooks/Bulk_deconv/Create_Ferrarotto_TPM.Rmd",
+    ferra_acc = "input_data/Ferrarotto_PMC7854509/ACC_RNAseq_PMC7854509_RPKM.xlsx"
+    ),
+  output = list(
+    ferra_exprs = "Reports/Bulk_deconv/create_ferrarotto_matrix/ferrarotto_TPM.tsv",
+    report = "Reports/Bulk_deconv/create_ferrarotto_matrix/Create_ferrarotto_TPM.html"
+  )
+)
 # pipeline[["run_cibersortX_alert"]] = list(
 #   input = list(
 #     tpm_matrix = pipeline$create_data_for_CIBERSORT$output$tpm_matrix,
@@ -223,15 +233,25 @@ pipeline[["TPM_for_signature_matrix"]] = list(
 
 pipeline[["Dou_CIBERSORT_analysis"]] = list(
   input = list(
-    script = "./Notebooks/Bulk_deconv/08_Dou_CIBERSORT_analsyis.Rmd",
+    script = "./Notebooks/Bulk_deconv/Dou_CIBERSORT_analsyis.Rmd",
     dou_acc_survival = "input_data/Dou_PMC8450584/PMC8450584_DataSheet_2.xlsx",
-    cs_result = "input_data/CIBERSORTx_result/CIBERSORTx_Job16_Results_2025_09_29.csv"
+    cs_result = "input_data/CIBERSORTx_result/CIBERSORTx_Job16_Results_dou_all_withMarkers_relative_bBatchcorrect_2025_09_29.csv"
   ),
   output = list(
-    report = "Reports/Bulk_deconv/08_Dou_CIBERSORT_analsyis/08_Dou_CIBERSORT_analsyis.html"
+    report = "Reports/Bulk_deconv/Dou_CIBERSORT_analsyis/Dou_CIBERSORT_analsyis.html"
   )
 )
 
+pipeline[["ferrarotto_CIBERSORT_analysis"]] = list(
+  input = list(
+    script = "./Notebooks/Bulk_deconv/ferrarotto_CIBERSORT_analysis.Rmd",
+    cs_result = "input_data/CIBERSORTx_result/CIBERSORTx_Job22_Results_ferrarotto_10Kvargenes_relative.csv",
+    ferra_clinical = "input_data/Ferrarotto_PMC7854509/CCR2020_Clinical.xlsx"
+  ),
+  output = list(
+    report = "Reports/Bulk_deconv/ferrarotto_CIBERSORT_analysis/ferrarotto_CIBERSORT_analysis.html"
+  )
+)
 pipeline[["sipsic_run"]] = list(
   input = list(
     script = "./Notebooks/Pathway_analysis/09_sipsic_run.Rmd",

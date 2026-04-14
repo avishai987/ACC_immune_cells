@@ -277,9 +277,10 @@ ggscatter(data, x = "fraction", y = "TIS", add = "reg.line") +
 
 # cell types- survival
 ```{r}
-cell_type = "Myo"
-data = data.frame(fraction = deconv_result[[cell_type]],
-                  survival = dou_survival$`Locoregional recurrence-free survival (LRRFS)`)
+x = "lum_ratio"
+y = "Distant metastasis-free survival time (DMFS)" #"Distant metastasis-free survival time (DMFS), #"Locoregional recurrence-free survival (LRRFS)"
+data = data.frame(fraction = deconv_with_survival_aggTcells[[x]],
+                  survival = deconv_with_survival_aggTcells[[y]])
 
 library(ggplot2)
 library(ggpubr) 
@@ -287,8 +288,8 @@ library(ggpubr)
 p <- ggplot(data, aes(x = fraction, y = survival)) +
   geom_point() + # הוספת נקודות הפיזור
   labs(title = "Survival vs. Fraction",
-       x = paste (cell_type, "Fraction"),
-       y = "recurrence-free survival") +
+       x = x,
+       y = y) +
   theme_minimal()+ # רקע נקי יותר +
   geom_smooth(method = "lm", se = FALSE, color = "blue") +
   stat_cor(aes(label = paste(..rr.label.., ..p.label.., sep = "~`, `~")),
@@ -354,6 +355,9 @@ p <- ggplot(data, aes(x = fraction, y = survival)) +
            label.x = 0.02, label.y = 130) + ggtitle(cell_type) 
 p
 ```
+```{r}
+deconv_with_survival_aggTcells = deconv_result_with_survival
+```
 
 ```{r}
 #only T cells, collapse T cells subtypes
@@ -365,16 +369,33 @@ T_Innate_like = c("gdT", "MAIT")
 all_t_subtypes = list("naive_t_cells" = naive_t_cells, "CD8_memory" = CD8_memory, "CD4_helper" = CD4_helper, "T_Innate_like" = T_Innate_like)
 ```
 
+```{r}
+# Calculate Immune cells ratio
+immune_cells_names = c( "Naive B", "CD8_Naive", "CD4_Naive", 
+"CD8_CM", "CD4_CM", "CD4_EM", "CD8_EM", "Plasmacytoid Dendritic", 
+"gdT", "Treg", "CD8_TEMRA", "Macrophages", "Basophils", "Neutrophils", 
+"MAIT", "Plasma B", "Myeloid Dendritic")
+immune_cells_names = immune_cells_names[immune_cells_names %in% colnames(deconv_with_survival_aggTcells)]
+
+deconv_with_survival_aggTcells$immune_cells_ratio = rowSums(deconv_with_survival_aggTcells[, colnames(deconv_with_survival_aggTcells) %in% immune_cells_names])
+```
+
 
 ```{r}
-deconv_with_survival_aggTcells = deconv_result_with_survival %>% select(c(t_cells_names,clinical_cols,"Luminal","Myo"))
+deconv_with_survival_aggTcells = deconv_with_survival_aggTcells %>% select(c(t_cells_names,clinical_cols,"Luminal","Myo","immune_cells_ratio"))
 
 for (t_subtype_name in names(all_t_subtypes)) {
   subtypes = all_t_subtypes[[t_subtype_name]]
+  # calculate the sum of the subtypes for each row and add it as a new column
   deconv_with_survival_aggTcells = deconv_with_survival_aggTcells %>% 
     mutate(!!t_subtype_name := rowSums(deconv_with_survival_aggTcells[, colnames(deconv_with_survival_aggTcells) %in% subtypes]))
+  # calculate the ratio of the subtypes to the total immune cells and add it as a new column
+  deconv_with_survival_aggTcells[[paste0(t_subtype_name, "_ratio")]] = deconv_with_survival_aggTcells[[t_subtype_name]] /
+    deconv_with_survival_aggTcells$immune_cells_ratio
+  # remove the original subtypes columns
   deconv_with_survival_aggTcells = deconv_with_survival_aggTcells %>% select(-all_of(subtypes))
 } 
+deconv_with_survival_aggTcells$Treg_ratio = deconv_with_survival_aggTcells$Treg / deconv_with_survival_aggTcells$immune_cells_ratio
 
 deconv_with_survival_aggTcells$lum_ratio = deconv_with_survival_aggTcells$Luminal/(deconv_with_survival_aggTcells$Luminal + deconv_with_survival_aggTcells$Myo)
 
@@ -450,6 +471,83 @@ p = ComplexHeatmap::Heatmap(t(correlation_matrix),  row_names_gp = gpar(fontsize
 
 p
 ```
+# T subtypes agg ration correlations
+
+
+
+```{r}
+cell_types_cols = c(paste0(names(all_t_subtypes),"_ratio") , "lum_ratio", "Treg_ratio")
+```
+
+```{r}
+zero_cols = colnames(deconv_with_survival_aggTcells)[colSums(deconv_with_survival_aggTcells )==0]
+cell_types_cols = cell_types_cols[!cell_types_cols %in% zero_cols]
+```
+
+```{r}
+# calculate correlation between cell types and clinical data
+correlation_matrix <- cor(
+  x = deconv_with_survival_aggTcells[,cell_types_cols],
+  y = deconv_with_survival_aggTcells[,clinical_cols],
+  method = "pearson" 
+)
+all_pairs = expand.grid(
+  Item_A = rownames(correlation_matrix), 
+  Item_B = colnames(correlation_matrix)
+)
+
+
+p_values_vector = apply(all_pairs, MARGIN = 1, FUN = function(x){
+  pair_a = x[[1]]
+  pair_b = x[[2]]
+  p_val = cor.test(deconv_with_survival_aggTcells[[pair_a]], deconv_with_survival_aggTcells[[pair_b]])[["p.value"]]
+    }
+) %>% p.adjust(method = "fdr")
+
+all_pvals = matrix(
+  p_values_vector,
+  nrow = nrow(correlation_matrix),
+  ncol = ncol(correlation_matrix)
+) %>% as.data.frame()
+rownames(all_pvals) = rownames(correlation_matrix)
+colnames(all_pvals) = colnames(correlation_matrix)
+
+```
+
+
+```{r}
+convert <- function(vec) {
+  symnum(vec, corr = FALSE, na = FALSE, cutpoints = c(0, 
+    0.001, 0.01, 0.05, 0.1, 1), symbols = c("***", "**", "*", ".", " ")) %>% as.character()
+} 
+all_pvals[] = apply(all_pvals, MARGIN = 2, FUN = convert)
+```
+
+```{r fig.height=8, fig.width=15}
+
+
+col_fun = circlize::colorRamp2(c(-1, 0, 1), c("royalblue4", "white", "red"))
+p = ComplexHeatmap::Heatmap(t(correlation_matrix),  row_names_gp = gpar(fontsize = 8), 
+                            name = "Pearson",
+                            clustering_method_rows = "average",show_heatmap_legend = T,col = col_fun, 
+                            clustering_distance_rows = "euclidean", 
+                            cell_fun = function(j, i, x, y, width, height, fill) {
+                              grid.text(t(all_pvals)[i, j], x, y, gp = gpar(fontsize = 8))
+                              },
+                            column_names_rot =45,column_title = "cell types %",column_title_side = "bottom",
+                            row_title = "patient data", row_title_side = "right"
+    
+)
+
+p
+```
+
+# only cell types correlations
+
+```{r}
+cell_types_cols = c(names(all_t_subtypes) , "lum_ratio", "Treg")
+```
+
 
 
 ```{r}
@@ -509,3 +607,69 @@ p = ComplexHeatmap::Heatmap(t(correlation_matrix),  row_names_gp = gpar(fontsize
 
 p
 ```
+
+```{r}
+
+cell_types_cols = c(paste0(names(all_t_subtypes),"_ratio") , "lum_ratio", "Treg_ratio")
+```
+
+
+
+```{r}
+# calculate correlation between cell types and clinical data
+correlation_matrix <- cor(
+  x = deconv_with_survival_aggTcells[,cell_types_cols],
+  y = deconv_with_survival_aggTcells[,cell_types_cols],
+  method = "pearson" 
+)
+all_pairs = expand.grid(
+  Item_A = rownames(correlation_matrix), 
+  Item_B = colnames(correlation_matrix)
+)
+
+
+p_values_vector = apply(all_pairs, MARGIN = 1, FUN = function(x){
+  pair_a = x[[1]]
+  pair_b = x[[2]]
+  p_val = cor.test(deconv_with_survival_aggTcells[[pair_a]], deconv_with_survival_aggTcells[[pair_b]])[["p.value"]]
+    }
+) %>% p.adjust(method = "fdr")
+
+all_pvals = matrix(
+  p_values_vector,
+  nrow = nrow(correlation_matrix),
+  ncol = ncol(correlation_matrix)
+) %>% as.data.frame()
+rownames(all_pvals) = rownames(correlation_matrix)
+colnames(all_pvals) = colnames(correlation_matrix)
+
+```
+
+
+```{r}
+convert <- function(vec) {
+  symnum(vec, corr = FALSE, na = FALSE, cutpoints = c(0, 
+    0.001, 0.01, 0.05, 0.1, 1), symbols = c("***", "**", "*", ".", " ")) %>% as.character()
+} 
+all_pvals[] = apply(all_pvals, MARGIN = 2, FUN = convert)
+```
+
+```{r fig.height=8, fig.width=15}
+
+
+col_fun = circlize::colorRamp2(c(-1, 0, 1), c("royalblue4", "white", "red"))
+p = ComplexHeatmap::Heatmap(t(correlation_matrix),  row_names_gp = gpar(fontsize = 8), 
+                            name = "Pearson",
+                            clustering_method_rows = "average",show_heatmap_legend = T,col = col_fun, 
+                            clustering_distance_rows = "euclidean", 
+                            cell_fun = function(j, i, x, y, width, height, fill) {
+                              grid.text(t(all_pvals)[i, j], x, y, gp = gpar(fontsize = 8))
+                              },
+                            column_names_rot =45,column_title = "cell types %",column_title_side = "bottom",
+                            row_title = "patient data", row_title_side = "right"
+    
+)
+
+p
+```
+

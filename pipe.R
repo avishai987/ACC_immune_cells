@@ -235,7 +235,7 @@ pipeline[["Dou_CIBERSORT_analysis"]] = list(
   input = list(
     script = "./Notebooks/Bulk_deconv/Dou_CIBERSORT_analsyis.Rmd",
     dou_acc_survival = "input_data/Dou_PMC8450584/PMC8450584_DataSheet_2.xlsx",
-    cs_result = "input_data/CIBERSORTx_result/CIBERSORTx_Job21_Results_dou_pri_10Kvargenes_relative.csv"
+    cs_result = "input_data/CIBERSORTx_result/CIBERSORTx_Job23_Results_dou_all_10Kvargenes_relative_bBatchcorrection.csv"
   ),
   output = list(
     report = "Reports/Bulk_deconv/Dou_CIBERSORT_analsyis/Dou_CIBERSORT_analsyis.html"

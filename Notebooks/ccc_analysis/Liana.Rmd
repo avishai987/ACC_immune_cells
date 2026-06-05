@@ -1,5 +1,5 @@
 ---
-title: 'LIANA+Nichenet' 
+title: 'LIANA' 
 author: "Avishai Wizel"
 date: '`r Sys.time()`'
 output: 
@@ -27,136 +27,34 @@ library(cowplot)
 library(readxl)
 ```
 
+```{r setup}
+if (interactive()) {
+    setwd(here::here())
+    params <- rmarkdown::yaml_front_matter(rstudioapi::getSourceEditorContext()$path)$params
+}
+```
+
+```{r}
+params <- rmarkdown::yaml_front_matter(rstudioapi::getSourceEditorContext()$path)$params
+```
 
 ```{r}
 source("./pipe.R")
-input = pipeline$liana_nichenet$input
-output = pipeline$liana_nichenet$output
+input = pipeline$liana$input
+output = pipeline$liana$output
 ```
 
 ```{r}
-acc_cancer_cells = readRDS(input$cancer)
-acc_caf_cells =  readRDS(input$caf)
-t_cells_labled =  readRDS(input$t_cells_labled)
-immune_with_cell_types = readRDS(input$immune_with_cell_types)
+liana_results = readRDS(file = input$liana_result)
 ```
 
-
-# Add CAF signatures
-
-```{r}
-
-
-caf_signatures = read_excel(path = input$caf_signatures,sheet = 3,skip = 1) 
-caf_signatures = lapply(caf_signatures, na.omit)
-names(caf_signatures) = names(caf_signatures) %>% gsub(pattern = "-",replacement = ".")
-
-#calculate CAF scores mean expression of signature genes
-for (signature_name in names(caf_signatures)) {
-  signature_genes = caf_signatures[[signature_name]]
-  signature_genes = signature_genes[signature_genes %in% rownames(acc_caf_cells)]
-  caf_score = acc_caf_cells@assays$RNA@data[signature_genes,] %>% colMeans()
-  acc_caf_cells = AddMetaData(object =acc_caf_cells,metadata = caf_score,col.name = signature_name)
-}
-
-data = FetchData(acc_caf_cells,vars = names(caf_signatures))
-
-#get max signature per cell
-data$Max_signature <- apply(
-  data, 
-  MARGIN = 1, 
-  FUN = function(x) {
-    max_index <- which.max(x)
-    return(names(x)[max_index]) 
-  }
-)
-#add to metadata
-acc_caf_cells = AddMetaData(object =acc_caf_cells,metadata = data[,"Max_signature",drop=F],col.name = "cell_identity")
-
-```
-
-```{r}
-# add T cell labels to immune and update immune type for T cells
-immune_with_cell_types = AddMetaData(object = immune_with_cell_types,
-                                     metadata =t_cells_labled$t_cell_label,col.name = "t_cell_label")
-
-immune_with_cell_types@meta.data = immune_with_cell_types@meta.data %>%
-  mutate(immune_type =
-           case_when(
-             immune_type %in% c("Naive CD4+ T", "Effector CD8+ T", "CD8+ NKT-like") ~ t_cell_label,
-             TRUE ~ immune_type
-           )
-  )
-  
-
-
-#remove unclear lum-myo cells
-acc_cancer_cells_no_mid = subset(acc_cancer_cells,subset = cell_identity != "mid")
-
-
-# merge cancer, immune and CAF
-common_genes = rownames(acc_cancer_cells_no_mid) %>% intersect (rownames(immune_with_cell_types)) %>% intersect(rownames(acc_caf_cells))
-acc_cancer_and_cd45 = merge(acc_cancer_cells_no_mid[common_genes,],immune_with_cell_types[common_genes,])
-overlapping_cells = colnames(acc_cancer_cells_no_mid) %>% intersect(colnames(acc_caf_cells)) 
-acc_cancer_immune_caf = merge(acc_cancer_and_cd45[common_genes,],acc_caf_cells[common_genes,] )
-
-acc_cancer_immune_caf  = subset(acc_cancer_immune_caf,subset = tissue == "pri") # subset only primary tumors, metastatic tumors have different microenvironment and we want to avoid that confounding factor.
-```
-
-```{r}
-metadata = FetchData(acc_cancer_immune_caf,vars = c("tissue","cell_identity","immune_type","t_cell_label"))
-
-metadata  = metadata %>%  mutate(cell_type =
-                                   if_else(
-                                     condition = cell_identity == "immune",
-                                     true = immune_type,
-                                     false = cell_identity))
-
-
-acc_cancer_immune_caf = AddMetaData(object = acc_cancer_immune_caf,metadata = metadata[,"cell_type",drop=F],col.name = "cell_type")
-Idents(acc_cancer_immune_caf) <- acc_cancer_immune_caf@meta.data$cell_type
-
-```
-
-# Run LIANA
-
-```{r}
-
-if (params$debug) {
-  print("Running in debug mode, using only 3 cell types and 50 genes for LIANA")
-  test_data = merge(
-  subset(acc_cancer_immune_caf, subset = cell_type == "Luminal")[, 1:50],
-  c(subset(acc_cancer_immune_caf, subset = cell_type == "Myo")[, 1:50],
-  subset(acc_cancer_immune_caf, subset = cell_type == "CD8_CM")[, 1:50]),
-  add.cell.ids = c("Luminal", "Myo", "CD8_CM")
-  )
-  data = test_data
-} else {
-  data = acc_cancer_immune_caf
-  data = subset(data, subset = cell_type %in% c("Luminal", "Myo", "CD8_CM",
-                                                "gdT", "CD8_Naive", "CD4_EM", 
-                                                "CD4_CM", "CD4_Naive", 
-                                                "CD8_TEMRA", "MAIT", 
-                                                "CD8_EM","Treg"))
-}
-
-
-
-liana_results <- liana_wrap(data) %>%
-  liana_aggregate()
-
-saveRDS(object = liana_results,file =  paste0(params$data_out_dir, "liana_results.RDS"))
-```
-
-
-```{r}
-liana_results = readRDS(file = paste0(params$data_out_dir, "liana_results.RDS"))
-```
 
 
 # Plot T cells to cancer cells interactions
-```{r fig.height=8, fig.width=15}
 
+```{r fig.height=8, fig.width=15}
+#| fig-height: 8
+#| fig-width: 15
 if (params$debug) {
   print("Running in debug mode, using only 3 cell types and 50 genes for LIANA")
   source_groups = c("CD8_CM")
@@ -202,12 +100,70 @@ for (type_name in  names(types)) {
   
 
 }
-
-
 ```
 
 
+## all T cells to cancer cells
+
+```{r}
+#| fig-height: 8
+#| fig-width: 28
+
+p = liana_dotplot(liana_mod,
+              source_groups = source_groups,
+                target_groups = target_groups)
+print(p)
+# save_pdf_if_changed(p,target_path = params$data_out_dir %s+% #"all_t_cells_to_cancer.pdf",width = 28,height = 8)
+```
+
+
+
+##  threshold of 0.01
+
+```{r}
+threshold = 0.01
+liana_mod <- liana_results %>%
+    # Filter to only the cells of interest
+    `if`(!is.null(source_groups),
+         filter(., source %in% source_groups),
+         .) %>%
+    `if`(!is.null(target_groups),
+         filter(., target %in% target_groups),
+         .)
+
+top_interactions = liana_results %>%
+  filter(aggregate_rank <= threshold) %>% 
+  distinct_at(c("ligand.complex", "receptor.complex"))
+
+liana_mod %<>% inner_join(top_interactions, by=c("ligand.complex", "receptor.complex"))
+
+cd8_cells = c("CD8_CM", "CD8_Naive", "CD8_TEMRA", "CD8_EM")
+cd4_cells = c("CD4_EM", "CD4_CM", "CD4_Naive")
+types = list(CD8 = cd8_cells,CD4 = cd4_cells,Treg = "Treg")
+for (type_name in  names(types)) {
+  source_group = types[[type_name]]
+  p = liana_dotplot(liana_mod,
+              source_groups = source_group,
+                target_groups = target_groups)+ggtitle(type_name)
+    print(p)
+
+  pdf(height = 8,width = 15,paste0(params$data_out_dir, 
+                                   type_name,"_to_cancer_0.01.pdf"))
+  print(p)
+  dev.off()
+  
+  write.csv(p$data[,c("source","target","interaction","magnitude","specificity")], file = paste0(params$data_out_dir, type_name,"_to_cancer_0.01.csv"), row.names = FALSE)
+  
+
+}
+```
+
+
+
+
+
 # Plot cancer cells to T cells interactions
+
 ```{r fig.height=8, fig.width=15}
 
 if (params$debug) {
@@ -255,6 +211,113 @@ for (type_name in  names(types)) {
   
   write.csv(p$data[,c("source","target","interaction","magnitude","specificity")], file = paste0(params$data_out_dir, "cancer_to_",type_name,".csv"), row.names = FALSE)
 }
-
 ```
 
+
+## all T cells to cancer cells interactions
+
+```{r}
+#| fig-height: 10
+#| fig-width: 37
+# cancer cells to all T cells interactions
+
+# all T cells to cancer cells
+p = liana_dotplot(liana_mod,
+              source_groups = source_groups,
+                target_groups = target_groups)
+print(p)
+save_pdf_if_changed(p,target_path = params$data_out_dir %s+% "cancer_to_all_t_cells.pdf",width = 37,height = 10)
+```
+
+
+## switch specificity and magnitude 
+
+```{r}
+#| fig-height: 10
+#| fig-width: 37
+p + aes(x = target, y = interaction, 
+        colour = specificity , size = magnitude, group = target)
+```
+
+
+## save for threshold of 0.01
+
+```{r}
+# save for threshold of 0.01
+threshold = 0.01
+  liana_mod <- liana_results %>%
+      # Filter to only the cells of interest
+      `if`(!is.null(source_groups),
+           filter(., source %in% source_groups),
+           .) %>%
+      `if`(!is.null(target_groups),
+           filter(., target %in% target_groups),
+           .)
+
+top_interactions = liana_results %>%
+  filter(aggregate_rank <= threshold) %>% 
+  distinct_at(c("ligand.complex", "receptor.complex"))
+
+liana_mod %<>% inner_join(top_interactions, by=c("ligand.complex", "receptor.complex"))
+cd8_cells = c("CD8_CM", "CD8_Naive", "CD8_TEMRA", "CD8_EM")
+cd4_cells = c("CD4_EM", "CD4_CM", "CD4_Naive")
+types = list(CD8 = cd8_cells,CD4 = cd4_cells,Treg = "Treg")
+
+for (type_name in  names(types)) {
+  target_group = types[[type_name]]
+  p = liana_dotplot(liana_mod,
+              source_groups = source_groups,
+                target_groups = target_group)
+  print(p)
+  pdf(
+    height = 8,
+    width = 18,
+    paste0(params$data_out_dir, "cancer_to_",type_name,"_0.01.pdf")
+  )
+  print(p)
+  dev.off()
+  
+  write.csv(p$data[,c("source","target","interaction","magnitude","specificity")], file = paste0(params$data_out_dir, "cancer_to_",type_name,"_0.01.csv"), row.names = FALSE)
+}
+```
+
+
+#  plot cancer - myeloid immune
+
+```{r fig.height=8, fig.width=15}
+#| fig-height: 15
+#| fig-width: 15
+
+source_groups = c( "Myeloid Dendritic", "Macrophages", "Basophils", "Neutrophils") 
+
+target_groups = c("Luminal","Myo")
+
+threshold = 0.001
+liana_mod <- liana_results %>%
+    # Filter to only the cells of interest
+    `if`(!is.null(source_groups),
+         filter(., source %in% source_groups),
+         .) %>%
+    `if`(!is.null(target_groups),
+         filter(., target %in% target_groups),
+         .)
+
+top_interactions = liana_results %>%
+  filter(aggregate_rank <= threshold) %>% 
+  distinct_at(c("ligand.complex", "receptor.complex"))
+
+liana_mod %<>% inner_join(top_interactions, by=c("ligand.complex", "receptor.complex"))
+
+
+p = liana_dotplot(liana_mod,
+            source_groups = source_groups,
+              target_groups = target_groups)
+print(p)
+
+pdf(height = 8,width = 15,paste0(params$data_out_dir, 
+                                "myeloid_to_cancer.pdf"))
+print(p)
+dev.off()
+
+write.csv(p$data[,c("source","target","interaction","magnitude","specificity")], file = paste0(params$data_out_dir, "myeloid_to_cancer.csv"), row.names = FALSE)
+```

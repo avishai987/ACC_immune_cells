@@ -1,0 +1,134 @@
+---
+title: 'Cell types' 
+author: "Avishai Wizel"
+date: '`r Sys.time()`'
+output: 
+  html_document: 
+    code_folding: hide
+    toc: yes
+    toc_collapse: yes
+    toc_float: 
+      collapsed: TRUE
+    number_sections: true
+    toc_depth: 2
+    df_print: paged
+params: 
+  data_out_dir: "./temp_data/" 
+---
+
+```{r}
+library(stringi)
+library(Seurat)
+library(ggplot2)
+library(tidyverse)
+library(dplyr)
+library(data.table)
+library(print.rmd.tabs)
+```
+
+```{r setup}
+if (interactive()) {
+    setwd(here::here())
+    params <- rmarkdown::yaml_front_matter(rstudioapi::getSourceEditorContext()$path)$params
+}
+```
+
+```{r}
+source("./pipe.R")
+input = pipeline$umap_clustering$input
+output = pipeline$umap_clustering$output
+```
+
+```{r}
+acc_immune = readRDS(input$acc_immune)
+immune_with_cell_types = readRDS(input$immune_with_cell_types)
+t_cells_labled = readRDS(input$t_cells_labled)
+```
+
+```{r}
+new.cluster.ids2 <- c("0" ="cancer",
+                      "1" = "immune",
+                      "2" = "CAF",
+                      "3" = "cancer",
+                      "4" = "cancer",
+                      "5" = "immune",
+                      "6" = "CAF",
+                      "7" = "cancer",
+                      "8" = "CAF",
+                      "9" = "immune",
+                      "10" = "immune",
+                      "11" = "endothelial",
+                      "12" = "cancer",
+                      "13" = "CAF",
+                      "14" = "immune",
+                      "15" = "cancer",
+                      "16" = "immune",
+                      "17" = "immune")              
+names(new.cluster.ids2) <- levels(acc_immune$seurat_clusters)
+acc_immune <- RenameIdents(acc_immune, new.cluster.ids2)
+acc_immune = acc_immune %>% AddMetaData(metadata = acc_immune@active.ident,col.name = 'cell_identity')
+```
+
+```{r}
+# add immune cell types to acc_immune
+cell_identity = acc_immune@meta.data[, "cell_identity",drop=F]
+immune_type = immune_with_cell_types@meta.data[, "immune_type",drop=F]
+# merge by rownames using merge
+merged_data = merge(cell_identity, immune_type, by = "row.names", all.x = TRUE) %>% column_to_rownames("Row.names") %>%
+  mutate(cell_identity = if_else(condition = (cell_identity == "immune"), true = immune_type, false = cell_identity))
+
+#rename T cells subtypes to T cells
+merged_data$cell_identity = str_replace(merged_data$cell_identity, fixed("CD8+ NKT-like"), "T cells")
+merged_data$cell_identity = str_replace(merged_data$cell_identity, fixed("Effector CD8+ T"), "T cells")
+merged_data$cell_identity = str_replace(merged_data$cell_identity, fixed("Naive CD4+ T"), "T cells")
+```
+
+```{r}
+acc_immune = acc_immune %>% AddMetaData(metadata = merged_data[,"cell_identity",drop=F],col.name = "cell_identity_with_subtypes")
+```
+
+```{r}
+p = DimPlot(acc_immune,group.by = "cell_identity_with_subtypes",label = T,pt.size = 1)
+p
+```
+
+```{r}
+save_pdf_if_changed(p,target_path =  "./Figures/umap_with_all_cell_types.pdf",width = 12,height = 10)
+```
+
+```{r}
+p = DimPlot(t_cells_labled,group.by = "t_cell_label",cols =  rainbow(10)) 
+p
+```
+
+```{r}
+save_pdf_if_changed(p,target_path =  "./Figures/umap_with_t_cell_subtypes.pdf",width = 12,height = 10)
+```
+
+```{r fig.height=8, fig.width=12}
+immune_plate_df = acc_immune[[c("plate","origin")]] %>% 
+  mutate(immune_plate = if_else(condition = (origin == "acc_data"),true = "acc_old_data",false = plate))
+
+acc_immune %<>% AddMetaData(metadata = immune_plate_df[,"immune_plate",drop=F])
+DimPlot(object = acc_immune, reduction = "umap", pt.size = 0.3, label = F,group.by = "immune_plate",cols = rainbow(length(unique(acc_immune$immune_plate))))
+```
+
+```{r}
+table(acc_immune$immune_plate)
+```
+
+```{r}
+immune_plate_df = acc_immune@meta.data %>% select(seurat_clusters,immune_plate) %>% group_by(seurat_clusters) %>%dplyr::count(immune_plate)%>%
+  ungroup()
+
+ggplot(immune_plate_df, aes(x = seurat_clusters, y = n, fill = immune_plate)) +
+  geom_bar(stat = "identity", position = "stack")+
+  labs(
+    title = "Immune Plate Composition per Seurat Cluster (Counts)",
+    x = "Seurat Clusters",
+    y = "Number of Cells",
+    fill = "Immune Plate"
+  ) +
+  theme_minimal() + # רקע נקי יותר
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+```

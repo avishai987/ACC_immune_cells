@@ -84,12 +84,13 @@ pipeline[["Tcells_types"]] = list(
 
 pipeline[["umap_clustering"]] = list(
   input = list(
-    script = "./Notebooks/04_UMAP_clustering.Rmd",
-    acc_immune = pipeline$pre_process$output$acc_immune
-    
+    script = "./Notebooks/05_UMAP_clustering.Rmd",
+    acc_immune = pipeline$pre_process$output$acc_immune,
+    immune_with_cell_types = pipeline$immune_identity$output$immune_with_cell_types,
+    t_cells_labled = pipeline$Tcells_types$output$t_cells_labled
   ),
   output = list(
-    report = "./Reports/04_UMAP_clustering/04_UMAP_clustering.html"
+    report = "./Reports/05_UMAP_clustering/05_UMAP_clustering.html"
   )
 )
 
@@ -97,13 +98,13 @@ pipeline[["umap_clustering"]] = list(
 
 pipeline[["immune_markers_ACC"]] = list(
   input = list(
-    script = "./Notebooks/05_immune_markers_ACC.Rmd",
+    script = "./Notebooks/06_immune_markers_ACC.Rmd",
     acc_cancer_pri = pipeline$cell_types$output$acc_cancer_pri,
     immmune_genes = "input_data/all_direct_and_indirect_annotations_to_GO_immune_system_process.txt"
   ),
   output = list(
-    report = "./Reports/05_immune_markers_ACC/05_immune_markers_ACC.html",
-    signif_deg = "./Reports/05_immune_markers_ACC/signif_deg.rds"
+    report = "./Reports/06_immune_markers_ACC/06_immune_markers_ACC.html",
+    signif_deg = "./Reports/06_immune_markers_ACC/signif_deg.rds"
     )
 )
 
@@ -158,16 +159,28 @@ pipeline[["cpdb_analysis_per_patient"]] = list(
   )
 )
 ######################################## LIANA+Nichenet ###############################################
-pipeline[["liana"]] = list(
+pipeline[["run_liana"]] = list(
   input = list(
-    script = "./Notebooks/ccc_analysis/Liana.Rmd",
+    script = "./Notebooks/ccc_analysis/run_LIANA.Rmd",
     t_cells_labled = pipeline$Tcells_types$output$t_cells_labled,
     cancer = pipeline$cell_types$output$cancer,
     caf = pipeline$cell_types$output$caf,
     caf_signatures = "./input_data/NIHMS1678398-supplement-2.xlsx",
     immune_with_cell_types = pipeline$immune_identity$output$immune_with_cell_types),
   output = list(
-    report = "Reports/07_Liana_Nichenet/07_Liana_Nichenet.html"
+    report = "Reports/ccc_analysis/run_LIANA/run_LIANA.html",
+    liana_result = "Reports/ccc_analysis/run_LIANA/liana_result.RDS"
+  )
+)
+
+
+pipeline[["liana"]] = list(
+  input = list(
+    script = "./Notebooks/ccc_analysis/Liana.Rmd",
+    liana_result = pipeline$run_liana$output$liana_result
+  ),
+  output = list(
+    report = "Reports/ccc_analysis/Liana/Liana.html"
   )
 )
 
@@ -230,12 +243,22 @@ pipeline[["create_ferrarotto_matrix"]] = list(
 # )
 
 # run CIBERSORTx at cibersortx.stanford.edu
-
+pipeline[["create_brayer_matrix"]] = list(
+  input = list(
+    script = "./Notebooks/Bulk_deconv/create_Brayer_TPM.Rmd",
+    TX_counts = "input_data/Brayer_PMC10000625_and_PMC5800907/TX_All_Genes_Data.csv",
+    DK_counts = "input_data/Brayer_PMC10000625_and_PMC5800907/DK_All_Genes_Data.csv"
+      ),
+  output = list(
+    brayer_exprs = "Reports/Bulk_deconv/create_brayer_matrix/brayer_TPM.tsv",
+    report = "Reports/Bulk_deconv/create_brayer_matrix/Create_brayer_TPM.html"
+  )
+)
 pipeline[["Dou_CIBERSORT_analysis"]] = list(
   input = list(
     script = "./Notebooks/Bulk_deconv/Dou_CIBERSORT_analsyis.Rmd",
     dou_acc_survival = "input_data/Dou_PMC8450584/PMC8450584_DataSheet_2.xlsx",
-    cs_result = "input_data/CIBERSORTx_result/CIBERSORTx_Job23_Results_dou_all_10Kvargenes_relative_bBatchcorrection.csv"
+    cs_result = "input_data/CIBERSORTx_result/CIBERSORTx_Job16_Results_dou_all_withMarkers_relative_bBatchcorrect_2025_09_29.csv"
   ),
   output = list(
     report = "Reports/Bulk_deconv/Dou_CIBERSORT_analsyis/Dou_CIBERSORT_analsyis.html"
@@ -244,8 +267,8 @@ pipeline[["Dou_CIBERSORT_analysis"]] = list(
 
 pipeline[["ferrarotto_CIBERSORT_analysis"]] = list(
   input = list(
-    script = "./Notebooks/Bulk_deconv/ferrarotto_CIBERSORT_analysis.Rmd",
-    cs_result = "input_data/CIBERSORTx_result/CIBERSORTx_Job22_Results_ferrarotto_10Kvargenes_relative.csv",
+    script = "./Notebooks/Bulk_deconv/Ferrarotto_CIBERSORT_analsyis.Rmd",
+    cs_result = "./input_data/CIBERSORTx_result/CIBERSORTx_Job25_Results_ferrarotto_withMarkers_relative_bBatchcorrect.csv",
     ferra_clinical = "input_data/Ferrarotto_PMC7854509/CCR2020_Clinical.xlsx"
   ),
   output = list(
@@ -266,7 +289,7 @@ pipeline[["sipsic_run"]] = list(
 
 pipeline[["sipsic_analysis"]] = list(
   input = list(
-    script = "./Notebooks/Pathway_analysis/10_sipsic_analysis.Rmd",
+    script = "./Notebooks/Pathway_analysis/10_sipsic_analysis.qmd",
     acc_cancer_pri = pipeline$cell_types$output$acc_cancer_pri,
     sipsic_matrix = pipeline$sipsic_run$output$sipsic_matrix
   ),
@@ -304,3 +327,54 @@ for (i in 1:length(pipeline)) {
 
 write_makefile(makefile = mkfile,file_name = "Makefile")
 
+
+library(gdiff)
+
+save_pdf_if_changed <- function(plot_expr, target_path, width = 7, height = 5, force = F) {
+  if (force) {
+    # If force is TRUE, skip the comparison and directly save the plot
+    pdf(target_path, width = width, height = height)
+    if (inherits(plot_expr, "ggplot")) {
+      print(plot_expr)
+    } else {
+      force(plot_expr) 
+    }
+    dev.off()
+    message("Plot saved without comparison due to force = TRUE.")
+    return(TRUE)
+  }
+  # 1. Create a path for a temporary file in the system
+  temp_file <- tempfile(fileext = ".pdf")
+  
+  # 2. Open the PDF device with dynamic dimensions and save the plot
+  pdf(temp_file, width = width, height = height)
+  
+  # Check if the plot is a ggplot object (which requires the print() function to render)
+  if (inherits(plot_expr, "ggplot")) {
+    print(plot_expr)
+  } else {
+    # Force evaluation of the plot code for Base R graphics
+    force(plot_expr) 
+  }
+  
+  # Close the PDF device to finalize the temporary file write
+  dev.off()
+  
+  # 3. Check if the target file already exists
+  if (file.exists(target_path)) {
+    # samePDF() compares the two PDFs byte-by-byte but automatically
+    # ignores volatile metadata like CreationDate, ModDate, and PDF IDs
+    if (samePDF(temp_file, target_path)) {
+      message("The plot has not changed (ignoring PDF metadata). Existing file kept.")
+      unlink(temp_file) # Clean up the temporary file
+      return(FALSE)    # Exit the function without modifying the disk
+    }
+  }
+  
+  # 4. If the file does not exist, or visual content/dimensions differ -> copy and overwrite
+  file.copy(temp_file, target_path, overwrite = TRUE)
+  unlink(temp_file) # Clean up the temporary file
+  
+  message("The plot or dimensions changed (or file did not exist). The PDF file was successfully updated!")
+  return(TRUE)
+}

@@ -1,0 +1,82 @@
+---
+title: 'create_data_for_CIBERSORT' 
+author: "Avishai Wizel"
+date: '`r Sys.time()`'
+output: 
+  html_document: 
+    code_folding: hide
+    toc: yes
+    toc_collapse: yes
+    toc_float: 
+      collapsed: TRUE
+    number_sections: true
+    toc_depth: 2
+    df_print: paged
+params: 
+  data_out_dir: "./temp_data/" 
+---
+```{r}
+library(stringi)
+library(Seurat)
+library(ggplot2)
+library(tidyverse)
+library(dplyr)
+library(data.table)
+library(print.rmd.tabs)
+```
+
+```{r}
+source("./pipe.R")
+input = pipeline$create_brayer_matrix$input
+output = pipeline$create_brayer_matrix$output
+```
+
+```{r}
+calc_tpm <- function(counts, gene_lengths) {
+  rpk <- counts / (gene_lengths / 1000) # Calculate RPK
+  tpm <- rpk / sum(rpk) * 1e6 # Normalize to TPM
+  return(tpm)
+}
+```
+
+```{r}
+tx_counts = read_csv(input$TX_counts,col_names = T) %>% as.data.frame()
+rownames(tx_counts) = make.unique(tx_counts$gene)
+tx_counts  = tx_counts %>% mutate(length = end - start) # calculate gene length for TPM conversion)
+
+tx_gene_lengths = tx_counts$length
+# keep only samples column
+tx_counts = tx_counts %>% select(-c(gene,chr,length,start,end,Symbol))
+
+
+```
+
+```{r}
+dk_counts = read_csv(input$DK_counts,col_names = T) %>% as.data.frame()
+rownames(dk_counts) = make.unique(dk_counts$gene)
+dk_counts  = dk_counts %>% mutate(length = end - start) # calculate gene length for TPM conversion)
+
+dk_gene_lengths = dk_counts$length
+# keep only samples column
+dk_counts = dk_counts %>% select(-c(gene,chr,length,start,end,Symbol))
+
+```
+
+```{r}
+dk_tpm = apply(dk_counts, 2, function(x) calc_tpm(x, dk_gene_lengths))
+tx_tpm = apply(tx_counts, 2, function(x) calc_tpm(x, tx_gene_lengths))
+
+shared_genes = intersect(rownames(tx_tpm),rownames(dk_tpm))
+```
+
+```{r}
+brayer_tpm = cbind(tx_tpm[shared_genes,],dk_tpm[shared_genes,])
+dim(brayer_tpm)
+```
+
+```{r}
+fwrite(brayer_tpm,file = params$data_out_dir %s+% basename(output$brayer_exprs), sep = "\t",row.names = T)
+
+```
+
+

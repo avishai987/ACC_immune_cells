@@ -15,6 +15,7 @@ output:
 params: 
   data_out_dir: "./temp_data/" 
 ---
+
 ```{r}
 library(stringi)
 library(Seurat)
@@ -33,7 +34,6 @@ output = pipeline$Tcells_types$output
 
 ```{r}
 immune = readRDS(input$immune_with_cell_types)
-
 ```
 
 ```{r}
@@ -47,7 +47,6 @@ table(t_cells_scores$Multinomial_Label)
 t_cells_usage = fread(input$starCAT_usage,sep = "\t") %>% column_to_rownames('V1')
 names(t_cells_usage) = gsub(x = names(t_cells_usage) ,pattern = "-",replacement = "_") #set valin names
 names(t_cells_usage) = gsub(x = names(t_cells_usage) ,pattern = "/",replacement = ".") #set valin names
-
 ```
 
 ```{r}
@@ -57,7 +56,12 @@ t_cells_labled = AddMetaData(t_cells_labled, metadata = t_cells_usage)
 ```
 
 
+
+
+
+
 # PCA
+
 ```{r results='hide'}
 # Identification of highly variable features
 t_cells_labled <- FindVariableFeatures(t_cells_labled, selection.method = "vst", nfeatures = 15000) 
@@ -76,7 +80,12 @@ pc2use=1:10
 clus_res=1
 ```
 
+
+
+
+
 # UMAP and clustering
+
 ```{r}
 t_cells_labled <- FindNeighbors(t_cells_labled, dims = pc2use,verbose = F)
 t_cells_labled <- FindClusters(t_cells_labled, resolution = clus_res,verbose = F)
@@ -89,6 +98,7 @@ DimPlot(object = t_cells_labled, reduction = "umap", pt.size = 1, label = F)
 ```{r}
 DimPlot(t_cells_labled,group.by = "t_cell_label",cols =  rainbow(10)) 
 ```
+
 ```{r fig.height=6, fig.width=12}
 FeaturePlot(t_cells_labled,features = c("Cytotoxic","Doublet_Platelet","Poor_Quality","Exhaustion"))
 ```
@@ -97,7 +107,12 @@ FeaturePlot(t_cells_labled,features = c("Cytotoxic","Doublet_Platelet","Poor_Qua
 saveRDS(object = t_cells_labled,file = params$data_out_dir %s+% basename(output$t_cells_labled))
 ```
 
+
+
+
+
 # add labels to all immune object
+
 ```{r}
 #replace sctype tcells annotation  with starCAT
 t_cells_meta = t_cells_scores[,"Multinomial_Label",drop=F]

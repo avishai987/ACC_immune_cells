@@ -37,6 +37,9 @@ output = pipeline$Dou_CIBERSORT_analysis$output
 dou_survival = readxl::read_excel(input$dou_acc_survival,sheet = 1,col_names = T,skip = 1) %>% as.data.frame()
 ```
 
+```{r}
+print(input$cs_result)
+```
 
 ```{r}
 deconv_result = fread(input$cs_result)
@@ -99,7 +102,7 @@ ggplot(df_summary, aes(x = reorder(Histopathology, -mean_ratio), y = mean_ratio)
 # Treshold
 
 ```{r}
-ratio_threshold = 0.7
+ratio_threshold = 0.5
 df <- df %>%
   mutate(
     LumCategory = ifelse(lum_ratio > ratio_threshold, paste("High (>",ratio_threshold,")"), paste("Low (<=",ratio_threshold,")"))
@@ -244,12 +247,12 @@ all_pvals[] = apply(all_pvals, MARGIN = 2, FUN = convert)
 
 
 col_fun = circlize::colorRamp2(c(-1, 0, 1), c("royalblue4", "white", "red"))
-p = ComplexHeatmap::Heatmap(t(correlation_matrix),  row_names_gp = gpar(fontsize = 8), 
+p = ComplexHeatmap::Heatmap(t(correlation_matrix),  row_names_gp = gpar(fontsize = 14), column_names_gp = gpar(fontsize = 14), 
                             name = "Pearson",
                             clustering_method_rows = "average",show_heatmap_legend = T,col = col_fun, 
                             clustering_distance_rows = "euclidean", 
                             cell_fun = function(j, i, x, y, width, height, fill) {
-                              grid.text(t(all_pvals)[i, j], x, y, gp = gpar(fontsize = 8))
+                              grid.text(t(all_pvals)[i, j], x, y, gp = gpar(fontsize = 14))
                               },
                             column_names_rot =45,column_title = "cell types %",column_title_side = "bottom",
                             row_title = "patient data", row_title_side = "right"
@@ -277,10 +280,10 @@ ggscatter(data, x = "fraction", y = "TIS", add = "reg.line") +
 
 # cell types- survival
 ```{r}
-x = "lum_ratio"
-y = "Distant metastasis-free survival time (DMFS)" #"Distant metastasis-free survival time (DMFS), #"Locoregional recurrence-free survival (LRRFS)"
-data = data.frame(fraction = deconv_with_survival_aggTcells[[x]],
-                  survival = deconv_with_survival_aggTcells[[y]])
+x = "Distant metastasis-free survival time (DMFS)"
+y = "Locoregional recurrence-free survival (LRRFS)"
+data = data.frame(fraction = dou_survival[[x]],
+                  survival = dou_survival[[y]])
 
 library(ggplot2)
 library(ggpubr) 
@@ -457,12 +460,12 @@ all_pvals[] = apply(all_pvals, MARGIN = 2, FUN = convert)
 
 
 col_fun = circlize::colorRamp2(c(-1, 0, 1), c("royalblue4", "white", "red"))
-p = ComplexHeatmap::Heatmap(t(correlation_matrix),  row_names_gp = gpar(fontsize = 8), 
+p = ComplexHeatmap::Heatmap(t(correlation_matrix),  row_names_gp = gpar(fontsize = 14), column_names_gp = gpar(fontsize = 14), 
                             name = "Pearson",
                             clustering_method_rows = "average",show_heatmap_legend = T,col = col_fun, 
                             clustering_distance_rows = "euclidean", 
                             cell_fun = function(j, i, x, y, width, height, fill) {
-                              grid.text(t(all_pvals)[i, j], x, y, gp = gpar(fontsize = 8))
+                              grid.text(t(all_pvals)[i, j], x, y, gp = gpar(fontsize = 14))
                               },
                             column_names_rot =45,column_title = "cell types %",column_title_side = "bottom",
                             row_title = "patient data", row_title_side = "right"
@@ -523,16 +526,16 @@ convert <- function(vec) {
 all_pvals[] = apply(all_pvals, MARGIN = 2, FUN = convert)
 ```
 
-```{r fig.height=8, fig.width=15}
+```{r fig.height=8, fig.width=13}
 
 
 col_fun = circlize::colorRamp2(c(-1, 0, 1), c("royalblue4", "white", "red"))
-p = ComplexHeatmap::Heatmap(t(correlation_matrix),  row_names_gp = gpar(fontsize = 8), 
+p = ComplexHeatmap::Heatmap(t(correlation_matrix),  row_names_gp = gpar(fontsize = 10), column_names_gp = gpar(fontsize = 14), 
                             name = "Pearson",
                             clustering_method_rows = "average",show_heatmap_legend = T,col = col_fun, 
                             clustering_distance_rows = "euclidean", 
                             cell_fun = function(j, i, x, y, width, height, fill) {
-                              grid.text(t(all_pvals)[i, j], x, y, gp = gpar(fontsize = 8))
+                              grid.text(t(all_pvals)[i, j], x, y, gp = gpar(fontsize = 14))
                               },
                             column_names_rot =45,column_title = "cell types %",column_title_side = "bottom",
                             row_title = "patient data", row_title_side = "right"
@@ -593,15 +596,15 @@ all_pvals[] = apply(all_pvals, MARGIN = 2, FUN = convert)
 
 
 col_fun = circlize::colorRamp2(c(-1, 0, 1), c("royalblue4", "white", "red"))
-p = ComplexHeatmap::Heatmap(t(correlation_matrix),  row_names_gp = gpar(fontsize = 8), 
+p = ComplexHeatmap::Heatmap(t(correlation_matrix),  row_names_gp = gpar(fontsize = 14), column_names_gp = gpar(fontsize = 14), 
                             name = "Pearson",
                             clustering_method_rows = "average",show_heatmap_legend = T,col = col_fun, 
                             clustering_distance_rows = "euclidean", 
                             cell_fun = function(j, i, x, y, width, height, fill) {
-                              grid.text(t(all_pvals)[i, j], x, y, gp = gpar(fontsize = 8))
+                              grid.text(t(all_pvals)[i, j], x, y, gp = gpar(fontsize = 14))
                               },
                             column_names_rot =45,column_title = "cell types %",column_title_side = "bottom",
-                            row_title = "patient data", row_title_side = "right"
+                            row_title = "cell types %", row_title_side = "right"
     
 )
 
@@ -658,18 +661,37 @@ all_pvals[] = apply(all_pvals, MARGIN = 2, FUN = convert)
 
 
 col_fun = circlize::colorRamp2(c(-1, 0, 1), c("royalblue4", "white", "red"))
-p = ComplexHeatmap::Heatmap(t(correlation_matrix),  row_names_gp = gpar(fontsize = 8), 
+p = ComplexHeatmap::Heatmap(t(correlation_matrix),  row_names_gp = gpar(fontsize = 14), column_names_gp = gpar(fontsize = 14),
                             name = "Pearson",
                             clustering_method_rows = "average",show_heatmap_legend = T,col = col_fun, 
                             clustering_distance_rows = "euclidean", 
                             cell_fun = function(j, i, x, y, width, height, fill) {
-                              grid.text(t(all_pvals)[i, j], x, y, gp = gpar(fontsize = 8))
+                              grid.text(t(all_pvals)[i, j], x, y, gp = gpar(fontsize = 14))
                               },
                             column_names_rot =45,column_title = "cell types %",column_title_side = "bottom",
-                            row_title = "patient data", row_title_side = "right"
+                            row_title = "cell types %", row_title_side = "right"
     
 )
 
 p
 ```
+```{r}
+x = "lum_ratio"
+y = "Distant metastasis-free survival time (DMFS)" #"Distant metastasis-free survival time (DMFS), #"Locoregional recurrence-free survival (LRRFS)"
+data = data.frame(fraction = deconv_with_survival_aggTcells[[x]],
+                  survival = deconv_with_survival_aggTcells[[y]])
 
+library(ggplot2)
+library(ggpubr) 
+# יצירת גרף הפיזור הבסיסי
+p <- ggplot(data, aes(x = fraction, y = survival)) +
+  geom_point() + # הוספת נקודות הפיזור
+  labs(title = "Survival vs. Fraction",
+       x = x,
+       y = y) +
+  theme_minimal()+ # רקע נקי יותר +
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +
+  stat_cor(aes(label = paste(..rr.label.., ..p.label.., sep = "~`, `~")),
+           label.x = 0.4, label.y = 130) 
+p
+```

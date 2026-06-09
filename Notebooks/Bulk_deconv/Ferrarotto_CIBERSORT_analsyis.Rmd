@@ -169,12 +169,12 @@ immune_cells_names = c( "Naive B", "CD8_Naive", "CD4_Naive",
 "MAIT", "Plasma B", "Myeloid Dendritic")
 immune_cells_names = immune_cells_names[immune_cells_names %in% colnames(deconv_result_with_survival)]
 
-deconv_result_with_survival$immune_cells_ratio = rowSums(deconv_result_with_survival[, colnames(deconv_result_with_survival) %in% immune_cells_names])
+deconv_result_with_survival$immune_cells_fraction = rowSums(deconv_result_with_survival[, colnames(deconv_result_with_survival) %in% immune_cells_names])
 ```
 
 
 ```{r}
-#deconv_result_with_survival = deconv_result_with_survival %>% select(c(t_cells_names,clinical_cols,"Luminal","Myo","immune_cells_ratio"))
+#deconv_result_with_survival = deconv_result_with_survival %>% select(c(t_cells_names,clinical_cols,"Luminal","Myo","immune_cells_fraction"))
 
 for (t_subtype_name in names(all_t_subtypes)) {
   subtypes = all_t_subtypes[[t_subtype_name]]
@@ -182,12 +182,12 @@ for (t_subtype_name in names(all_t_subtypes)) {
   deconv_result_with_survival = deconv_result_with_survival %>% 
     mutate(!!t_subtype_name := rowSums(deconv_result_with_survival[, colnames(deconv_result_with_survival) %in% subtypes]))
   # calculate the ratio of the subtypes to the total immune cells and add it as a new column
-  deconv_result_with_survival[[paste0(t_subtype_name, "_ratio")]] = deconv_result_with_survival[[t_subtype_name]] /
-    deconv_result_with_survival$immune_cells_ratio
+  deconv_result_with_survival[[paste0(t_subtype_name, "/immune_cells")]] = deconv_result_with_survival[[t_subtype_name]] /
+    deconv_result_with_survival$immune_cells_fraction
   # remove the original subtypes columns
   deconv_result_with_survival = deconv_result_with_survival %>% select(-all_of(subtypes))
 } 
-deconv_result_with_survival$Treg_ratio = deconv_result_with_survival$Treg / deconv_result_with_survival$immune_cells_ratio
+deconv_result_with_survival[,"Treg/immune_cells"] = deconv_result_with_survival$Treg / deconv_result_with_survival$immune_cells_fraction
 
 deconv_result_with_survival$lum_ratio = deconv_result_with_survival$Luminal/(deconv_result_with_survival$Luminal + deconv_result_with_survival$Myo)
 
@@ -211,7 +211,7 @@ ggplot(deconv_result_with_survival, aes(x = N, y = lum_ratio)) +
 ```
 
 ```{r}
-cell_types_cols = c(paste0(names(all_t_subtypes),"_ratio") , "lum_ratio", "Treg_ratio")
+cell_types_cols = c(paste0(names(all_t_subtypes),"/immune_cells") , "lum_ratio", "Treg/immune_cells")
 ```
 
 
@@ -263,7 +263,7 @@ all_pvals[] = apply(all_pvals, MARGIN = 2, FUN = convert)
 col_fun = circlize::colorRamp2(c(-1, 0, 1), c("royalblue4", "white", "red"))
 p = ComplexHeatmap::Heatmap(t(correlation_matrix),  row_names_gp = gpar(fontsize = 14),  column_names_gp = gpar(fontsize = 14), 
                             name = "Pearson",
-                            clustering_method_rows = "average",show_heatmap_legend = T,col = col_fun, 
+                            clustering_method_rows = "average",show_heatmap_legend = T,col = col_fun,   clustering_method_columns = "average",
                             clustering_distance_rows = "euclidean", 
                             cell_fun = function(j, i, x, y, width, height, fill) {
                               grid.text(t(all_pvals)[i, j], x, y, gp = gpar(fontsize = 14))

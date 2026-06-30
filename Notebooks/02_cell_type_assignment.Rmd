@@ -26,6 +26,14 @@ library(print.rmd.tabs)
 library(Matrix)
 ```
 
+```{r setup}
+if (interactive()) {
+    setwd(here::here())
+    params <- rmarkdown::yaml_front_matter(rstudioapi::getSourceEditorContext()$path)$params
+}
+```
+
+
 ```{r}
 source("./pipe.R")
 input = pipeline$cell_types$input

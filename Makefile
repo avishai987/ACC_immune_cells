@@ -2,7 +2,7 @@
 
 .Phony: all
 
-all: pre_process cell_types immune_identity starCAT Tcells_types caf_subtypes umap_clustering immune_markers_ACC run_liana liana TPM_for_signature_matrix create_dou_matrix create_ferrarotto_matrix create_brayer_matrix Dou_CIBERSORT_analysis ferrarotto_CIBERSORT_analysis Brayer_CIBERSORT_analysis sipsic_run sipsic_analysis
+all: pre_process cell_types immune_identity starCAT Tcells_types caf_subtypes umap_clustering cancer_pathway_analysis run_liana liana TPM_for_signature_matrix create_dou_matrix create_ferrarotto_matrix create_brayer_matrix Dou_CIBERSORT_analysis ferrarotto_CIBERSORT_analysis Brayer_CIBERSORT_analysis sipsic_run sipsic_analysis
 
 # ============
 # pre_process
@@ -75,14 +75,14 @@ umap_clustering: ./Reports/05_UMAP_clustering/05_UMAP_clustering.html
 	Rscript render.R umap_clustering
 
 # ============
-# immune_markers_ACC
+# cancer_pathway_analysis
 # ============
 
-immune_markers_ACC: ./Reports/06_immune_markers_ACC/06_immune_markers_ACC.html ./Reports/06_immune_markers_ACC/signif_deg.rds
+cancer_pathway_analysis: ./Reports/06_immune_markers_ACC/06_immune_markers_ACC.html ./Reports/06_immune_markers_ACC/signif_deg.rds
 	@echo  $@ is up to date
 
 ./Reports/06_immune_markers_ACC/06_immune_markers_ACC.html ./Reports/06_immune_markers_ACC/signif_deg.rds &: ./Notebooks/06_immune_markers_ACC.Rmd ./Reports/02_cell_type_assignment/acc_cancer_pri.RDS input_data/all_direct_and_indirect_annotations_to_GO_immune_system_process.txt
-	Rscript render.R immune_markers_ACC
+	Rscript render.R cancer_pathway_analysis
 
 # ============
 # run_liana

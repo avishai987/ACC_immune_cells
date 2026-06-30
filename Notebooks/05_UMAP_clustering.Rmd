@@ -132,3 +132,65 @@ ggplot(immune_plate_df, aes(x = seurat_clusters, y = n, fill = immune_plate)) +
   theme_minimal() + # רקע נקי יותר
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
 ```
+
+
+# CAF types dotplot
+
+```{r}
+library(readxl)
+caf_with_subtypes = readRDS(input$caf_with_subtypes)
+caf_signatures = read_excel(path = input$caf_signatures,sheet = 3,skip = 1)
+
+```
+
+## UMAP
+```{r}
+DimPlot(object = caf_with_subtypes, reduction = "umap", pt.size = 1, label = T,group.by = "cell_identity")
+```
+
+## Violin plot of CAF subtypes scores
+```{r}
+score_names = paste0(names(caf_signatures),"_score")
+score_names = gsub(score_names,pattern = "-",replacement = ".")
+vlnplot = VlnPlot(object = caf_with_subtypes,features = score_names,group.by = "cell_identity",pt.size = 0) & # add y axis title
+  labs(y = "CAF subtype score", x= "CAF subtype") & 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) # rotate x axis labels
+vlnplot 
+```
+
+```{r}
+save_pdf_if_changed(vlnplot,target_path =  "./Figures/vlnplot_caf_subtypes_scores.pdf",width = 12,height = 10)
+```
+
+
+## heatmap of CAF subtypes genes
+```{r}
+library(ComplexHeatmap)
+caf_signatures_expression = data.frame(row.names = names(caf_signatures))
+
+# heatmap of all caf markers 
+for (signature_name in names(caf_signatures)) {
+  signature_genes = caf_signatures[[signature_name]]
+  signature_genes = signature_genes[signature_genes %in% rownames(caf_with_subtypes)]
+  Average_expression = caf_with_subtypes@assays$RNA@data[signature_genes,] %>% as.data.frame() %>% t()  %>% as.data.frame()
+  Average_expression =   merge(Average_expression, data.frame(cell_identity = caf_with_subtypes$cell_identity), by = "row.names")%>%
+    column_to_rownames("Row.names") %>% group_by(cell_identity) %>%
+    summarise(across(everything(), mean, na.rm = TRUE)) %>% column_to_rownames("cell_identity") %>% t() %>% as.data.frame()%>% colMeans()
+  Average_expression = Average_expression[names(Average_expression) != "Mixed"]
+ caf_signatures_expression[[signature_name]] = Average_expression
+}
+
+ht = Heatmap(
+  caf_signatures_expression,
+    name = "Average Expression",
+    cluster_rows = FALSE,
+    cluster_columns = T,
+    show_row_names = TRUE,
+    show_column_names = TRUE,
+    column_names_gp = gpar(fontsize = 10),
+    row_names_gp = gpar(fontsize = 10),
+    heatmap_legend_param = list(title = "Average Expression")
+)
+
+
+```

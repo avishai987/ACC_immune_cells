@@ -34,7 +34,7 @@ pipeline[["cell_types"]] = list(
     cancer = "./Reports/02_cell_type_assignment/cancer.RDS",
     acc_cancer_pri = "./Reports/02_cell_type_assignment/acc_cancer_pri.RDS",
     caf = "./Reports/02_cell_type_assignment/caf.RDS"
-  )
+    )
 )
 
 pipeline[["immune_identity"]] = list(
@@ -80,14 +80,26 @@ pipeline[["Tcells_types"]] = list(
   )
 )
 
-
+pipeline[["caf_subtypes"]] = list(
+  input = list(
+    script = "./Notebooks/CAF_subtypes.Rmd",
+    caf = pipeline$cell_types$output$caf,
+    caf_signatures = "./input_data/NIHMS1678398-supplement-2.xlsx"
+  ),
+  output = list(
+    report = "./Reports/CAF_subtypes/CAF_subtypes.html",
+    caf_with_subtypes = "./Reports/CAF_subtypes/caf_with_subtypes.RDS"
+  )
+)
 
 pipeline[["umap_clustering"]] = list(
   input = list(
     script = "./Notebooks/05_UMAP_clustering.Rmd",
     acc_immune = pipeline$pre_process$output$acc_immune,
     immune_with_cell_types = pipeline$immune_identity$output$immune_with_cell_types,
-    t_cells_labled = pipeline$Tcells_types$output$t_cells_labled
+    t_cells_labled = pipeline$Tcells_types$output$t_cells_labled,
+    caf_with_subtypes = pipeline$caf_subtypes$output$caf_with_subtypes,
+    caf_signatures = "./input_data/NIHMS1678398-supplement-2.xlsx"
   ),
   output = list(
     report = "./Reports/05_UMAP_clustering/05_UMAP_clustering.html"
@@ -112,52 +124,52 @@ pipeline[["immune_markers_ACC"]] = list(
 
 ####################################### cellphoneDB per patient ######################################################
 
-pipeline[["cpdb_create_data_per_patient"]] = list(
-  input = list(
-    script = "./Notebooks/ccc_analysis/cpdb/06_V2_cellphoneDB_per_patient/01_create_data_for_cellphoneDB.Rmd",
-    t_cells_labled = pipeline$Tcells_types$output$t_cells_labled,
-    cancer = pipeline$cell_types$output$cancer,
-    caf = pipeline$cell_types$output$caf,
-    caf_signatures = "./input_data/NIHMS1678398-supplement-2.xlsx",
-    immune_with_cell_types = pipeline$immune_identity$output$immune_with_cell_types
-  ),
-  output = list(
-    report = "Reports/ccc_analysis/cpdb/06_V2_cellphoneDB_per_patient/01_create_data_for_cellphoneDB/01_create_data_for_cellphoneDB.html",
-    acc_cancer_Tcells_caf = "Reports/ccc_analysis/cpdb/06_V2_cellphoneDB_per_patient/01_create_data_for_cellphoneDB/acc_cancer_Tcells_caf.RDS",
-    acc_cancer_immune_caf = "Reports/ccc_analysis/cpdb/06_V2_cellphoneDB_per_patient/01_create_data_for_cellphoneDB/acc_cancer_immune_caf.RDS"
-  )
-)
+# pipeline[["cpdb_create_data_per_patient"]] = list(
+#   input = list(
+#     script = "./Notebooks/ccc_analysis/cpdb/06_V2_cellphoneDB_per_patient/01_create_data_for_cellphoneDB.Rmd",
+#     t_cells_labled = pipeline$Tcells_types$output$t_cells_labled,
+#     cancer = pipeline$cell_types$output$cancer,
+#     caf = pipeline$cell_types$output$caf,
+#     caf_signatures = "./input_data/NIHMS1678398-supplement-2.xlsx",
+#     immune_with_cell_types = pipeline$immune_identity$output$immune_with_cell_types
+#   ),
+#   output = list(
+#     report = "Reports/ccc_analysis/cpdb/06_V2_cellphoneDB_per_patient/01_create_data_for_cellphoneDB/01_create_data_for_cellphoneDB.html",
+#     acc_cancer_Tcells_caf = "Reports/ccc_analysis/cpdb/06_V2_cellphoneDB_per_patient/01_create_data_for_cellphoneDB/acc_cancer_Tcells_caf.RDS",
+#     acc_cancer_immune_caf = "Reports/ccc_analysis/cpdb/06_V2_cellphoneDB_per_patient/01_create_data_for_cellphoneDB/acc_cancer_immune_caf.RDS"
+#   )
+# )
 
-pipeline[["run_cpdb_per_patient"]] = list(
-  input = list(
-    script = "./Notebooks/ccc_analysis/cpdb/06_V2_cellphoneDB_per_patient/02_run_cellphoneDB.Rmd",
-    create_data_report = pipeline$cpdb_create_data_per_patient$output$report
-  ),
-  output = list(
-    report = "Reports/ccc_analysis/cpdb/06_V2_cellphoneDB_per_patient/02_run_cellphoneDB/02_run_cellphoneDB.html"
-  ),
-  params = list(
-    cpdb_conda_env = "/sci/labs/yotamd/lab_share/avishai.wizel/python_envs/miniconda/envs/cpdb",
-    cpdb_target_dir = "Reports/ccc_analysis/06_V2_cellphoneDB_per_patient/02_run_cellphoneDB/cpdb_data/",
-    cpbd_all_immune_output_dir = "Reports/ccc_analysis/06_V2_cellphoneDB_per_patient/02_run_cellphoneDB/cpdb_out_immune/",
-    cpbd_t_cells_output_dir = "Reports/ccc_analysis/06_V2_cellphoneDB_per_patient/02_run_cellphoneDB/cpdb_out_T_cells/"
+# pipeline[["run_cpdb_per_patient"]] = list(
+#   input = list(
+#     script = "./Notebooks/ccc_analysis/cpdb/06_V2_cellphoneDB_per_patient/02_run_cellphoneDB.Rmd",
+#     create_data_report = pipeline$cpdb_create_data_per_patient$output$report
+#   ),
+#   output = list(
+#     report = "Reports/ccc_analysis/cpdb/06_V2_cellphoneDB_per_patient/02_run_cellphoneDB/02_run_cellphoneDB.html"
+#   ),
+#   params = list(
+#     cpdb_conda_env = "/sci/labs/yotamd/lab_share/avishai.wizel/python_envs/miniconda/envs/cpdb",
+#     cpdb_target_dir = "Reports/ccc_analysis/06_V2_cellphoneDB_per_patient/02_run_cellphoneDB/cpdb_data/",
+#     cpbd_all_immune_output_dir = "Reports/ccc_analysis/06_V2_cellphoneDB_per_patient/02_run_cellphoneDB/cpdb_out_immune/",
+#     cpbd_t_cells_output_dir = "Reports/ccc_analysis/06_V2_cellphoneDB_per_patient/02_run_cellphoneDB/cpdb_out_T_cells/"
     
-  )
-)
+#   )
+# )
 
-pipeline[["cpdb_analysis_per_patient"]] = list(
-  input = list(
-    script = "./Notebooks/ccc_analysis/cpdb/06_V2_cellphoneDB_per_patient/03_celphoneDB_analysis.Rmd",
-    create_data_report = pipeline$cpdb_create_data_per_patient$output$report,
-    run_cpdb_per_patient_report = pipeline$run_cpdb_per_patient$output$report,
-    acc_cancer_Tcells_caf = pipeline$cpdb_create_data_per_patient$output$acc_cancer_Tcells_caf,
-    acc_cancer_immune_caf = pipeline$cpdb_create_data_per_patient$output$acc_cancer_immune_caf
+# pipeline[["cpdb_analysis_per_patient"]] = list(
+#   input = list(
+#     script = "./Notebooks/ccc_analysis/cpdb/06_V2_cellphoneDB_per_patient/03_celphoneDB_analysis.Rmd",
+#     create_data_report = pipeline$cpdb_create_data_per_patient$output$report,
+#     run_cpdb_per_patient_report = pipeline$run_cpdb_per_patient$output$report,
+#     acc_cancer_Tcells_caf = pipeline$cpdb_create_data_per_patient$output$acc_cancer_Tcells_caf,
+#     acc_cancer_immune_caf = pipeline$cpdb_create_data_per_patient$output$acc_cancer_immune_caf
 
-  ),
-  output = list(
-    report = "Reports/ccc_analysis/cpdb/06_V2_cellphoneDB_per_patient/03_celphoneDB_analysis/03_celphoneDB_analysis.html"
-  )
-)
+#   ),
+#   output = list(
+#     report = "Reports/ccc_analysis/cpdb/06_V2_cellphoneDB_per_patient/03_celphoneDB_analysis/03_celphoneDB_analysis.html"
+#   )
+# )
 ######################################## LIANA+Nichenet ###############################################
 pipeline[["run_liana"]] = list(
   input = list(
@@ -254,27 +266,42 @@ pipeline[["create_brayer_matrix"]] = list(
     report = "Reports/Bulk_deconv/create_brayer_matrix/Create_brayer_TPM.html"
   )
 )
+
 pipeline[["Dou_CIBERSORT_analysis"]] = list(
   input = list(
     script = "./Notebooks/Bulk_deconv/Dou_CIBERSORT_analsyis.Rmd",
     dou_acc_survival = "input_data/Dou_PMC8450584/PMC8450584_DataSheet_2.xlsx",
-    cs_result = "input_data/CIBERSORTx_result/CIBERSORTx_Job16_Results_dou_all_withMarkers_relative_bBatchcorrect_2025_09_29.csv"
+    cs_result = "input_data/CIBERSORTx_result/CIBERSORTx_Job23_Results_dou_all_10Kvargenes_relative_bBatchcorrection.csv"
   ),
   output = list(
     report = "Reports/Bulk_deconv/Dou_CIBERSORT_analsyis/Dou_CIBERSORT_analsyis.html"
   )
 )
 
+
 pipeline[["ferrarotto_CIBERSORT_analysis"]] = list(
   input = list(
     script = "./Notebooks/Bulk_deconv/Ferrarotto_CIBERSORT_analsyis.Rmd",
-    cs_result = "./input_data/CIBERSORTx_result/CIBERSORTx_Job25_Results_ferrarotto_withMarkers_relative_bBatchcorrect.csv",
+    cs_result = "./input_data/CIBERSORTx_result/CIBERSORTx_Job30_Results.csv",
     ferra_clinical = "input_data/Ferrarotto_PMC7854509/CCR2020_Clinical.xlsx"
   ),
   output = list(
     report = "Reports/Bulk_deconv/ferrarotto_CIBERSORT_analysis/ferrarotto_CIBERSORT_analysis.html"
   )
 )
+
+pipeline[["Brayer_CIBERSORT_analysis"]] = list(
+  input = list(
+    script = "./Notebooks/Bulk_deconv/Brayer_CIBERSORT_analysis.Rmd",
+    DK_clinical = "./input_data/Brayer_PMC10000625_and_PMC5800907/DK_sample_data_table2.csv",
+    TX_clinical = "./input_data/Brayer_PMC10000625_and_PMC5800907/TX_sample_data_table2.csv",
+    cs_result = "input_data/CIBERSORTx_result/CIBERSORTx_Job28_Results_brayer_10Kvargenes_relative_bBatchCorrection.csv"
+  ),
+  output = list(
+    report = "Reports/Bulk_deconv/brayer_CIBERSORT_analsyis/brayer_CIBERSORT_analsyis.html"
+  )
+)
+
 pipeline[["sipsic_run"]] = list(
   input = list(
     script = "./Notebooks/Pathway_analysis/09_sipsic_run.Rmd",
@@ -378,3 +405,114 @@ save_pdf_if_changed <- function(plot_expr, target_path, width = 7, height = 5, f
   message("The plot or dimensions changed (or file did not exist). The PDF file was successfully updated!")
   return(TRUE)
 }
+
+
+#plot graph
+
+
+library(igraph)
+library(ggraph)
+library(ggplot2)
+
+# 1. קריאת קובץ ה-Makefile וה-Parser
+makefile_path <- "Makefile"
+if (!file.exists(makefile_path)) {
+  stop("קובץ Makefile לא נמצא בתיקיית העבודה הנוכחית!")
+}
+makefile_lines <- readLines(makefile_path)
+
+from_nodes <- c()
+to_nodes <- c()
+file_to_step <- new.env(parent = emptyenv())
+raw_rules <- list()
+
+for (line in makefile_lines) {
+  line <- trimws(line)
+  if (line == "" || grepl("^#", line) || grepl("^\\.PHONY", line) || grepl("^all:", line)) next
+  if (grepl("^\\s*@", line) || grepl("^Rscript", line)) next
+  
+  if (grepl(":", line)) {
+    parts <- strsplit(line, ":")[[1]]
+    targets <- gsub("&", "", trimws(parts[1]))
+    deps <- if (length(parts) > 1) trimws(parts[2]) else ""
+    
+    split_targets <- strsplit(targets, "\\s+")[[1]]
+    split_deps <- strsplit(deps, "\\s+")[[1]]
+    
+    if (length(split_targets) == 1 && !grepl("/", targets) && !grepl("\\.", targets)) {
+      current_clean_target <- targets
+      for (dep in split_deps) {
+        if (grepl("/", dep) || grepl("\\.", dep)) {
+          file_to_step[[dep]] <- current_clean_target
+        }
+      }
+    } else {
+      raw_rules[[length(raw_rules) + 1]] <- list(targets = split_targets, deps = split_deps)
+    }
+  }
+}
+
+for (rule in raw_rules) {
+  associated_target_step <- NULL
+  for (t in rule$targets) {
+    if (exists(t, envir = file_to_step)) {
+      associated_target_step <- file_to_step[[t]]
+      break
+    }
+  }
+  if (!is.null(associated_target_step)) {
+    for (d in rule$deps) {
+      if (exists(d, envir = file_to_step)) {
+        source_step <- file_to_step[[d]]
+        if (source_step != associated_target_step) {
+          from_nodes <- c(from_nodes, source_step)
+          to_nodes <- c(to_nodes, associated_target_step)
+        }
+      }
+    }
+  }
+}
+
+if (length(from_nodes) == 0) {
+  stop("לא נמצאו קשרי תלויות.")
+}
+
+# 2. בניית הגרף
+relations_table <- unique(data.frame(from = from_nodes, to = to_nodes, stringsAsFactors = FALSE))
+pipeline_graph <- graph_from_data_frame(relations_table, directed = TRUE)
+
+# 3. ציור מתקדם ומרווח בעזרת ggraph (פריסת עץ Sugiyama קלאסית)
+# תיקון: הסרת ה-layers=max_edges הבעייתי
+g <- ggraph(pipeline_graph, layout = 'sugiyama') + 
+  # ציור החצים (עם מרווח ביטחון כדי שלא ייכנסו לתוך תיבות הטקסט)
+  geom_edge_diagonal(
+    aes(start_cap = label_rect(node1.name), end_cap = label_rect(node2.name)),
+    arrow = arrow(length = unit(2.5, 'mm'), type = 'closed'),
+    color = 'gray60', alpha = 0.8, width = 0.6
+  ) +
+  # ציור תיבות הטקסט של השלבים (מתאימות את עצמן אוטומטית לאורך המילה)
+  geom_node_label(
+    aes(label = name), 
+    fill = "#F4F7FA", 
+    color = "#1A365D",
+    fontface = "bold", 
+    size = 3.2, 
+    label.padding = unit(0.3, "lines"),
+    label.size = 0.4
+  ) +
+  # הגדרות עיצוב מסביב
+  labs(title = "Clean Pipeline Architecture", subtitle = "Automated view from Makefile") +
+  theme_void() + 
+  theme(
+    plot.title = element_text(face = "bold", size = 16, hjust = 0.5, color = "#1A365D"),
+    plot.subtitle = element_text(size = 11, hjust = 0.5, color = "gray40", margin = margin(b = 20)),
+    plot.margin = margin(20, 40, 20, 40)
+  )
+
+# 4. שמירה ישירה לקובץ PDF רחב כדי למנוע דחיסה של הטקסט
+svglite::svglite("pipeline_graph.svg", width = 14, height = 10)
+g
+dev.off()
+
+#delete all grpah related objects to clean the environment
+rm(list = c("from_nodes", "to_nodes", "file_to_step", "raw_rules", "relations_table", "pipeline_graph", "g", "makefile_lines", "makefile_path", "line", "parts", "targets", "deps", "split_targets", "split_deps", "current_clean_target", "associated_target_step", "source_step"))

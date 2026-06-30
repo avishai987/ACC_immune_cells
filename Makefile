@@ -2,7 +2,7 @@
 
 .Phony: all
 
-all: pre_process cell_types immune_identity starCAT Tcells_types umap_clustering immune_markers_ACC cpdb_create_data_per_patient run_cpdb_per_patient cpdb_analysis_per_patient run_liana liana TPM_for_signature_matrix create_dou_matrix create_ferrarotto_matrix create_brayer_matrix Dou_CIBERSORT_analysis ferrarotto_CIBERSORT_analysis sipsic_run sipsic_analysis
+all: pre_process cell_types immune_identity starCAT Tcells_types caf_subtypes umap_clustering immune_markers_ACC run_liana liana TPM_for_signature_matrix create_dou_matrix create_ferrarotto_matrix create_brayer_matrix Dou_CIBERSORT_analysis ferrarotto_CIBERSORT_analysis Brayer_CIBERSORT_analysis sipsic_run sipsic_analysis
 
 # ============
 # pre_process
@@ -55,13 +55,23 @@ Tcells_types: ./Reports/04_Tcells_types/04_Tcells_types.html ./Reports/04_Tcells
 	Rscript render.R Tcells_types
 
 # ============
+# caf_subtypes
+# ============
+
+caf_subtypes: ./Reports/CAF_subtypes/CAF_subtypes.html ./Reports/CAF_subtypes/caf_with_subtypes.RDS
+	@echo  $@ is up to date
+
+./Reports/CAF_subtypes/CAF_subtypes.html ./Reports/CAF_subtypes/caf_with_subtypes.RDS &: ./Notebooks/CAF_subtypes.Rmd ./Reports/02_cell_type_assignment/caf.RDS ./input_data/NIHMS1678398-supplement-2.xlsx
+	Rscript render.R caf_subtypes
+
+# ============
 # umap_clustering
 # ============
 
 umap_clustering: ./Reports/05_UMAP_clustering/05_UMAP_clustering.html
 	@echo  $@ is up to date
 
-./Reports/05_UMAP_clustering/05_UMAP_clustering.html &: ./Notebooks/05_UMAP_clustering.Rmd ./Reports/01_pre-process/acc_immune.RDS ./Reports/03_immune_cell_types/immune_with_cell_types.RDS ./Reports/04_Tcells_types/t_cells_labled.RDS
+./Reports/05_UMAP_clustering/05_UMAP_clustering.html &: ./Notebooks/05_UMAP_clustering.Rmd ./Reports/01_pre-process/acc_immune.RDS ./Reports/03_immune_cell_types/immune_with_cell_types.RDS ./Reports/04_Tcells_types/t_cells_labled.RDS ./Reports/CAF_subtypes/caf_with_subtypes.RDS ./input_data/NIHMS1678398-supplement-2.xlsx
 	Rscript render.R umap_clustering
 
 # ============
@@ -73,36 +83,6 @@ immune_markers_ACC: ./Reports/06_immune_markers_ACC/06_immune_markers_ACC.html .
 
 ./Reports/06_immune_markers_ACC/06_immune_markers_ACC.html ./Reports/06_immune_markers_ACC/signif_deg.rds &: ./Notebooks/06_immune_markers_ACC.Rmd ./Reports/02_cell_type_assignment/acc_cancer_pri.RDS input_data/all_direct_and_indirect_annotations_to_GO_immune_system_process.txt
 	Rscript render.R immune_markers_ACC
-
-# ============
-# cpdb_create_data_per_patient
-# ============
-
-cpdb_create_data_per_patient: Reports/ccc_analysis/cpdb/06_V2_cellphoneDB_per_patient/01_create_data_for_cellphoneDB/01_create_data_for_cellphoneDB.html Reports/ccc_analysis/cpdb/06_V2_cellphoneDB_per_patient/01_create_data_for_cellphoneDB/acc_cancer_Tcells_caf.RDS Reports/ccc_analysis/cpdb/06_V2_cellphoneDB_per_patient/01_create_data_for_cellphoneDB/acc_cancer_immune_caf.RDS
-	@echo  $@ is up to date
-
-Reports/ccc_analysis/cpdb/06_V2_cellphoneDB_per_patient/01_create_data_for_cellphoneDB/01_create_data_for_cellphoneDB.html Reports/ccc_analysis/cpdb/06_V2_cellphoneDB_per_patient/01_create_data_for_cellphoneDB/acc_cancer_Tcells_caf.RDS Reports/ccc_analysis/cpdb/06_V2_cellphoneDB_per_patient/01_create_data_for_cellphoneDB/acc_cancer_immune_caf.RDS &: ./Notebooks/ccc_analysis/cpdb/06_V2_cellphoneDB_per_patient/01_create_data_for_cellphoneDB.Rmd ./Reports/04_Tcells_types/t_cells_labled.RDS ./Reports/02_cell_type_assignment/cancer.RDS ./Reports/02_cell_type_assignment/caf.RDS ./input_data/NIHMS1678398-supplement-2.xlsx ./Reports/03_immune_cell_types/immune_with_cell_types.RDS
-	Rscript render.R cpdb_create_data_per_patient
-
-# ============
-# run_cpdb_per_patient
-# ============
-
-run_cpdb_per_patient: Reports/ccc_analysis/cpdb/06_V2_cellphoneDB_per_patient/02_run_cellphoneDB/02_run_cellphoneDB.html
-	@echo  $@ is up to date
-
-Reports/ccc_analysis/cpdb/06_V2_cellphoneDB_per_patient/02_run_cellphoneDB/02_run_cellphoneDB.html &: ./Notebooks/ccc_analysis/cpdb/06_V2_cellphoneDB_per_patient/02_run_cellphoneDB.Rmd Reports/ccc_analysis/cpdb/06_V2_cellphoneDB_per_patient/01_create_data_for_cellphoneDB/01_create_data_for_cellphoneDB.html
-	Rscript render.R run_cpdb_per_patient
-
-# ============
-# cpdb_analysis_per_patient
-# ============
-
-cpdb_analysis_per_patient: Reports/ccc_analysis/cpdb/06_V2_cellphoneDB_per_patient/03_celphoneDB_analysis/03_celphoneDB_analysis.html
-	@echo  $@ is up to date
-
-Reports/ccc_analysis/cpdb/06_V2_cellphoneDB_per_patient/03_celphoneDB_analysis/03_celphoneDB_analysis.html &: ./Notebooks/ccc_analysis/cpdb/06_V2_cellphoneDB_per_patient/03_celphoneDB_analysis.Rmd Reports/ccc_analysis/cpdb/06_V2_cellphoneDB_per_patient/01_create_data_for_cellphoneDB/01_create_data_for_cellphoneDB.html Reports/ccc_analysis/cpdb/06_V2_cellphoneDB_per_patient/02_run_cellphoneDB/02_run_cellphoneDB.html Reports/ccc_analysis/cpdb/06_V2_cellphoneDB_per_patient/01_create_data_for_cellphoneDB/acc_cancer_Tcells_caf.RDS Reports/ccc_analysis/cpdb/06_V2_cellphoneDB_per_patient/01_create_data_for_cellphoneDB/acc_cancer_immune_caf.RDS
-	Rscript render.R cpdb_analysis_per_patient
 
 # ============
 # run_liana
@@ -171,7 +151,7 @@ Reports/Bulk_deconv/create_brayer_matrix/brayer_TPM.tsv Reports/Bulk_deconv/crea
 Dou_CIBERSORT_analysis: Reports/Bulk_deconv/Dou_CIBERSORT_analsyis/Dou_CIBERSORT_analsyis.html
 	@echo  $@ is up to date
 
-Reports/Bulk_deconv/Dou_CIBERSORT_analsyis/Dou_CIBERSORT_analsyis.html &: ./Notebooks/Bulk_deconv/Dou_CIBERSORT_analsyis.Rmd input_data/Dou_PMC8450584/PMC8450584_DataSheet_2.xlsx input_data/CIBERSORTx_result/CIBERSORTx_Job16_Results_dou_all_withMarkers_relative_bBatchcorrect_2025_09_29.csv
+Reports/Bulk_deconv/Dou_CIBERSORT_analsyis/Dou_CIBERSORT_analsyis.html &: ./Notebooks/Bulk_deconv/Dou_CIBERSORT_analsyis.Rmd input_data/Dou_PMC8450584/PMC8450584_DataSheet_2.xlsx input_data/CIBERSORTx_result/CIBERSORTx_Job23_Results_dou_all_10Kvargenes_relative_bBatchcorrection.csv
 	Rscript render.R Dou_CIBERSORT_analysis
 
 # ============
@@ -181,8 +161,18 @@ Reports/Bulk_deconv/Dou_CIBERSORT_analsyis/Dou_CIBERSORT_analsyis.html &: ./Note
 ferrarotto_CIBERSORT_analysis: Reports/Bulk_deconv/ferrarotto_CIBERSORT_analysis/ferrarotto_CIBERSORT_analysis.html
 	@echo  $@ is up to date
 
-Reports/Bulk_deconv/ferrarotto_CIBERSORT_analysis/ferrarotto_CIBERSORT_analysis.html &: ./Notebooks/Bulk_deconv/Ferrarotto_CIBERSORT_analsyis.Rmd ./input_data/CIBERSORTx_result/CIBERSORTx_Job25_Results_ferrarotto_withMarkers_relative_bBatchcorrect.csv input_data/Ferrarotto_PMC7854509/CCR2020_Clinical.xlsx
+Reports/Bulk_deconv/ferrarotto_CIBERSORT_analysis/ferrarotto_CIBERSORT_analysis.html &: ./Notebooks/Bulk_deconv/Ferrarotto_CIBERSORT_analsyis.Rmd ./input_data/CIBERSORTx_result/CIBERSORTx_Job30_Results.csv input_data/Ferrarotto_PMC7854509/CCR2020_Clinical.xlsx
 	Rscript render.R ferrarotto_CIBERSORT_analysis
+
+# ============
+# Brayer_CIBERSORT_analysis
+# ============
+
+Brayer_CIBERSORT_analysis: Reports/Bulk_deconv/brayer_CIBERSORT_analsyis/brayer_CIBERSORT_analsyis.html
+	@echo  $@ is up to date
+
+Reports/Bulk_deconv/brayer_CIBERSORT_analsyis/brayer_CIBERSORT_analsyis.html &: ./Notebooks/Bulk_deconv/Brayer_CIBERSORT_analysis.Rmd ./input_data/Brayer_PMC10000625_and_PMC5800907/DK_sample_data_table2.csv ./input_data/Brayer_PMC10000625_and_PMC5800907/TX_sample_data_table2.csv input_data/CIBERSORTx_result/CIBERSORTx_Job28_Results_brayer_10Kvargenes_relative_bBatchCorrection.csv
+	Rscript render.R Brayer_CIBERSORT_analysis
 
 # ============
 # sipsic_run

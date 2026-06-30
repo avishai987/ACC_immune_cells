@@ -108,7 +108,7 @@ pipeline[["umap_clustering"]] = list(
 
 ####################################### immune markers in ACC cancer cells ####################################################
 
-pipeline[["immune_markers_ACC"]] = list(
+pipeline[["cancer_pathway_analysis"]] = list(
   input = list(
     script = "./Notebooks/06_immune_markers_ACC.Rmd",
     acc_cancer_pri = pipeline$cell_types$output$acc_cancer_pri,
@@ -511,7 +511,7 @@ g <- ggraph(pipeline_graph, layout = 'sugiyama') +
 
 # 4. שמירה ישירה לקובץ PDF רחב כדי למנוע דחיסה של הטקסט
 svglite::svglite("pipeline_graph.svg", width = 14, height = 10)
-g
+print(g)
 dev.off()
 
 #delete all grpah related objects to clean the environment

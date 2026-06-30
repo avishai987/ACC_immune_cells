@@ -1,0 +1,105 @@
+---
+title: 'CAF subtypes' 
+author: "Avishai Wizel"
+date: '`r Sys.time()`'
+output: 
+  html_document: 
+    code_folding: hide
+    toc: yes
+    toc_collapse: yes
+    toc_float: 
+      collapsed: TRUE
+    number_sections: true
+    toc_depth: 2
+    df_print: paged
+params: 
+  data_out_dir: "./temp_data/"
+  assign_threshold: 1.03
+---
+
+
+```{r}
+library(stringi)
+library(Seurat)
+library(ggplot2)
+library(tidyverse)
+library(dplyr)
+library(data.table)
+library(print.rmd.tabs)
+library(readxl)
+library(cowplot)
+library(ComplexHeatmap)
+library(circlize)
+library(grid)
+```
+
+```{r setup}
+if(Sys.getenv("POSITRON") == "1"){
+    setwd(here::here())
+    params <- rmarkdown::yaml_front_matter(rstudioapi::getSourceEditorContext()$path)$params
+}
+```
+
+```{r}
+source("./pipe.R")
+input = pipeline$caf_subtypes$input
+output = pipeline$caf_subtypes$output
+```
+
+
+
+# save CAF
+```{r}
+caf = readRDS(input$caf)
+caf_signatures = read_excel(path = input$caf_signatures,sheet = 3,skip = 1)
+```
+
+## Add CAF signatures
+
+```{r}
+caf_signatures = lapply(caf_signatures, na.omit)
+names(caf_signatures) = names(caf_signatures) %>% gsub(pattern = "-",replacement = ".")
+
+#calculate CAF scores mean expression of signature genes
+for (signature_name in names(caf_signatures)) {
+  signature_genes = caf_signatures[[signature_name]]
+  signature_genes = signature_genes[signature_genes %in% rownames(caf)]
+  caf_score = caf@assays$RNA@data[signature_genes,] %>% colMeans()
+  caf = AddMetaData(object =caf,metadata = caf_score,col.name = paste0(signature_name,"_score"))
+}
+
+data = FetchData(caf,vars = paste0(names(caf_signatures),"_score"))
+
+
+
+#get max signature per cell
+data$Max_signature <- apply(
+  data, 
+  MARGIN = 1, 
+  FUN = function(x) {
+    max_value = max(x)
+    second_max_value = sort(x, decreasing = TRUE)[2]
+    if (max_value > second_max_value*params$assign_threshold) {
+      return(names(x)[which.max(x)])
+    } else {
+      return("Mixed")
+    }
+  }
+)
+
+#remove _score
+data$Max_signature = gsub("_score", "", data$Max_signature)
+#add to metadata
+caf = AddMetaData(object =caf,metadata = data[,"Max_signature",drop=F],col.name = "cell_identity")
+
+```
+
+```{r}
+table(caf$cell_identity)
+```
+
+
+
+```{r}
+saveRDS(object = caf,file = params$data_out_dir %s+% basename(output$caf))
+```

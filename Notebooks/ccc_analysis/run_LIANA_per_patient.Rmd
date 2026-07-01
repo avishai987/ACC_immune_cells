@@ -1,0 +1,125 @@
+---
+title: 'Run LIANA' 
+author: "Avishai Wizel"
+date: '`r Sys.time()`'
+output: 
+  html_document: 
+    code_folding: hide
+    toc: yes
+    toc_collapse: yes
+    toc_float: 
+      collapsed: TRUE
+    number_sections: true
+    toc_depth: 2
+    df_print: paged
+params: 
+  data_out_dir: "./temp_data/" 
+  debug: FALSE
+---
+
+```{r}
+library(tidyverse)
+library(liana)
+library(nichenetr)
+library(Seurat)
+library(ggrepel)
+library(cowplot)
+library(readxl)
+```
+
+```{r setup}
+if(Sys.getenv("POSITRON") == "1"){
+    setwd(here::here())
+    params <- rmarkdown::yaml_front_matter(rstudioapi::getSourceEditorContext()$path)$params
+}
+```
+
+```{r}
+source("./pipe.R")
+input = pipeline$run_liana$input
+output = pipeline$run_liana$output
+```
+
+
+```{r}
+acc_cancer_cells = readRDS(input$cancer)
+acc_caf_cells =  readRDS(input$caf_with_subtypes)
+t_cells_labled =  readRDS(input$t_cells_labled)
+immune_with_cell_types = readRDS(input$immune_with_cell_types)
+```
+
+```{r}
+# aggregate T cells for only CD4, CD8, Tregs, and gamma delta T cells
+# change the cell_type column to reflect this aggregation
+t_cells_labled$cell_type <- case_when(
+  t_cells_labled$cell_type %in% c("CD4_EM", "CD4_CM", "CD4_Naive") ~ "CD4_T",
+  t_cells_labled$cell_type %in% c("CD8_CM", "CD8_Naive", "CD8_TEMRA", "CD8_EM") ~ "CD8_T"
+  TRUE ~ t_cells_labled$cell_type
+)
+```
+
+```{r}
+for (patient in unique(acc_cancer_cells$orig.ident)) {
+  print(paste0("Running LIANA for patient: ", patient))
+  # Subset the Seurat objects for the current patient
+  data_per_patient = subset(acc_cancer_immune_caf, subset = orig.ident == patient)
+  data = subset(data_per_patient, subset = cell_type %in% c("Luminal", "Myo","CD4_T", "CD8_T",
+                                                "gdT", "Treg","Myeloid Dendritic", "Macrophages", "Basophils", "Neutrophils" ))
+  # Run LIANA for the current patient
+  liana_results <- liana_wrap(data) %>%
+  liana_aggregate()
+  # Save the results for the current patient
+  saveRDS(object = liana_results,file =  paste0(params$data_out_dir, patient,"liana_result.RDS"))
+}
+
+
+
+
+}
+```
+
+
+
+```{r}
+#aggregate Lunminal and Myoepithelial cells into just cancer cells
+acc_cancer_cells$cell_type <- case_when(
+  acc_cancer_cells$cell_type %in% c("Luminal", "Myo") ~ "Cancer",
+  TRUE ~ acc_cancer_cells$cell_type
+)
+
+```
+
+
+```{r}
+for (patient in unique(acc_cancer_cells$orig.ident)) {
+  print(paste0("Running LIANA for patient: ", patient))
+  # Subset the Seurat objects for the current patient
+  data_per_patient = subset(acc_cancer_immune_caf, subset = orig.ident == patient)
+  data = subset(data_per_patient, subset = cell_type %in% c("Cancer", "CD4_T", "CD8_T",
+                                                "gdT", "Treg","Myeloid Dendritic", "Macrophages", "Basophils","Neutrophils" ))
+  # Run LIANA for the current patient
+  liana_results <- liana_wrap(data) %>%
+    liana_aggregate()
+  # Save the results for the current patient
+  saveRDS(object = liana_results,file =  paste0(params$data_out_dir, patient,"liana_result_CD45-cancer.RDS"))
+
+}
+```
+
+# CAF immune interactions
+
+
+```{r}
+for (patient in unique(acc_caf_cells$orig.ident)) {
+  print(paste0("Running LIANA for patient: ", patient))
+  # Subset the Seurat objects for the current patient
+  data_per_patient = subset(acc_caf_cells, subset = orig.ident == patient)
+  data = subset(data_per_patient, subset = cell_type %in% c("CAF", "CD4_T", "CD8_T",
+                                                "gdT", "Treg","Myeloid Dendritic", "Macrophages", "Basophils","Neutrophils" ))
+  # Run LIANA for the current patient
+  liana_results <- liana_wrap(data) %>%
+    liana_aggregate()
+  # Save the results for the current patient
+  saveRDS(object = liana_results,file =  paste0(params$data_out_dir, patient,"liana_result_CD45-caf.RDS"))
+}
+```

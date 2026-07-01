@@ -121,55 +121,6 @@ pipeline[["cancer_pathway_analysis"]] = list(
 )
 
 
-
-####################################### cellphoneDB per patient ######################################################
-
-# pipeline[["cpdb_create_data_per_patient"]] = list(
-#   input = list(
-#     script = "./Notebooks/ccc_analysis/cpdb/06_V2_cellphoneDB_per_patient/01_create_data_for_cellphoneDB.Rmd",
-#     t_cells_labled = pipeline$Tcells_types$output$t_cells_labled,
-#     cancer = pipeline$cell_types$output$cancer,
-#     caf = pipeline$cell_types$output$caf,
-#     caf_signatures = "./input_data/NIHMS1678398-supplement-2.xlsx",
-#     immune_with_cell_types = pipeline$immune_identity$output$immune_with_cell_types
-#   ),
-#   output = list(
-#     report = "Reports/ccc_analysis/cpdb/06_V2_cellphoneDB_per_patient/01_create_data_for_cellphoneDB/01_create_data_for_cellphoneDB.html",
-#     acc_cancer_Tcells_caf = "Reports/ccc_analysis/cpdb/06_V2_cellphoneDB_per_patient/01_create_data_for_cellphoneDB/acc_cancer_Tcells_caf.RDS",
-#     acc_cancer_immune_caf = "Reports/ccc_analysis/cpdb/06_V2_cellphoneDB_per_patient/01_create_data_for_cellphoneDB/acc_cancer_immune_caf.RDS"
-#   )
-# )
-
-# pipeline[["run_cpdb_per_patient"]] = list(
-#   input = list(
-#     script = "./Notebooks/ccc_analysis/cpdb/06_V2_cellphoneDB_per_patient/02_run_cellphoneDB.Rmd",
-#     create_data_report = pipeline$cpdb_create_data_per_patient$output$report
-#   ),
-#   output = list(
-#     report = "Reports/ccc_analysis/cpdb/06_V2_cellphoneDB_per_patient/02_run_cellphoneDB/02_run_cellphoneDB.html"
-#   ),
-#   params = list(
-#     cpdb_conda_env = "/sci/labs/yotamd/lab_share/avishai.wizel/python_envs/miniconda/envs/cpdb",
-#     cpdb_target_dir = "Reports/ccc_analysis/06_V2_cellphoneDB_per_patient/02_run_cellphoneDB/cpdb_data/",
-#     cpbd_all_immune_output_dir = "Reports/ccc_analysis/06_V2_cellphoneDB_per_patient/02_run_cellphoneDB/cpdb_out_immune/",
-#     cpbd_t_cells_output_dir = "Reports/ccc_analysis/06_V2_cellphoneDB_per_patient/02_run_cellphoneDB/cpdb_out_T_cells/"
-    
-#   )
-# )
-
-# pipeline[["cpdb_analysis_per_patient"]] = list(
-#   input = list(
-#     script = "./Notebooks/ccc_analysis/cpdb/06_V2_cellphoneDB_per_patient/03_celphoneDB_analysis.Rmd",
-#     create_data_report = pipeline$cpdb_create_data_per_patient$output$report,
-#     run_cpdb_per_patient_report = pipeline$run_cpdb_per_patient$output$report,
-#     acc_cancer_Tcells_caf = pipeline$cpdb_create_data_per_patient$output$acc_cancer_Tcells_caf,
-#     acc_cancer_immune_caf = pipeline$cpdb_create_data_per_patient$output$acc_cancer_immune_caf
-
-#   ),
-#   output = list(
-#     report = "Reports/ccc_analysis/cpdb/06_V2_cellphoneDB_per_patient/03_celphoneDB_analysis/03_celphoneDB_analysis.html"
-#   )
-# )
 ######################################## LIANA+Nichenet ###############################################
 pipeline[["run_liana"]] = list(
   input = list(

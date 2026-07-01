@@ -317,6 +317,7 @@ p
 # MI
 
 ```{r}
+library(infotheo)
 df_cells <- deconv_with_survival_aggTcells[,cell_types_cols] 
 
 

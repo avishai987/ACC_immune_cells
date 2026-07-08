@@ -148,7 +148,36 @@ pipeline[["liana"]] = list(
 )
 
 
+# run with --cpus-per-task=4 --mem=45G 
+pipeline[["run_liana_per_patient"]] = list(
+  input = list(
+    script = "./Notebooks/ccc_analysis/run_LIANA_per_patient.Rmd",
+    t_cells_labled = pipeline$Tcells_types$output$t_cells_labled,
+    cancer = pipeline$cell_types$output$cancer,
+    caf_with_subtypes = pipeline$caf_subtypes$output$caf_with_subtypes,
+    immune_with_cell_types = pipeline$immune_identity$output$immune_with_cell_types),
+  output = list(
+    report = "Reports/ccc_analysis/run_LIANA_per_patient/run_LIANA_per_patient.html",
+    liana_result_CD45_caf = "Reports/ccc_analysis/run_LIANA_per_patient/liana_result_CD45-caf.RDS",
+    liana_result_CD45_cancer = "Reports/ccc_analysis/run_LIANA_per_patient/liana_result_CD45-cancer.RDS",
+    liana_result_CD45_lum_myo = "Reports/ccc_analysis/run_LIANA_per_patient/liana_result_CD45-lum-myo.RDS"
+  ),
+  params = list(
+    debug = F
+  )
+)
 
+pipeline[["Liana_per_patient"]] = list(
+  input = list(
+    script = "./Notebooks/ccc_analysis/Liana_per_patient.Rmd",
+    liana_result_CD45_caf = pipeline$run_liana_per_patient$output$liana_result_CD45_caf,
+    liana_result_CD45_cancer = pipeline$run_liana_per_patient$output$liana_result_CD45_cancer,
+    liana_result_CD45_lum_myo = pipeline$run_liana_per_patient$output$liana_result_CD45_lum_myo
+  ),
+  output = list(
+    report = "Reports/ccc_analysis/Liana_per_patient/Liana_per_patient.html"
+  )
+)
 
 ######################################## Bulk deconvolution ###############################################
 
@@ -466,4 +495,7 @@ print(g)
 dev.off()
 
 #delete all grpah related objects to clean the environment
-rm(list = c("from_nodes", "to_nodes", "file_to_step", "raw_rules", "relations_table", "pipeline_graph", "g", "makefile_lines", "makefile_path", "line", "parts", "targets", "deps", "split_targets", "split_deps", "current_clean_target", "associated_target_step", "source_step"))
+rm(list = c("from_nodes", "to_nodes", "file_to_step", "raw_rules", "relations_table", 
+"pipeline_graph", "g", "makefile_lines", "makefile_path", "line", "parts", "targets", "deps", 
+"split_targets", "split_deps", "current_clean_target", "associated_target_step", "source_step",
+"dep","d","t","rule","all_rules","i"))

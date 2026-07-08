@@ -88,7 +88,7 @@ acc_immune = acc_immune %>% AddMetaData(metadata = merged_data[,"cell_identity",
 ```
 
 ```{r}
-p = DimPlot(acc_immune,group.by = "cell_identity_with_subtypes",label = T,pt.size = 1)
+p = DimPlot(acc_immune,group.by = "cell_identity_with_subtypes",label = F,pt.size = 1)
 p
 ```
 

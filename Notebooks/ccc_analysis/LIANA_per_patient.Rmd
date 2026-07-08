@@ -1,0 +1,354 @@
+---
+title: 'LIANA' 
+author: "Avishai Wizel"
+date: '`r Sys.time()`'
+output: 
+  html_document: 
+    code_folding: hide
+    toc: yes
+    toc_collapse: yes
+    toc_float: 
+      collapsed: TRUE
+    number_sections: true
+    toc_depth: 2
+    df_print: paged
+params: 
+  data_out_dir: "./temp_data/" 
+  debug: FALSE
+---
+
+```{r}
+library(tidyverse)
+library(liana)
+library(nichenetr)
+library(Seurat)
+library(ggrepel)
+library(cowplot)
+library(readxl)
+library(scales)
+```
+
+```{r setup}
+if(Sys.getenv("POSITRON") == "1"){
+    setwd(here::here())
+    params <- rmarkdown::yaml_front_matter(rstudioapi::getSourceEditorContext()$path)$params
+}
+```
+
+
+
+
+
+```{r}
+source("./pipe.R")
+input = pipeline$Liana_per_patient$input
+output = pipeline$Liana_per_patient$output
+```
+
+```{r}
+liana_result_CD45_caf = readRDS(file = input$liana_result_CD45_caf)
+liana_result_CD45_cancer = readRDS(file = input$liana_result_CD45_cancer)
+liana_result_CD45_lum_myo = readRDS(file = input$liana_result_CD45_lum_myo)
+```
+
+# CD45- cancer
+```{r}
+#get all unique source-target pair from per patient results
+patiets_pairs = list()
+for (patient in names(liana_result_CD45_lum_myo)){
+  patiets_pairs[[patient]] = liana_result_CD45_lum_myo[[patient]] %>%
+    dplyr::select(source, target) %>%
+    dplyr::mutate(pair = paste0(source, "-", target)) %>%
+    dplyr::pull(pair) %>%
+    unique()
+}
+
+# count the number of patients each ligand-receptor pair appears in
+pair_counts = table(unlist(patiets_pairs))
+max(pair_counts)
+```
+
+
+```{r}
+#| fig-height: 8
+#| fig-width: 25
+threshold = 0.01
+immune_cells_to_include = c("CD4_T", "CD8_T", "gdT", "Treg")
+cancer_cells_to_include = c("Luminal", "Myo")
+
+for (n_patients in 2:max(pair_counts)){
+  print(paste0("Ligand-receptor pairs that appear in ", n_patients, " patients:"))
+  pairs = names(pair_counts[pair_counts == n_patients])
+  if (length(pairs) == 0){
+    next()
+  }
+  filtered_results = data.frame()
+  # for each patient, filter the results that pass the threshold and are in the pairs list
+  for (patient in names(liana_result_CD45_lum_myo)){
+    patient_results = liana_result_CD45_lum_myo[[patient]] %>%
+      dplyr::filter(aggregate_rank <= threshold) %>%
+      dplyr::mutate(pair = paste0(source, "-", target)) %>%
+      dplyr::filter(pair %in% pairs) %>% 
+      mutate (patient = patient)
+      filtered_results = rbind(filtered_results, patient_results)
+  }
+
+  # calclaute mean "natmi.edge_specificity" and mean "sca.LRscore" of all patients for each ligand-receptor pair
+  filtered_results = filtered_results %>%
+    group_by(source, target) %>%
+  summarise(
+    natmi.edge_specificity = mean(natmi.edge_specificity, na.rm = TRUE),
+    sca.LRscore = mean(sca.LRscore, na.rm = TRUE),
+    n_patients = n_distinct(patient),
+    ligand.complex = first(ligand.complex),
+    receptor.complex = first(receptor.complex)
+  ) %>%
+    ungroup() %>%
+    arrange(desc(natmi.edge_specificity))
+
+# show only interactions between immune cells and cancer cells
+  filtered_results = filtered_results %>%
+    dplyr::filter(source %in% immune_cells_to_include & target %in% cancer_cells_to_include |
+                  source %in% cancer_cells_to_include & target %in% immune_cells_to_include)
+  if (nrow(filtered_results) == 0){
+    next()
+  }
+  p = liana_dotplot(filtered_results,
+              source_groups = unique(filtered_results$source),
+                target_groups = unique(filtered_results$target),
+                specificity  = "n_patients")+  
+                  scale_size_continuous(breaks = seq(1, max(filtered_results$n_patients), by = 1), 
+                   range = c(3, 8))+
+                  ggtitle(paste0("Ligand-receptor pairs that appear in ", n_patients, " patients\nSource"))+
+                  labs(size = "Number of patients")  
+  print(p)
+
+  pdf(height = 8,width = 15,paste0(params$data_out_dir, "all_t_cells_to_cancer_", n_patients, "_patients_0.01.pdf"))
+  print(p)
+  dev.off()
+
+}
+
+
+```
+
+
+
+```{r}
+caf_types_to_include = c("pan.iCAF.2", "pan.pCAF", "pan.iCAF", "pan.dCAF", "pan.myCAF")
+```
+
+
+```{r}
+#| fig-height: 8
+#| fig-width: 25
+filtered_results = data.frame()
+  # for each patient, filter the results that pass the threshold 
+  for (patient in names(liana_result_CD45_lum_myo)){
+    patient_results = liana_result_CD45_lum_myo[[patient]] %>%
+      dplyr::filter(aggregate_rank <= threshold) %>%
+      dplyr::mutate(pair = paste0(source, "-", target)) %>%
+      mutate (patient = patient)
+      filtered_results = rbind(filtered_results, patient_results)
+  }
+
+  # calclaute mean "natmi.edge_specificity" and mean "sca.LRscore" of all patients for each ligand-receptor pair
+  filtered_results = filtered_results %>%
+    group_by(source, target) %>%
+  summarise(
+    natmi.edge_specificity = mean(natmi.edge_specificity, na.rm = TRUE),
+    sca.LRscore = mean(sca.LRscore, na.rm = TRUE),
+    n_patients = n_distinct(patient),
+    ligand.complex = first(ligand.complex),
+    receptor.complex = first(receptor.complex)
+  ) %>%
+    ungroup() %>%
+    arrange(desc(natmi.edge_specificity))
+
+# show only interactions between immune cells and cancer cells
+  filtered_results = filtered_results %>%
+    dplyr::filter(source %in% immune_cells_to_include & target %in% cancer_cells_to_include |
+                  source %in% cancer_cells_to_include & target %in% immune_cells_to_include)
+  if (nrow(filtered_results) == 0){
+    next()
+  }
+  p = liana_dotplot(filtered_results,
+              source_groups = unique(filtered_results$source),
+                target_groups = unique(filtered_results$target),
+                specificity  = "n_patients")+  
+                scale_size_area(
+                  max_size = 12,           # set the maximum size of the points
+                  breaks = c(1, 2, 3, 4)   # set the breaks for the legend
+                )+
+                  labs(size = "Number of patients")  
+  print(p)
+```
+
+```{r}
+save_pdf_if_changed(p, "Figures/all_t_cells_to_lum-myo_0.01.pdf",
+                    width = 25, height = 8)
+```
+
+
+```{r}
+#| fig-height: 8
+#| fig-width: 25
+filtered_results = data.frame()
+  # for each patient, filter the results that pass the threshold 
+  for (patient in names(liana_result_CD45_cancer)){
+    if (is.null(liana_result_CD45_cancer[[patient]])){
+      next()
+    }
+    patient_results = liana_result_CD45_cancer[[patient]] %>%
+      dplyr::filter(aggregate_rank <= threshold) %>%
+      dplyr::mutate(pair = paste0(source, "-", target)) %>%
+      mutate (patient = patient)
+      filtered_results = rbind(filtered_results, patient_results)
+  }
+
+  # calclaute mean "natmi.edge_specificity" and mean "sca.LRscore" of all patients for each ligand-receptor pair
+  filtered_results = filtered_results %>%
+    group_by(source, target) %>%
+  summarise(
+    natmi.edge_specificity = mean(natmi.edge_specificity, na.rm = TRUE),
+    sca.LRscore = mean(sca.LRscore, na.rm = TRUE),
+    n_patients = n_distinct(patient),
+    ligand.complex = first(ligand.complex),
+    receptor.complex = first(receptor.complex)
+  ) %>%
+    ungroup() %>%
+    arrange(desc(natmi.edge_specificity))
+
+# show only interactions between immune cells and cancer cells
+  filtered_results = filtered_results %>%
+    dplyr::filter(source %in% immune_cells_to_include & target %in% "Cancer" |
+                  source %in% "Cancer" & target %in% immune_cells_to_include)
+  if (nrow(filtered_results) == 0){
+    next()
+  }
+  p = liana_dotplot(filtered_results,
+              source_groups = unique(filtered_results$source),
+                target_groups = unique(filtered_results$target),
+                specificity  = "n_patients")+  
+                scale_size_area(
+                  max_size = 12,           # set the maximum size of the points
+                  breaks = c(1, 2, 3, 4)   # set the breaks for the legend
+                )+
+                  labs(size = "Number of patients")  
+  print(p)
+```
+
+```{r}
+save_pdf_if_changed(p, "Figures/all_t_cells_to_cancer_0.01.pdf",
+                    width = 25, height = 8)
+```
+
+```{r}
+#| fig-height: 8
+#| fig-width: 25
+filtered_results = data.frame()
+  # for each patient, filter the results that pass the threshold 
+  for (patient in names(liana_result_CD45_caf)){
+    if (is.null(liana_result_CD45_caf[[patient]])){
+      next()
+    }
+    patient_results = liana_result_CD45_caf[[patient]] %>%
+      dplyr::filter(aggregate_rank <= threshold) %>%
+      dplyr::mutate(pair = paste0(source, "-", target)) %>%
+      mutate (patient = patient)
+      filtered_results = rbind(filtered_results, patient_results)
+  }
+
+  # calclaute mean "natmi.edge_specificity" and mean "sca.LRscore" of all patients for each ligand-receptor pair
+  filtered_results = filtered_results %>%
+    group_by(source, target) %>%
+  summarise(
+    natmi.edge_specificity = mean(natmi.edge_specificity, na.rm = TRUE),
+    sca.LRscore = mean(sca.LRscore, na.rm = TRUE),
+    n_patients = n_distinct(patient),
+    ligand.complex = first(ligand.complex),
+    receptor.complex = first(receptor.complex)
+  ) %>%
+    ungroup() %>%
+    arrange(desc(natmi.edge_specificity))
+
+# show only interactions between immune cells and cancer cells
+  filtered_results = filtered_results %>%
+    dplyr::filter(source %in% immune_cells_to_include & target %in% caf_types_to_include |
+                  source %in% caf_types_to_include & target %in% immune_cells_to_include)
+
+  filtered_results = filtered_results %>% filter(n_patients %in% c(1,2))
+  if (nrow(filtered_results) == 0){
+    next()
+  }
+  p = liana_dotplot(filtered_results,
+              source_groups = unique(filtered_results$source),
+                target_groups = unique(filtered_results$target),
+                specificity  = "n_patients")+  
+  scale_size_continuous(
+    range = c(4, 8), 
+        breaks = breaks_width(1) 
+  )+
+                  labs(size = "Number of patients")  
+  print(p)
+```
+
+```{r}
+save_pdf_if_changed(p, "Figures/all_t_cells_to_caf_1-2-patients_0.01.pdf",
+                    width = 35, height = 8)
+```
+
+```{r}
+#| fig-height: 8
+#| fig-width: 25
+filtered_results = data.frame()
+  # for each patient, filter the results that pass the threshold 
+  for (patient in names(liana_result_CD45_caf)){
+    if (is.null(liana_result_CD45_caf[[patient]])){
+      next()
+    }
+    patient_results = liana_result_CD45_caf[[patient]] %>%
+      dplyr::filter(aggregate_rank <= threshold) %>%
+      dplyr::mutate(pair = paste0(source, "-", target)) %>%
+      mutate (patient = patient)
+      filtered_results = rbind(filtered_results, patient_results)
+  }
+
+  # calclaute mean "natmi.edge_specificity" and mean "sca.LRscore" of all patients for each ligand-receptor pair
+  filtered_results = filtered_results %>%
+    group_by(source, target) %>%
+  summarise(
+    natmi.edge_specificity = mean(natmi.edge_specificity, na.rm = TRUE),
+    sca.LRscore = mean(sca.LRscore, na.rm = TRUE),
+    n_patients = n_distinct(patient),
+    ligand.complex = first(ligand.complex),
+    receptor.complex = first(receptor.complex)
+  ) %>%
+    ungroup() %>%
+    arrange(desc(natmi.edge_specificity))
+
+# show only interactions between immune cells and cancer cells
+  filtered_results = filtered_results %>%
+    dplyr::filter(source %in% immune_cells_to_include & target %in% caf_types_to_include |
+                  source %in% caf_types_to_include & target %in% immune_cells_to_include)
+
+  filtered_results = filtered_results %>% filter(n_patients %in% c(3,4))
+  if (nrow(filtered_results) == 0){
+    next()
+  }
+  p = liana_dotplot(filtered_results,
+              source_groups = unique(filtered_results$source),
+                target_groups = unique(filtered_results$target),
+                specificity  = "n_patients")+  
+  scale_size_continuous(
+    range = c(4, 8), 
+        breaks = breaks_width(1) 
+  )+
+                  labs(size = "Number of patients")  
+  print(p)
+```
+
+```{r}
+save_pdf_if_changed(p, "Figures/all_t_cells_to_caf_3-4-patients_0.01.pdf",
+                    width = 35, height = 8)
+```

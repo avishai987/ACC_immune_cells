@@ -6,6 +6,11 @@ knitr::opts_knit$set(progress = TRUE, verbose = TRUE) #print commands when rende
 
 script = pipeline[[args[[1]]]]$input$script
 report = pipeline[[args[[1]]]]$output$report
+if (is.null(pipeline[[args[[1]]]]$params)) {
+  set_params = list()
+} else {
+  set_params = pipeline[[args[[1]]]]$params
+}
 
 my_render <- function(script, report , set_params = list()){
 
@@ -28,4 +33,4 @@ my_render <- function(script, report , set_params = list()){
   writeLines(session_info_output, dirname(report) %s+% "/session_info.txt")
 }
 
-my_render(script,report)
+my_render(script,report, set_params)

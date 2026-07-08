@@ -2,7 +2,7 @@
 
 .Phony: all
 
-all: pre_process cell_types immune_identity starCAT Tcells_types caf_subtypes umap_clustering cancer_pathway_analysis run_liana liana TPM_for_signature_matrix create_dou_matrix create_ferrarotto_matrix create_brayer_matrix Dou_CIBERSORT_analysis ferrarotto_CIBERSORT_analysis Brayer_CIBERSORT_analysis sipsic_run sipsic_analysis
+all: pre_process cell_types immune_identity starCAT Tcells_types caf_subtypes umap_clustering cancer_pathway_analysis run_liana liana run_liana_per_patient Liana_per_patient TPM_for_signature_matrix create_dou_matrix create_ferrarotto_matrix create_brayer_matrix Dou_CIBERSORT_analysis ferrarotto_CIBERSORT_analysis Brayer_CIBERSORT_analysis sipsic_run sipsic_analysis
 
 # ============
 # pre_process
@@ -103,6 +103,26 @@ liana: Reports/ccc_analysis/Liana/Liana.html
 
 Reports/ccc_analysis/Liana/Liana.html &: ./Notebooks/ccc_analysis/Liana.Rmd Reports/ccc_analysis/run_LIANA/liana_result.RDS
 	Rscript render.R liana
+
+# ============
+# run_liana_per_patient
+# ============
+
+run_liana_per_patient: Reports/ccc_analysis/run_LIANA_per_patient/run_LIANA_per_patient.html Reports/ccc_analysis/run_LIANA_per_patient/liana_result_CD45-caf.RDS Reports/ccc_analysis/run_LIANA_per_patient/liana_result_CD45-cancer.RDS Reports/ccc_analysis/run_LIANA_per_patient/liana_result_CD45-lum-myo.RDS
+	@echo  $@ is up to date
+
+Reports/ccc_analysis/run_LIANA_per_patient/run_LIANA_per_patient.html Reports/ccc_analysis/run_LIANA_per_patient/liana_result_CD45-caf.RDS Reports/ccc_analysis/run_LIANA_per_patient/liana_result_CD45-cancer.RDS Reports/ccc_analysis/run_LIANA_per_patient/liana_result_CD45-lum-myo.RDS &: ./Notebooks/ccc_analysis/run_LIANA_per_patient.Rmd ./Reports/04_Tcells_types/t_cells_labled.RDS ./Reports/02_cell_type_assignment/cancer.RDS ./Reports/CAF_subtypes/caf_with_subtypes.RDS ./Reports/03_immune_cell_types/immune_with_cell_types.RDS
+	Rscript render.R run_liana_per_patient
+
+# ============
+# Liana_per_patient
+# ============
+
+Liana_per_patient: Reports/ccc_analysis/Liana_per_patient/Liana_per_patient.html
+	@echo  $@ is up to date
+
+Reports/ccc_analysis/Liana_per_patient/Liana_per_patient.html &: ./Notebooks/ccc_analysis/Liana_per_patient.Rmd Reports/ccc_analysis/run_LIANA_per_patient/liana_result_CD45-caf.RDS Reports/ccc_analysis/run_LIANA_per_patient/liana_result_CD45-cancer.RDS Reports/ccc_analysis/run_LIANA_per_patient/liana_result_CD45-lum-myo.RDS
+	Rscript render.R Liana_per_patient
 
 # ============
 # TPM_for_signature_matrix

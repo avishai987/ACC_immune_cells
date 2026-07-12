@@ -277,7 +277,7 @@ filtered_results = data.frame()
     dplyr::filter(source %in% immune_cells_to_include & target %in% caf_types_to_include |
                   source %in% caf_types_to_include & target %in% immune_cells_to_include)
 
-  filtered_results = filtered_results %>% filter(n_patients %in% c(1,2))
+  filtered_results = filtered_results %>% filter(n_patients %in% c(1,2,3,4))
   if (nrow(filtered_results) == 0){
     next()
   }

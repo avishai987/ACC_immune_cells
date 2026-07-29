@@ -3,68 +3,326 @@ title: "Nichenet"
 output: html_document
 ---
 
+```{r}
+library(liana)
+library(Seurat)
+library(tidyverse)
+library(nichenetr)
+```
+
+```{r setup}
+if (interactive()) {
+    setwd(here::here())
+    params <- rmarkdown::yaml_front_matter(rstudioapi::getSourceEditorContext()$path)$params
+}
+```
 
 ```{r}
-# # filter results to cell types of interest
-# lum_myo_results <- liana_results %>%
-#   subset(source == "Luminal" & target == "CD8_CM") %>%
-#   dplyr::rename(ligand=ligand.complex, receptor=receptor.complex)
-# 
-# # filter results to top N interactions
-# n <- 50
-# top_n_lum <- lum_myo_results %>%
-#   arrange(aggregate_rank) %>%
-#   slice_head(n = n) %>%
-#   mutate(id = fct_inorder(paste0(ligand, " -> ", receptor)))
-# 
-# # visualize median rank
-# top_n_lum %>%
-#   ggplot(aes(y = aggregate_rank, x = id)) +
-#   geom_bar(stat = "identity") +
-#   xlab("Interaction") + ylab("LIANA's aggregate rank") +
-#   theme_cowplot() +
-#   theme(axis.text.x = element_text(size = 8, angle = 60, hjust = 1, vjust = 1))
+source("./pipe.R")
+input = pipeline$nichenet_analysis$input
+output = pipeline$nichenet_analysis$output
 ```
 
 
 ```{r}
-ligand_target_matrix <- readRDS(url("https://zenodo.org/record/3260758/files/ligand_target_matrix.rds"))
-
-```
-
-```{r}
-ligands = p$data$interaction %>% str_split(pattern = " -> ", simplify = T) %>% .[,1] %>% unique()
-
-# ligands <- unique(top_n_lum$ligand)
-# ligands <- ligands[ligands %in% colnames(ligand_target_matrix)]
-# ligands
-```
-
-```{r}
-background_expressed_genes  <- get_expressed_genes("Myo", acc_cancer_immune_caf, pct = 0.05) %>% .[. %in% rownames(ligand_target_matrix)]
-
+acc_cancer_cells = readRDS(input$cancer)
+acc_caf_cells =  readRDS(input$caf_with_subtypes)
+t_cells_labled =  readRDS(input$t_cells_labled)
+immune_with_cell_types = readRDS(input$immune_with_cell_types)
 ```
 
 
+# merge cancer, immune and CAF
 ```{r}
-DE_table_receiver <-  FindMarkers(
-  object = acc_cancer_immune_caf[1:100],
-  ident.1 = "Luminal",
-  ident.2 = "Myo",
-  group.by = "cell_type",
-  min.pct = 0.05
-) %>% rownames_to_column("gene")
+# add T cell labels to immune and update immune type for T cells
+immune_with_cell_types = AddMetaData(object = immune_with_cell_types,
+                                     metadata =t_cells_labled$t_cell_label,col.name = "t_cell_label")
+
+immune_with_cell_types@meta.data = immune_with_cell_types@meta.data %>%
+  mutate(immune_type =
+           case_when(
+             immune_type %in% c("Naive CD4+ T", "Effector CD8+ T", "CD8+ NKT-like") ~ t_cell_label,
+             TRUE ~ immune_type
+           )
+  )
+  
+
+
+#remove unclear lum-myo cells
+acc_cancer_cells_no_mid = subset(acc_cancer_cells,subset = cell_identity != "mid")
+
+
+# merge cancer, immune and CAF
+common_genes = rownames(acc_cancer_cells_no_mid) %>% intersect (rownames(immune_with_cell_types)) %>% intersect(rownames(acc_caf_cells))
+acc_cancer_and_cd45 = merge(acc_cancer_cells_no_mid[common_genes,],immune_with_cell_types[common_genes,])
+overlapping_cells = colnames(acc_cancer_cells_no_mid) %>% intersect(colnames(acc_caf_cells)) 
+acc_cancer_immune_caf = merge(acc_cancer_and_cd45[common_genes,],acc_caf_cells[common_genes,] )
+
+acc_cancer_immune_caf  = subset(acc_cancer_immune_caf,subset = tissue == "pri") # subset only primary tumors, metastatic tumors have different microenvironment and we want to avoid that confounding factor.
 ```
 
 ```{r}
-geneset_oi <- DE_table_receiver %>% filter(p_val_adj <= 0.05 & abs(avg_log2FC) >= 0.25) %>% pull(gene)
-geneset_oi <- geneset_oi %>% .[. %in% rownames(ligand_target_matrix)]
-```
+metadata = FetchData(acc_cancer_immune_caf,vars = c("tissue","cell_identity","immune_type","t_cell_label"))
 
+metadata  = metadata %>%  mutate(cell_type =
+                                   if_else(
+                                     condition = cell_identity == "immune",
+                                     true = immune_type,
+                                     false = cell_identity))
+
+
+acc_cancer_immune_caf = AddMetaData(object = acc_cancer_immune_caf,metadata = metadata[,"cell_type",drop=F],col.name = "cell_type")
+Idents(acc_cancer_immune_caf) <- acc_cancer_immune_caf@meta.data$cell_type
+
+``` 
+
+# aggregate T cells for only CD4, CD8, Tregs, and gamma delta T cells
 ```{r}
-nichenet_activities <- predict_ligand_activities(
-  geneset = geneset_oi,
-  background_expressed_genes = background_expressed_genes,
-  ligand_target_matrix = ligand_target_matrix, potential_ligands = ligands
+# aggregate T cells for only CD4, CD8, Tregs, and gamma delta T cells
+# change the cell_type column to reflect this aggregation
+acc_cancer_immune_caf$cell_type <- case_match(
+  acc_cancer_immune_caf$cell_type,
+  c("CD4_EM", "CD4_CM", "CD4_Naive") ~ "CD4_T",
+  c("CD8_CM", "CD8_Naive", "CD8_TEMRA", "CD8_EM") ~ "CD8_T",
+  .default = as.character(acc_cancer_immune_caf$cell_type)
 )
+Idents(acc_cancer_immune_caf) <- "cell_type"
+table(acc_cancer_immune_caf@active.ident)
+
+```
+# plot function 
+
+
+
+```{r}
+make_dotplot <- function(dataet,cell_types_1, cell_types_2, threshold, patients, target_cell = NULL){
+  filtered_results = data.frame()
+  # for each patient, filter the results that pass the threshold 
+  for (patient in names(dataet)){
+    if (is.null(dataet[[patient]])){
+      next()
+    }
+    patient_results = dataet[[patient]] %>%
+    # show only interactions between immune cells and cancer cells
+    dplyr::filter((source %in% cell_types_1 & target %in% cell_types_2) | 
+          (source %in% cell_types_2 & target %in% cell_types_1)) %>%
+    dplyr::filter(aggregate_rank <= threshold, ) %>%
+    dplyr::mutate(pair = paste0(source, "-", target)) %>%
+    mutate (patient = patient)
+    filtered_results = rbind(filtered_results, patient_results)
+  }
+
+  # calclaute mean "natmi.edge_specificity" and mean "sca.LRscore" of all patients for each ligand-receptor pair
+  filtered_results = filtered_results %>%
+    group_by(pair,ligand.complex, receptor.complex, source, target) %>%
+  summarise(
+    natmi.edge_specificity = mean(natmi.edge_specificity, na.rm = TRUE),
+    sca.LRscore = mean(sca.LRscore, na.rm = TRUE),
+    n_patients = n_distinct(patient),
+  ) %>%
+    ungroup() %>%
+    arrange(desc(natmi.edge_specificity))
+  
+  filtered_results = filtered_results %>% filter(n_patients %in% patients)
+
+  if (nrow(filtered_results) == 0){
+    message("No interactions found for the specified patients and threshold.")
+    return(NULL)
+  }
+  p = liana_dotplot(filtered_results,
+              source_groups = unique(filtered_results$source),
+                target_groups =  if (is.null(target_cell))  unique(filtered_results$target) else target_cell,
+                specificity  = "n_patients")+  
+                scale_size_area(
+                  max_size = 12,           # set the maximum size of the points
+                  breaks = c(1, 2, 3, 4)   # set the breaks for the legend
+                )+
+                  labs(size = "Number of patients")  +theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))+
+                  ggtitle(paste0("Significant interactions (< ", threshold, ") in at least ", min(patients), " patients\nSource"))
+  print(p)
+  return(p)
+}
+```
+
+# Thresholds
+```{r}
+threshold = 0.01
+immune_cells_to_include = c("CD4_T", "CD8_T", "gdT", "Treg")
+cancer_cells_to_include = c("Luminal", "Myo")
+caf_types_to_include = c("pan.iCAF.2", "pan.pCAF", "pan.iCAF", "pan.dCAF", "pan.myCAF")
+```
+
+```{r}
+liana_result_CD45_lum_myo = readRDS(file = input$liana_result_CD45_lum_myo)
+```
+
+```{r}
+#| fig-height: 10
+#| fig-width: 15
+p = make_dotplot(liana_result_CD45_lum_myo, immune_cells_to_include, cancer_cells_to_include, threshold, patients = c(3,4))
+```
+
+# run nichenet
+
+
+```{r}
+# download ligand-target matrix from Zenodo and save if not already downloaded
+if (!file.exists("./input_data/ligand_target_matrix_nsga2r_final.rds")) {
+  download.file("https://zenodo.org/record/7074291/files/ligand_target_matrix_nsga2r_final.rds", destfile = "./input_data/ligand_target_matrix_nsga2r_final.rds")
+}
+
+ligand_target_matrix <- readRDS("./input_data/ligand_target_matrix_nsga2r_final.rds")
+```
+
+```{r}
+suppressPackageStartupMessages(library(org.Hs.eg.db)) 
+go_id = "GO:0002249"
+library(GO.db)
+go_names <- AnnotationDbi::select(
+  GO.db, 
+  keys = go_id,       
+  keytype = "GOID", 
+  columns = c("GOID", "TERM", "DEFINITION")
+)
+
+geneset_oi  = AnnotationDbi::select(org.Hs.eg.db, 
+                                 keys=c(go_id),
+                                 columns = c('SYMBOL'), keytype = 
+                                   "GOALL") %>% pull(SYMBOL) %>% unique()
+```
+
+## get top ligands
+
+
+```{r}
+library(purrr)
+nichenet_activities_df = data.frame()
+for (target_cell in c(cancer_cells_to_include,immune_cells_to_include)){
+  ligands = p$data %>%
+    dplyr::filter( target == target_cell) %>%
+    dplyr::pull(interaction) %>%
+    as.character() %>%
+    unique() %>% # collapse to same interactions with different source cell types
+    strsplit("-") %>%
+    map_chr(1) %>% # take first element of the split (the ligand)
+    str_trim()  
+
+  missing_ligands <- setdiff(ligands, colnames(ligand_target_matrix))
+  if(length(ligands) == 0){
+    message(paste0("No ligands found for target cell type: ", target_cell))
+    next
+  }
+  ligands <- ligands[ligands %in% colnames(ligand_target_matrix)]
+
+# count the number of occurrences of each ligand in the ligands vector
+  ligand_counts <- table(ligands)
+  duplicate_ligands =ligand_counts[ligand_counts>1]
+
+if(length(duplicate_ligands) > 0){
+    ligands <- unique(ligands)
+  }
+
+  expressed_genes_receiver <- GetAssayData(acc_cancer_immune_caf, slot = "data") %>%
+    .[, Idents(acc_cancer_immune_caf) == target_cell] %>%
+    apply(1, function(x) sum(x > 0) / length(x)) %>%
+    .[. >= 0.10] %>%
+    names()
+
+  background_genes <- intersect(expressed_genes_receiver, rownames(ligand_target_matrix))
+
+  nichenet_activities <- predict_ligand_activities(
+    geneset = geneset_oi,
+    background_expressed_genes = background_genes,
+    ligand_target_matrix = ligand_target_matrix, potential_ligands = ligands
+  )
+  nichenet_activities$target_cell = target_cell
+  
+  if(length(missing_ligands) > 0){
+    empty_missing_ligands_df <-data.frame(test_ligand = missing_ligands, auroc = 0, aupr = 0, aupr_corrected = 0, pearson = 0, target_cell = target_cell)
+    nichenet_activities = rbind(nichenet_activities, empty_missing_ligands_df)
+  }
+  if (length(duplicate_ligands) > 0){
+    for (dup_ligand in names(duplicate_ligands)){
+      duplicated_row <- nichenet_activities[nichenet_activities$test_ligand %in% names(duplicate_ligands), ]
+      duplicated_row <- duplicated_row[rep(1:nrow(duplicated_row), each = ligand_counts[dup_ligand]-1) , ]
+      nichenet_activities = nichenet_activities %>% 
+        add_row(duplicated_row, .after = which(nichenet_activities$test_ligand == dup_ligand))
+    }
+
+  }
+
+  nichenet_activities_df = rbind(nichenet_activities_df, nichenet_activities)
+}
+
+nichenet_activities_df$pathway = "GO:0002249"
+
+
+```
+
+```{r}
+target_cell_chosen = "CD8_T"
+p_target = make_dotplot(liana_result_CD45_lum_myo, immune_cells_to_include, target, threshold, patients = c(3,4), target_cell = target_cell_chosen)
+p_target = p_target +   theme(legend.position = "bottom")
+p_target
+nichenet_activities_cellType = nichenet_activities_df %>% filter(target_cell == target_cell_chosen)
+nichenet_activities_cellType
+```
+
+```{r}
+ligands = p$data %>%
+  dplyr::filter( target == target_cell_chosen) %>%
+  dplyr::pull(interaction) %>%
+  as.character() %>%
+  unique() %>% # collapse to same interactions with different source cell types
+  strsplit("-") %>%
+  map_chr(1) %>% # take first element of the split (the ligand)
+  str_trim()  
+#reorder nichenet_activities_cellType as reverse order of ligands
+nichenet_activities_cellType <- nichenet_activities_cellType %>% 
+  # יוצר עמודת עזר זמנית כדי לסדר לפיה
+  mutate(order_idx = match(test_ligand, ligands)) %>% 
+  arrange(order_idx) %>% 
+  # מוסיף מספר שורה ייחודי לכל ליגנד כדי ש-CCL5 לא יתאחד
+  mutate(unique_ligand = paste0(test_ligand, "__", row_number()))
+
+# 3. יצירת ה"תוויות הנקיות" עבור הגרף (בלי ה-1__ או 2__)
+labels_vector <- nichenet_activities_cellType$test_ligand
+names(labels_vector) <- nichenet_activities_cellType$unique_ligand
+
+
+pathways_activity = ggplot(nichenet_activities_cellType, aes(x = factor(unique_ligand, levels = rev(unique(unique_ligand))), y = aupr_corrected)) +
+  geom_bar(stat = "identity", fill = "skyblue") +
+  coord_flip() +
+  # position = "top" מעביר את הציר המהופך לצד ימין של הגרף
+  scale_x_discrete(labels = labels_vector, position = "top") + 
+  labs(x = "Ligand", y = "AUPR") +
+  facet_wrap(~ pathway, scales = "free_y") +
+  theme_bw(base_size = 20) +
+
+  theme(
+    # hjust = 0 מיישר את שמות הליגנדים שמאלה (צמוד לקו הברים בצד ימין)
+    axis.text.y = element_text(size = 20, vjust = 1), 
+    axis.title.y = element_text(size = 20, vjust = 1),
+    
+    axis.title.x = element_text(size = 20),
+    axis.text.x = element_text(size = 20),
+    strip.text = element_text(size = 16, face = "bold")
+
+  )
+
+pathways_activity
+```
+
+
+```{r}
+#| fig-height: 15
+#| fig-width: 20
+library(cowplot)
+p_combined = plot_grid(p_target, pathways_activity, align = "h", ncol = 2, axis = "tb", rel_widths = c(1, 0.5))
+p_combined
+```
+
+```{r}
+save_pdf_if_changed(p_combined, paste0("Figures/nichenet_luminal_", threshold, ".pdf"),
+                    height = 15, width = 20)
 ```

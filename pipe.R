@@ -122,30 +122,30 @@ pipeline[["cancer_pathway_analysis"]] = list(
 
 
 ######################################## LIANA+Nichenet ###############################################
-pipeline[["run_liana"]] = list(
-  input = list(
-    script = "./Notebooks/ccc_analysis/run_LIANA.Rmd",
-    t_cells_labled = pipeline$Tcells_types$output$t_cells_labled,
-    cancer = pipeline$cell_types$output$cancer,
-    caf = pipeline$cell_types$output$caf,
-    caf_signatures = "./input_data/NIHMS1678398-supplement-2.xlsx",
-    immune_with_cell_types = pipeline$immune_identity$output$immune_with_cell_types),
-  output = list(
-    report = "Reports/ccc_analysis/run_LIANA/run_LIANA.html",
-    liana_result = "Reports/ccc_analysis/run_LIANA/liana_result.RDS"
-  )
-)
+# pipeline[["run_liana"]] = list(
+#   input = list(
+#     script = "./Notebooks/ccc_analysis/run_LIANA.Rmd",
+#     t_cells_labled = pipeline$Tcells_types$output$t_cells_labled,
+#     cancer = pipeline$cell_types$output$cancer,
+#     caf = pipeline$cell_types$output$caf,
+#     caf_signatures = "./input_data/NIHMS1678398-supplement-2.xlsx",
+#     immune_with_cell_types = pipeline$immune_identity$output$immune_with_cell_types),
+#   output = list(
+#     report = "Reports/ccc_analysis/run_LIANA/run_LIANA.html",
+#     liana_result = "Reports/ccc_analysis/run_LIANA/liana_result.RDS"
+#   )
+# )
 
 
-pipeline[["liana"]] = list(
-  input = list(
-    script = "./Notebooks/ccc_analysis/Liana.Rmd",
-    liana_result = pipeline$run_liana$output$liana_result
-  ),
-  output = list(
-    report = "Reports/ccc_analysis/Liana/Liana.html"
-  )
-)
+# pipeline[["liana"]] = list(
+#   input = list(
+#     script = "./Notebooks/ccc_analysis/Liana.Rmd",
+#     liana_result = pipeline$run_liana$output$liana_result
+#   ),
+#   output = list(
+#     report = "Reports/ccc_analysis/Liana/Liana.html"
+#   )
+# )
 
 
 # run with --cpus-per-task=4 --mem=45G 
@@ -169,16 +169,31 @@ pipeline[["run_liana_per_patient"]] = list(
 
 pipeline[["Liana_per_patient"]] = list(
   input = list(
-    script = "./Notebooks/ccc_analysis/Liana_per_patient.Rmd",
+    script = "./Notebooks/ccc_analysis/LIANA_per_patient.Rmd",
     liana_result_CD45_caf = pipeline$run_liana_per_patient$output$liana_result_CD45_caf,
     liana_result_CD45_cancer = pipeline$run_liana_per_patient$output$liana_result_CD45_cancer,
     liana_result_CD45_lum_myo = pipeline$run_liana_per_patient$output$liana_result_CD45_lum_myo
   ),
   output = list(
-    report = "Reports/ccc_analysis/Liana_per_patient/Liana_per_patient.html"
+    report = "Reports/ccc_analysis/LIANA_per_patient/LIANA_per_patient.html"
   )
 )
 
+pipeline[["nichenet_analysis"]] = list(
+  input = list(
+    script = "./Notebooks/ccc_analysis/Nichenet_analysis.Rmd",
+    t_cells_labled = pipeline$Tcells_types$output$t_cells_labled,
+    cancer = pipeline$cell_types$output$cancer,
+    caf_with_subtypes = pipeline$caf_subtypes$output$caf_with_subtypes,
+    immune_with_cell_types = pipeline$immune_identity$output$immune_with_cell_types,
+    liana_result_CD45_caf = pipeline$run_liana_per_patient$output$liana_result_CD45_caf,
+    liana_result_CD45_cancer = pipeline$run_liana_per_patient$output$liana_result_CD45_cancer,
+    liana_result_CD45_lum_myo = pipeline$run_liana_per_patient$output$liana_result_CD45_lum_myo
+  ),
+  output = list(
+    report = "Reports/ccc_analysis/Nichenet_analysis/Nichenet_analysis.html"
+  )
+)
 ######################################## Bulk deconvolution ###############################################
 
 pipeline[["TPM_for_signature_matrix"]] = list(
@@ -390,8 +405,8 @@ save_pdf_if_changed <- function(plot_expr, target_path, width = 7, height = 5, f
 #plot graph
 
 
-library(igraph)
-library(ggraph)
+suppressPackageStartupMessages(library(igraph))
+suppressPackageStartupMessages(library(ggraph))
 library(ggplot2)
 
 # 1. קריאת קובץ ה-Makefile וה-Parser

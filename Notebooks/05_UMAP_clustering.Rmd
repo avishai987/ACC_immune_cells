@@ -45,6 +45,7 @@ immune_with_cell_types = readRDS(input$immune_with_cell_types)
 t_cells_labled = readRDS(input$t_cells_labled)
 ```
 
+# ACC+ immune UMAP
 ```{r}
 new.cluster.ids2 <- c("0" ="cancer",
                       "1" = "immune",
@@ -96,8 +97,39 @@ p
 save_pdf_if_changed(p,target_path =  "./Figures/umap_with_all_cell_types.pdf",width = 12,height = 10)
 ```
 
+
+# Immune UMAP
+
 ```{r}
-p = DimPlot(t_cells_labled,group.by = "t_cell_label",cols =  rainbow(10)) 
+immune_with_cell_types@meta.data = immune_with_cell_types@meta.data %>%
+  mutate(immune_type =
+           case_when(
+             immune_type %in% c("Naive CD4+ T", "Effector CD8+ T", "CD8+ NKT-like") ~ "T cells",
+             TRUE ~ immune_type
+           )
+  )
+```
+
+
+```{r}
+p = DimPlot(immune_with_cell_types ,group.by = "immune_type",cols =  rainbow(7)) 
+p
+```
+
+```{r}
+save_pdf_if_changed(p,target_path =  "./Figures/umap_immune_cells.pdf",width = 12,height = 10)
+```
+
+# T
+ cells UMAP
+```{r}
+library(RColorBrewer)
+
+my_colors <- c(sequential_hcl(3, palette = "Blues", l = c(30, 70), c = c(80, 40))
+  ,sequential_hcl(4, palette = "Greens", l = c(30, 70), c = c(80, 40))
+  ,"red","hotpink1","gold1")
+
+p = DimPlot(t_cells_labled,group.by = "t_cell_label",cols =  my_colors, pt.size = 2) 
 p
 ```
 

@@ -28,15 +28,15 @@ library(readxl)
 ```
 
 ```{r setup}
-if (interactive()) {
+if(Sys.getenv("POSITRON") == "1"){
     setwd(here::here())
     params <- rmarkdown::yaml_front_matter(rstudioapi::getSourceEditorContext()$path)$params
 }
 ```
 
-```{r}
-params <- rmarkdown::yaml_front_matter(rstudioapi::getSourceEditorContext()$path)$params
-```
+
+
+
 
 ```{r}
 source("./pipe.R")
@@ -100,6 +100,11 @@ for (type_name in  names(types)) {
   
 
 }
+```
+
+```{r}
+# get luminal - Treg interaction only
+liana_mod %>% filter(source == "Treg", target == "Luminal", aggregate_rank <= 0.01) 
 ```
 
 

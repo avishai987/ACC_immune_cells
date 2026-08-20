@@ -1,4 +1,4 @@
-─ Session info ─────────────────────────────────────────────────────────────────────────────────
+─ Session info ──────────────────────────────────────────────────────────────────────────────────────────────────
  setting  value
  version  R version 4.3.3 (2024-02-29)
  os       CS HUJI Debian GNU/Linux 12 (bookworm) 5786
@@ -8,14 +8,15 @@
  collate  en_IL.UTF-8
  ctype    en_IL.UTF-8
  tz       Asia/Jerusalem
- date     2026-06-30
+ date     2026-08-20
  pandoc   2.19.2 @ /sci/labs/yotamd/lab_share/avishai.wizel/python_envs/miniconda/envs/ACC_CD45/bin/ (via rmarkdown)
  quarto   NA
 
-─ Packages ─────────────────────────────────────────────────────────────────────────────────────
+─ Packages ──────────────────────────────────────────────────────────────────────────────────────────────────────
  package          * version    date (UTC) lib source
  abind              1.4-5      2016-07-21 [1] CRAN (R 4.3.3)
  askpass            1.2.1      2024-10-04 [1] CRAN (R 4.3.3)
+ beeswarm           0.4.0      2021-06-01 [1] CRAN (R 4.3.3)
  BiocGenerics       0.48.1     2023-11-01 [1] Bioconductor
  bslib              0.9.0      2025-01-30 [1] CRAN (R 4.3.3)
  cachem             1.1.0      2024-05-16 [1] CRAN (R 4.3.3)
@@ -44,14 +45,16 @@
  forcats          * 1.0.0      2023-01-29 [1] CRAN (R 4.3.3)
  foreach            1.5.2      2022-02-02 [1] CRAN (R 4.3.3)
  fs                 1.6.6      2025-04-12 [1] CRAN (R 4.3.3)
- future             1.67.0     2025-07-29 [1] CRAN (R 4.3.3)
+ future           * 1.67.0     2025-07-29 [1] CRAN (R 4.3.3)
  future.apply       1.20.0     2025-06-06 [1] CRAN (R 4.3.3)
  gdiff            * 0.2-5      2023-03-08 [1] CRAN (R 4.3.3)
  generics           0.1.4      2025-05-09 [1] CRAN (R 4.3.3)
  GetoptLong         1.0.5      2020-12-15 [1] CRAN (R 4.3.3)
+ ggbeeswarm         0.7.2      2023-04-29 [1] CRAN (R 4.3.3)
  ggforce            0.5.0      2025-06-18 [1] CRAN (R 4.3.3)
  ggplot2          * 3.5.2      2025-04-09 [1] CRAN (R 4.3.3)
  ggraph           * 2.2.1      2024-03-07 [1] CRAN (R 4.3.3)
+ ggrastr            1.0.2      2023-06-01 [1] CRAN (R 4.3.3)
  ggrepel            0.9.6      2024-09-07 [1] CRAN (R 4.3.3)
  ggridges           0.5.7      2025-08-27 [1] CRAN (R 4.3.3)
  GlobalOptions      0.1.2      2020-06-10 [1] CRAN (R 4.3.3)
@@ -75,6 +78,7 @@
  jsonlite           2.0.0      2025-03-27 [1] CRAN (R 4.3.3)
  KernSmooth         2.23-26    2025-01-01 [1] CRAN (R 4.3.3)
  knitr              1.50       2025-03-16 [1] CRAN (R 4.3.3)
+ labeling           0.4.3      2023-08-29 [1] CRAN (R 4.3.3)
  later              1.4.4      2025-08-27 [1] CRAN (R 4.3.3)
  lattice            0.22-7     2025-04-02 [1] CRAN (R 4.3.3)
  lazyeval           0.2.2      2019-03-15 [1] CRAN (R 4.3.3)
@@ -93,7 +97,7 @@
  miniUI             0.1.2      2025-04-17 [1] CRAN (R 4.3.3)
  nlme               3.1-168    2025-03-31 [1] CRAN (R 4.3.3)
  parallelly         1.45.1     2025-07-24 [1] CRAN (R 4.3.3)
- patchwork          1.3.2      2025-08-25 [1] CRAN (R 4.3.3)
+ patchwork        * 1.3.2      2025-08-25 [1] CRAN (R 4.3.3)
  pbapply            1.7-4      2025-07-20 [1] CRAN (R 4.3.3)
  pdftools           3.8.0      2026-04-11 [1] CRAN (R 4.3.3)
  pillar             1.11.0     2025-07-04 [1] CRAN (R 4.3.3)
@@ -112,7 +116,7 @@
  qpdf               1.4.1      2025-07-02 [1] CRAN (R 4.3.3)
  R6                 2.6.1      2025-02-15 [1] CRAN (R 4.3.3)
  RANN               2.6.2      2024-08-25 [1] CRAN (R 4.3.3)
- RColorBrewer       1.1-3      2022-04-03 [1] CRAN (R 4.3.3)
+ RColorBrewer     * 1.1-3      2022-04-03 [1] CRAN (R 4.3.3)
  Rcpp               1.1.0      2025-07-02 [1] CRAN (R 4.3.3)
  RcppAnnoy          0.0.22     2024-01-23 [1] CRAN (R 4.3.3)
  readr            * 2.1.5      2024-01-10 [1] CRAN (R 4.3.3)
@@ -162,6 +166,7 @@
  usethis          * 3.2.1      2025-09-06 [1] CRAN (R 4.3.3)
  uwot               0.2.3      2025-02-24 [1] CRAN (R 4.3.3)
  vctrs              0.6.5      2023-12-01 [1] CRAN (R 4.3.3)
+ vipor              0.4.7      2023-12-18 [1] CRAN (R 4.3.3)
  viridis            0.6.5      2024-01-29 [1] CRAN (R 4.3.3)
  viridisLite        0.4.2      2023-05-02 [1] CRAN (R 4.3.3)
  withr              3.0.2      2024-10-28 [1] CRAN (R 4.3.3)
@@ -173,4 +178,4 @@
  [1] /sci/labs/yotamd/lab_share/avishai.wizel/python_envs/miniconda/envs/ACC_CD45/lib/R/library
  * ── Packages attached to the search path.
 
-────────────────────────────────────────────────────────────────────────────────────────────────
+─────────────────────────────────────────────────────────────────────────────────────────────────────────────────

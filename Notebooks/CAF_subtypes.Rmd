@@ -14,9 +14,10 @@ output:
     df_print: paged
 params: 
   data_out_dir: "./temp_data/"
-  assign_threshold: 1.03
+  assign_threshold: 1.0
+  var_genes: 15000
+  calculate_from: "scale.data" #scale.data or data
 ---
-
 
 ```{r}
 library(stringi)
@@ -31,6 +32,8 @@ library(cowplot)
 library(ComplexHeatmap)
 library(circlize)
 library(grid)
+library(patchwork)
+
 ```
 
 ```{r setup}
@@ -46,31 +49,85 @@ input = pipeline$caf_subtypes$input
 output = pipeline$caf_subtypes$output
 ```
 
+# read CAF
 
-
-# save CAF
 ```{r}
 caf = readRDS(input$caf)
 caf_signatures = read_excel(path = input$caf_signatures,sheet = 3,skip = 1)
-```
 
-## Add CAF signatures
-
-```{r}
 caf_signatures = lapply(caf_signatures, na.omit)
 names(caf_signatures) = names(caf_signatures) %>% gsub(pattern = "-",replacement = ".")
+```
+
+# Scale data
+
+```{r}
+# Identification of highly variable features
+caf <- FindVariableFeatures(caf, selection.method = "vst", nfeatures = params$var_genes) 
+variable_genes = VariableFeatures(caf)
+# Scaling the data
+caf <- ScaleData(caf, vars.to.regress = c("percent.mt","nCount_RNA"),features = VariableFeatures(object = caf))
+```
+
+# Dim reduction
+
+```{r results='hide'}
+
+# Perform linear dimensional reduction (PCA)
+caf <- RunPCA(caf, features = VariableFeatures(object = caf))
+
+ElbowPlot(caf, ndims = 50) # checking the dimensionality 
+```
+
+```{r}
+pc2use = 10
+resolution = 0.4
+caf <- FindNeighbors(caf, dims = 1:pc2use,verbose = F,annoy.metric = "cosine")
+caf <- FindClusters(caf, resolution = resolution, verbose = F)
+
+# Run non-linear dimensional reduction (UMAP)
+caf <- RunUMAP(caf, dims = 1:pc2use,verbose = F)
+
+
+```
+
+```{r}
+DimPlot(caf,group.by = "patient.ident", cols = rainbow(length(unique(caf$patient.ident)))) +
+DimPlot(caf,group.by = "seurat_clusters", cols = rainbow(length(unique(caf$seurat_clusters))))
+
+```
+
+# Calculate mean score
+
+```{r}
+
 
 #calculate CAF scores mean expression of signature genes
 for (signature_name in names(caf_signatures)) {
   signature_genes = caf_signatures[[signature_name]]
   signature_genes = signature_genes[signature_genes %in% rownames(caf)]
-  caf_score = caf@assays$RNA@data[signature_genes,] %>% colMeans()
+  signature_genes = intersect(signature_genes, variable_genes) # limit to variable genes
+  if (length(signature_genes) == 0) {
+    warning(paste0("No signature genes found for ",signature_name))
+    next
+  }
+  if (params$calculate_from == "scale.data") {
+    caf_score = caf@assays$RNA@scale.data[signature_genes,] %>% colMeans()
+  } else if (params$calculate_from == "data") {
+    caf_score = caf@assays$RNA@data[signature_genes,] %>% colMeans()
+  } else {
+    stop("Invalid value for params$calculate_from. Must be 'scale.data' or 'data'")
+  }
   caf = AddMetaData(object =caf,metadata = caf_score,col.name = paste0(signature_name,"_score"))
 }
 
+```
+
+# Caf idents with max score
+
+```{r}
+
 data = FetchData(caf,vars = paste0(names(caf_signatures),"_score"))
-
-
 
 #get max signature per cell
 data$Max_signature <- apply(
@@ -91,7 +148,6 @@ data$Max_signature <- apply(
 data$Max_signature = gsub("_score", "", data$Max_signature)
 #add to metadata
 caf = AddMetaData(object =caf,metadata = data[,"Max_signature",drop=F],col.name = "cell_identity")
-
 ```
 
 ```{r}
@@ -101,5 +157,219 @@ table(caf$cell_identity)
 
 
 ```{r}
+#| fig-height: 10
+#| fig-width: 15
+VlnPlot(caf,features = paste0(names(caf_signatures),"_score"),pt.size = 1,group.by = "seurat_clusters",cols = rainbow(length(unique
+    (caf$seurat_clusters))), same.y.lims = T) +
+  DimPlot(caf,group.by = "seurat_clusters", cols = rainbow(length(unique(caf$seurat_clusters))))
+
+
+```
+
+```{r}
+caf = SetIdent(object = caf, value = "cell_identity")
+```
+
+```{r}
+#| fig-height: 15
+#| fig-width: 20
+colors = rainbow(length(unique(caf$cell_identity)))
+colors[[2]] = "gold1"
+colors[[3]] = "darkgreen"
+library(RColorBrewer)
+p1 = VlnPlot(caf,features = paste0(names(caf_signatures),"_score"),pt.size = 1,group.by = "cell_identity",
+  cols = colors, same.y.lims = T) &
+      theme(axis.text.x = element_text(size = 17))
+
+
+p2 = DimPlot(caf,group.by = "cell_identity", cols = colors, pt.size =2) + 
+# increse legend size
+ theme(legend.text = element_text(size = 17), legend.title = element_text(size = 14)) + 
+  guides(color = guide_legend(override.aes = list(size = 5))) # increase legend point size
+
+p1 + p2 
+```
+
+```{r}
+#| fig-height: 10
+#| fig-width: 15
+VlnPlot(caf,features = paste0(names(caf_signatures),"_score"),pt.size = 1,group.by = "cell_identity",cols = rainbow(length(unique
+    (caf$cell_identity))), same.y.lims = T) +
+  DimPlot(caf,group.by = "cell_identity", cols = rainbow(length(unique(caf$cell_identity))))
+
+
+```
+
+
+```{r}
+# combine dCAF and pCAF into one group
+caf@meta.data$cell_identity = caf@meta.data$cell_identity %>% gsub(pattern = "pan.dCAF|pan.pCAF",replacement = "dCAF/pCAF")
+table(caf@meta.data$cell_identity )
+```
+
+```{r}
+#| fig-height: 10
+#| fig-width: 15
+VlnPlot(caf,features = paste0(names(caf_signatures),"_score"),pt.size = 1,group.by = "cell_identity",cols = rainbow(length(unique
+    (caf$cell_identity))), same.y.lims = T) +
+  DimPlot(caf,group.by = "cell_identity", cols = rainbow(length(unique(caf$cell_identity))))
+
+
+```
+
+
+```{r}
+caf = SetIdent(object = caf, value = "seurat_clusters")
+
+```
+
+
+
+
+
+```{r}
+FeaturePlot(caf,features = paste0(names(caf_signatures),"_score"),pt.size = 2) + plot_layout(ncol = 3)
+
+```
+
+```{r}
+#| fig-height: 10
+#| fig-width: 15
+VlnPlot(caf,features = paste0(names(caf_signatures),"_score"),pt.size = 1,group.by = "seurat_clusters",cols = rainbow(length(unique
+    (caf$seurat_clusters))), same.y.lims = T) +
+  DimPlot(caf,group.by = "seurat_clusters", cols = rainbow(length(unique(caf$seurat_clusters))))
+
+
+```
+
+```{r}
+table(caf$cell_identity,caf$seurat_clusters)
+```
+
+```{r}
 saveRDS(object = caf,file = params$data_out_dir %s+% basename(output$caf))
+```
+
+# SISPIC
+
+```{r}
+suppressPackageStartupMessages(library(SiPSiC))
+
+```
+
+```{r}
+#for each pathway, calcualte scores
+calculatePathwayScores <- function(pathwayGenes, countsMatrix) {
+
+  if (!any(pathwayGenes %in% rownames(countsMatrix))) {  # if there are no genes in out data
+        return(NA)
+  }
+  pathwayScoresObject <- getPathwayScores(countsMatrix, pathwayGenes)
+  suppressWarnings(
+    if (is.null(pathwayScoresObject)) {
+      return(NA)
+    }
+  )
+  return(pathwayScoresObject$pathwayScores)
+}
+```
+
+```{r}
+all_pathways_scores = list()
+for (patient in unique(caf$patient.ident)) {
+  patient_data = subset(caf, subset = patient.ident == patient)
+  print(paste0("Calculating scores for patient: ", patient))
+  pathwayScoreLists <- lapply(X = caf_signatures , calculatePathwayScores,patient_data@assays$RNA@counts)
+  pathwayScoreLists <- pathwayScoreLists[!is.na(pathwayScoreLists)] #remove NA pathways
+  pathwayScoresMatrix <- as.data.frame(do.call("rbind", pathwayScoreLists)) # to df
+  all_pathways_scores[[patient]] = pathwayScoresMatrix
+}
+#remove pathways that are not shared between patients
+common_pathways = Reduce(intersect, lapply(all_pathways_scores, rownames))
+all_pathways_scores = lapply(all_pathways_scores, function(x) x[common_pathways,,drop=F])
+
+
+#merge all matrix in the list without prefix
+
+pathwayScoresMatrix = do.call("cbind", unname(all_pathways_scores))
+```
+
+```{r}
+sipsic_scores = t(pathwayScoresMatrix) %>% as.data.frame()
+caf = AddMetaData(object =caf,metadata = sipsic_scores, col.name = paste0(names(sipsic_scores),"_score"))
+
+```
+
+```{r}
+#| fig-height: 10
+#| fig-width: 15
+VlnPlot(caf,features = paste0(names(caf_signatures),"_score"),pt.size = 1,group.by = "seurat_clusters",cols = rainbow(length(unique(caf$seurat_clusters))), same.y.lims = T) 
+
+
+```
+```{r}
+FeaturePlot(caf,features = paste0(names(caf_signatures),"_score"),pt.size = 2) + plot_layout(ncol = 3)
+```
+
+
+
+# SISPIC with max score
+
+```{r}
+
+data = FetchData(caf,vars = paste0(names(caf_signatures),"_score"))
+
+#get max signature per cell
+data$Max_signature <- apply(
+  data, 
+  MARGIN = 1, 
+  FUN = function(x) {
+    max_value = max(x)
+    second_max_value = sort(x, decreasing = TRUE)[2]
+    if (max_value > second_max_value*params$assign_threshold) {
+      return(names(x)[which.max(x)])
+    } else {
+      return("Mixed")
+    }
+  }
+)
+
+#remove _score
+data$Max_signature = gsub("_score", "", data$Max_signature)
+#add to metadata
+caf = AddMetaData(object =caf,metadata = data[,"Max_signature",drop=F],col.name = "cell_identity")
+```
+
+```{r}
+table(caf$cell_identity)
+```
+
+```{r}
+caf = SetIdent(object = caf, value = "cell_identity")
+```
+
+```{r}
+#| fig-height: 15
+#| fig-width: 20
+colors = rainbow(length(unique(caf$cell_identity)))
+colors[[2]] = "gold1"
+colors[[3]] = "darkgreen"
+library(RColorBrewer)
+p1 = VlnPlot(caf,features = paste0(names(caf_signatures),"_score"),pt.size = 1,group.by = "cell_identity",
+  cols = colors, same.y.lims = T) &
+      theme(axis.text.x = element_text(size = 17))
+
+
+p2 = DimPlot(caf,group.by = "cell_identity", cols = colors, pt.size =2) + 
+# increse legend size
+ theme(legend.text = element_text(size = 17), legend.title = element_text(size = 14)) + 
+  guides(color = guide_legend(override.aes = list(size = 5))) # increase legend point size
+
+p1 + p2 
+
+```
+
+```{r}
+caf = SetIdent(object = caf, value = "seurat_clusters")
+
 ```

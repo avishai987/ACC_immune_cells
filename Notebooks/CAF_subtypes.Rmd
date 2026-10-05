@@ -66,7 +66,7 @@ names(caf_signatures) = names(caf_signatures) %>% gsub(pattern = "-",replacement
 caf <- FindVariableFeatures(caf, selection.method = "vst", nfeatures = params$var_genes) 
 variable_genes = VariableFeatures(caf)
 # Scaling the data
-caf <- ScaleData(caf, vars.to.regress = c("percent.mt","nCount_RNA"),features = VariableFeatures(object = caf))
+caf <- ScaleData(caf, vars.to.regress = c("percent.mt","nCount_RNA"),features = variable_genes)
 ```
 
 # Dim reduction
@@ -207,40 +207,20 @@ caf@meta.data$cell_identity = caf@meta.data$cell_identity %>% gsub(pattern = "pa
 table(caf@meta.data$cell_identity )
 ```
 
+
+
 ```{r}
 #| fig-height: 10
-#| fig-width: 15
-VlnPlot(caf,features = paste0(names(caf_signatures),"_score"),pt.size = 1,group.by = "cell_identity",cols = rainbow(length(unique
+#| fig-width: 13
+p = VlnPlot(caf,features = paste0(names(caf_signatures),"_score"),pt.size = 1,group.by = "cell_identity",cols = rainbow(length(unique
     (caf$cell_identity))), same.y.lims = T) +
   DimPlot(caf,group.by = "cell_identity", cols = rainbow(length(unique(caf$cell_identity))))
 
-
-```
-
-
-```{r}
-caf = SetIdent(object = caf, value = "seurat_clusters")
-
+p
 ```
 
 
 
-
-
-```{r}
-FeaturePlot(caf,features = paste0(names(caf_signatures),"_score"),pt.size = 2) + plot_layout(ncol = 3)
-
-```
-
-```{r}
-#| fig-height: 10
-#| fig-width: 15
-VlnPlot(caf,features = paste0(names(caf_signatures),"_score"),pt.size = 1,group.by = "seurat_clusters",cols = rainbow(length(unique
-    (caf$seurat_clusters))), same.y.lims = T) +
-  DimPlot(caf,group.by = "seurat_clusters", cols = rainbow(length(unique(caf$seurat_clusters))))
-
-
-```
 
 ```{r}
 table(caf$cell_identity,caf$seurat_clusters)

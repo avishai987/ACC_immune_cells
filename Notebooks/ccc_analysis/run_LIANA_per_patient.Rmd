@@ -163,7 +163,7 @@ table(acc_cancer_immune_caf@active.ident)
 
 immune_cells_to_include = c("CD4_T", "CD8_T", "gdT", "Treg")
 
-caf_types_to_include = c("pan.iCAF.2", "pan.pCAF", "pan.iCAF", "pan.dCAF", "pan.myCAF")
+caf_types_to_include = c("pan.myCAF", "pan.iCAF", "dCAF/pCAF", "pan.iCAF.2")
 ```
 
 # Run LIANA per patient for cancer and CAF cells

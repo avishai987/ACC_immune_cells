@@ -2839,18 +2839,18 @@ border-radius: 0px;
 
 <h1 class="title toc-ignore">Run LIANA</h1>
 <h4 class="author">Avishai Wizel</h4>
-<h4 class="date">2026-07-07 16:45:16.604723</h4>
+<h4 class="date">2026-08-20 12:35:33.773424</h4>
 
 </div>
 
 
 <pre class="r"><code>library(tidyverse)</code></pre>
-<pre><code>## ── Attaching core tidyverse packages ────────────────────────────────────────────────────── tidyverse 2.0.0 ──
+<pre><code>## ── Attaching core tidyverse packages ─────────────────────────────────────────────────────────── tidyverse 2.0.0 ──
 ## ✔ dplyr     1.1.4     ✔ readr     2.1.5
 ## ✔ forcats   1.0.0     ✔ stringr   1.5.2
 ## ✔ lubridate 1.9.4     ✔ tibble    3.3.0
 ## ✔ purrr     1.1.0     ✔ tidyr     1.3.1
-## ── Conflicts ──────────────────────────────────────────────────────────────────────── tidyverse_conflicts() ──
+## ── Conflicts ───────────────────────────────────────────────────────────────────────────── tidyverse_conflicts() ──
 ## ✖ lubridate::%--%()      masks igraph::%--%()
 ## ✖ dplyr::as_data_frame() masks tibble::as_data_frame(), igraph::as_data_frame()
 ## ✖ purrr::compose()       masks igraph::compose()
@@ -3003,17 +3003,17 @@ table(acc_cancer_immune_caf@active.ident)</code></pre>
 ##                33               187                15                41 
 ## Myeloid Dendritic             CD4_T              MAIT           Naive B 
 ##                41               199                11                 5 
-##          Plasma B        pan.iCAF.2          pan.pCAF          pan.iCAF 
-##                12                93                99               135 
-##          pan.dCAF         pan.myCAF             Mixed 
-##               200               120               125</code></pre>
+##          Plasma B          pan.iCAF         dCAF/pCAF        pan.iCAF.2 
+##                12               172               298               140 
+##         pan.myCAF 
+##               162</code></pre>
 </div>
 <div id="set-cell-types-to-include-for-liana-run" class="section level1" number="4">
 <h1><span class="header-section-number">4</span> Set cell types to
 include for LIANA run</h1>
 <pre class="r"><code>immune_cells_to_include = c(&quot;CD4_T&quot;, &quot;CD8_T&quot;, &quot;gdT&quot;, &quot;Treg&quot;)
 
-caf_types_to_include = c(&quot;pan.iCAF.2&quot;, &quot;pan.pCAF&quot;, &quot;pan.iCAF&quot;, &quot;pan.dCAF&quot;, &quot;pan.myCAF&quot;)</code></pre>
+caf_types_to_include = c(&quot;pan.myCAF&quot;, &quot;pan.iCAF&quot;, &quot;dCAF/pCAF&quot;, &quot;pan.iCAF.2&quot;)</code></pre>
 </div>
 <div id="run-liana-per-patient-for-cancer-and-caf-cells" class="section level1" number="5">
 <h1><span class="header-section-number">5</span> Run LIANA per patient
@@ -3058,10 +3058,8 @@ table(acc_cancer_immune_caf@active.ident)</code></pre>
 ##               187                15                41                41 
 ##             CD4_T              MAIT           Naive B          Plasma B 
 ##               199                11                 5                12 
-##        pan.iCAF.2          pan.pCAF          pan.iCAF          pan.dCAF 
-##                93                99               135               200 
-##         pan.myCAF             Mixed 
-##               120               125</code></pre>
+##          pan.iCAF         dCAF/pCAF        pan.iCAF.2         pan.myCAF 
+##               172               298               140               162</code></pre>
 <div id="run-liana-per-patient-for-cancer-and-caf-cells-1" class="section level2" number="6.1">
 <h2><span class="header-section-number">6.1</span> RUN LIANA per patient
 for cancer and CAF cells</h2>
@@ -3071,7 +3069,7 @@ for cancer and CAF cells</h2>
 ## [1] &quot;Running LIANA for patient: ACC5&quot;
 ## [1] &quot;Running LIANA for patient: ACC15&quot;
 ## [1] &quot;Running LIANA for patient: ACC19&quot;
-## [1] &quot;Running LIANA for patient: ACC22&quot;
+## [1] &quot;Running LIANA for patient: ACC21&quot;
 ## [1] &quot;Running LIANA for patient: ACC7&quot;</code></pre>
 <pre class="r"><code>saveRDS(object = liana_results,file =  paste0(params$data_out_dir,&quot;liana_result_CD45-cancer.RDS&quot;))</code></pre>
 </div>

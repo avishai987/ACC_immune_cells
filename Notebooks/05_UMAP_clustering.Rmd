@@ -42,7 +42,9 @@ output = pipeline$umap_clustering$output
 ```{r}
 acc_immune = readRDS(input$acc_immune)
 immune_with_cell_types = readRDS(input$immune_with_cell_types)
+acc_cancer_pri = readRDS(input$acc_cancer_pri)
 t_cells_labled = readRDS(input$t_cells_labled)
+caf_with_subtypes = readRDS(input$caf_with_subtypes)
 ```
 
 # ACC+ immune UMAP
@@ -89,14 +91,68 @@ acc_immune = acc_immune %>% AddMetaData(metadata = merged_data[,"cell_identity",
 ```
 
 ```{r}
-p = DimPlot(acc_immune,group.by = "cell_identity_with_subtypes",label = F,pt.size = 1)
-p
+p = DimPlot(acc_immune,group.by = "cell_identity_with_subtypes",label = F,label.size = 5, pt.size = 4,raster = T, raster.dpi = c(2048 , 2048 ))+ scale_color_manual(values = rainbow(length(unique(acc_immune$cell_identity_with_subtypes)))) + ggtitle("Single-Cell Landscape of ACC Cohort") + theme(plot.title = element_text(hjust = 0.5),legend.text = element_text(size = 14),  
+  axis.text = element_blank(),  # Removes all tick text labels
+    axis.ticks = element_blank()  # Removes all tick marks
+)
+
+p_bold <- LabelClusters(plot = p, id = "cell_identity_with_subtypes", fontface = "bold", size = 5, repel = TRUE)
+p_bold
 ```
 
 ```{r}
-save_pdf_if_changed(p,target_path =  "./Figures/umap_with_all_cell_types.pdf",width = 12,height = 10)
+filename = "umap_all_cell_types.svg"
+svglite::svglite(file.path(params$data_out_dir,filename), width = 12, height = 10)
+print(p_bold)
+dev.off()
+
+compare_and_save_svg(filename, new_svg_dir = params$data_out_dir, old_svg_dir = "./Figures/Retreat")
 ```
 
+## split to lum/myo, keep only pri cells
+
+```{r}
+acc_immune = acc_immune %>% AddMetaData(metadata = acc_cancer_pri@meta.data[rownames(acc_immune@meta.data), "cell_identity"], col.name = "lum_or_myo")
+
+acc_immune@meta.data = acc_immune@meta.data %>% 
+  mutate(cell_identity_with_subtypes = if_else(condition = cell_identity_with_subtypes == "cancer", true = lum_or_myo, false = cell_identity_with_subtypes)) 
+
+acc_immune_filtered = subset(acc_immune, subset = cell_identity_with_subtypes != "mid")
+acc_immune_filtered = subset(acc_immune_filtered, subset = tissue == "pri")
+
+
+```
+
+```{r}
+# Identification of highly variable features
+acc_immune_filtered <- FindVariableFeatures(acc_immune_filtered, selection.method = "vst", nfeatures = 15000) 
+
+# Scaling the data
+acc_immune_filtered <- ScaleData(acc_immune_filtered, vars.to.regress = c("percent.mt","nCount_RNA"),features = VariableFeatures(object = acc_immune_filtered))
+
+# Perform linear dimensional reduction (PCA)
+acc_immune_filtered <- RunPCA(acc_immune_filtered, features = VariableFeatures(object = acc_immune_filtered))
+acc_immune_filtered <- RunUMAP(acc_immune_filtered, dims = 1:10,verbose = F)
+```
+
+```{r}
+p = DimPlot(acc_immune_filtered,group.by = "cell_identity_with_subtypes",label = F,label.size = 5, pt.size = 4,raster = T, raster.dpi = c(2048 , 2048 ))+ scale_color_manual(values = rainbow(length(unique(acc_immune_filtered$cell_identity_with_subtypes)))) + ggtitle("Single-Cell Landscape of ACC Cohort") + theme(plot.title = element_text(hjust = 0.5),legend.text = element_text(size = 14),  
+  axis.text = element_blank(),  # Removes all tick text labels
+    axis.ticks = element_blank()  # Removes all tick marks
+)
+
+p_bold <- LabelClusters(plot = p, id = "cell_identity_with_subtypes", fontface = "bold", size = 5, repel = TRUE)
+p_bold
+```
+
+```{r}
+filename = "umap_all_cell_types_primary_lum_myo.svg"
+svglite::svglite(file.path(params$data_out_dir,filename), width = 12, height = 10)
+print(p_bold)
+dev.off()
+
+compare_and_save_svg(filename, new_svg_dir = params$data_out_dir, old_svg_dir = "./Figures/Retreat")
+```
 
 # Immune UMAP
 
@@ -117,24 +173,34 @@ p
 ```
 
 ```{r}
-save_pdf_if_changed(p,target_path =  "./Figures/umap_immune_cells.pdf",width = 12,height = 10)
+svg_filename <- "umap_immune_cells.svg"
+svglite::svglite(file.path(params$data_out_dir, svg_filename), width = 12, height = 10)
+print(p)
+dev.off()
+
+compare_and_save_svg(svg_filename,  new_svg_dir = params$data_out_dir)
 ```
 
 # T
  cells UMAP
 ```{r}
 library(RColorBrewer)
-
+library(colorspace)
 my_colors <- c(sequential_hcl(3, palette = "Blues", l = c(30, 70), c = c(80, 40))
   ,sequential_hcl(4, palette = "Greens", l = c(30, 70), c = c(80, 40))
   ,"red","hotpink1","gold1")
 
-p = DimPlot(t_cells_labled,group.by = "t_cell_label",cols =  my_colors, pt.size = 2) 
+p = DimPlot(t_cells_labled,group.by = "t_cell_label",cols =  my_colors, pt.size = 3) 
 p
 ```
 
 ```{r}
-save_pdf_if_changed(p,target_path =  "./Figures/umap_with_t_cell_subtypes.pdf",width = 12,height = 10)
+svg_filename <- "umap_with_t_cell_subtypes.svg"
+svglite::svglite(file.path(params$data_out_dir, svg_filename), width = 12, height = 10)
+print(p)
+dev.off()
+
+compare_and_save_svg(svg_filename, new_svg_dir = params$data_out_dir)
 ```
 
 ```{r fig.height=8, fig.width=12}
@@ -170,9 +236,9 @@ ggplot(immune_plate_df, aes(x = seurat_clusters, y = n, fill = immune_plate)) +
 
 ```{r}
 library(readxl)
-caf_with_subtypes = readRDS(input$caf_with_subtypes)
 caf_signatures = read_excel(path = input$caf_signatures,sheet = 3,skip = 1)
-
+caf_signatures = lapply(caf_signatures, na.omit)
+names(caf_signatures) = names(caf_signatures) %>% gsub(pattern = "-",replacement = ".")
 ```
 
 ## UMAP
@@ -182,47 +248,22 @@ DimPlot(object = caf_with_subtypes, reduction = "umap", pt.size = 1, label = T,g
 
 ## Violin plot of CAF subtypes scores
 ```{r}
-score_names = paste0(names(caf_signatures),"_score")
-score_names = gsub(score_names,pattern = "-",replacement = ".")
-vlnplot = VlnPlot(object = caf_with_subtypes,features = score_names,group.by = "cell_identity",pt.size = 0) & # add y axis title
-  labs(y = "CAF subtype score", x= "CAF subtype") & 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) # rotate x axis labels
-vlnplot 
+
+#| fig-height: 10
+#| fig-width: 13
+p = VlnPlot(caf_with_subtypes,features = paste0(names(caf_signatures),"_score"),pt.size = 1,group.by = "cell_identity",cols = rainbow(length(unique
+    (caf_with_subtypes$cell_identity))), same.y.lims = T) +
+  DimPlot(caf_with_subtypes,group.by = "cell_identity", cols = rainbow(length(unique(caf_with_subtypes$cell_identity))))
+
+p
 ```
 
 ```{r}
-save_pdf_if_changed(vlnplot,target_path =  "./Figures/vlnplot_caf_subtypes_scores.pdf",width = 12,height = 10)
+svg_filename <- "vlnplot_caf_subtypes_scores.svg"
+svglite::svglite(file.path(params$data_out_dir, svg_filename), width = 12, height = 10)
+p
+dev.off()
+
+compare_and_save_svg(svg_filename, new_svg_dir = params$data_out_dir)
 ```
 
-
-## heatmap of CAF subtypes genes
-```{r}
-library(ComplexHeatmap)
-caf_signatures_expression = data.frame(row.names = names(caf_signatures))
-
-# heatmap of all caf markers 
-for (signature_name in names(caf_signatures)) {
-  signature_genes = caf_signatures[[signature_name]]
-  signature_genes = signature_genes[signature_genes %in% rownames(caf_with_subtypes)]
-  Average_expression = caf_with_subtypes@assays$RNA@data[signature_genes,] %>% as.data.frame() %>% t()  %>% as.data.frame()
-  Average_expression =   merge(Average_expression, data.frame(cell_identity = caf_with_subtypes$cell_identity), by = "row.names")%>%
-    column_to_rownames("Row.names") %>% group_by(cell_identity) %>%
-    summarise(across(everything(), mean, na.rm = TRUE)) %>% column_to_rownames("cell_identity") %>% t() %>% as.data.frame()%>% colMeans()
-  Average_expression = Average_expression[names(Average_expression) != "Mixed"]
- caf_signatures_expression[[signature_name]] = Average_expression
-}
-
-ht = Heatmap(
-  caf_signatures_expression,
-    name = "Average Expression",
-    cluster_rows = FALSE,
-    cluster_columns = T,
-    show_row_names = TRUE,
-    show_column_names = TRUE,
-    column_names_gp = gpar(fontsize = 10),
-    row_names_gp = gpar(fontsize = 10),
-    heatmap_legend_param = list(title = "Average Expression")
-)
-
-
-```

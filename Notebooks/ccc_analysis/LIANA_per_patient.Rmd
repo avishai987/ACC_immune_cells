@@ -53,15 +53,15 @@ liana_result_CD45_lum_myo = readRDS(file = input$liana_result_CD45_lum_myo)
 
 
 ```{r}
-threshold = 0.01
+threshold = 0.001
 immune_cells_to_include = c("CD4_T", "CD8_T", "gdT", "Treg")
 cancer_cells_to_include = c("Luminal", "Myo")
-caf_types_to_include = c("pan.iCAF.2", "pan.pCAF", "pan.iCAF", "pan.dCAF", "pan.myCAF")
+caf_types_to_include = c("pan.myCAF", "pan.iCAF", "dCAF/pCAF", "pan.iCAF.2")
 ```
 
 
 ```{r}
-make_dotplot <- function(dataet,cell_types_1, cell_types_2, threshold, patients){
+make_dotplot <- function(dataet, cell_types_1, cell_types_2, threshold, patients){
   filtered_results = data.frame()
   # for each patient, filter the results that pass the threshold 
   for (patient in names(dataet)){
@@ -69,8 +69,8 @@ make_dotplot <- function(dataet,cell_types_1, cell_types_2, threshold, patients)
       next()
     }
     patient_results = dataet[[patient]] %>%
-    # show only interactions between immune cells and cancer cells
-    dplyr::filter((source %in% cell_types_1 & target %in% cell_types_2) | 
+      # show only interactions between cell_types_1 cells and cell_types_2 cells
+      dplyr::filter((source %in% cell_types_1 & target %in% cell_types_2) | 
           (source %in% cell_types_2 & target %in% cell_types_1)) %>%
     dplyr::filter(aggregate_rank <= threshold, ) %>%
     dplyr::mutate(pair = paste0(source, "-", target)) %>%
@@ -101,10 +101,10 @@ make_dotplot <- function(dataet,cell_types_1, cell_types_2, threshold, patients)
               source_groups = unique(filtered_results$source),
                 target_groups = unique(filtered_results$target),
                 specificity  = "n_patients")+  
-                scale_size_area(
-                  max_size = 12,           # set the maximum size of the points
-                  breaks = c(1, 2, 3, 4)   # set the breaks for the legend
-                )+
+scale_radius(
+    range  = c(3, 9),  # מתחיל מגודל 3 (שערך 1 לא יהיה זעיר) ועולה עד 9
+    breaks = c(1, 2, 3, 4),   # מונע את ה-3.25, 3.50 וכו'
+  )+
                   labs(size = "Number of patients")  +theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))+
                   ggtitle(paste0("Significant interactions (< ", threshold, ") in at least ", min(patients), " patients)\n Source"))
   print(p)
@@ -118,12 +118,44 @@ make_dotplot <- function(dataet,cell_types_1, cell_types_2, threshold, patients)
 ```{r}
 #| fig-height: 60
 #| fig-width: 25
-p = make_dotplot(liana_result_CD45_lum_myo, immune_cells_to_include, cancer_cells_to_include, threshold, patients = c(1,2,3,4))
+p = make_dotplot(liana_result_CD45_lum_myo, immune_cells_to_include, cancer_cells_to_include, threshold, patients = c(2,3,4))
 ```
 
 ```{r}
-save_pdf_if_changed(p, paste0("Figures/t_cells_to_lum-myo_1+patients_", threshold, ".pdf"),
-                    height = 60, width = 25)
+if (!is.null(p)) {
+  svg_filename <- paste0("t_cells_to_lum-myo_2+patients_", threshold, ".svg")
+  svglite::svglite(file.path(params$data_out_dir, svg_filename),
+                   width = ceiling(ncol(p$data) * 3),
+                   height = max(3.64 * sqrt(nrow(p$data)) - 11, 7))
+  print(p)
+  dev.off()
+
+  compare_and_save_svg(svg_filename, new_svg_dir = params$data_out_dir)
+}
+```
+
+```{r}
+# for retreat presentation
+# TODO: delete after retreat
+
+p2= p+ scale_y_discrete(limits = rev(c("SLPI -> CD4", "CCL5 -> SDC1", "CCL5 -> SDC4", "S100A4 -> ERBB3","CD40LG -> CD9", "CXCL14 -> CXCR4", "MYL9 -> CD69"))) + ggtitle(paste0("Significant interactions (< ", threshold, " in at least ", min(c(2,3,4)), " patients)\n Source"))+
+  guides(size = "none") + scale_color_gradient2(low = "lightblue", mid = "blue", high = "red", midpoint = 0.5,limits = c(0, 1))+ 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, colour = "#E69F00"),text = element_text(family = "Arial"))
+
+p2
+```
+
+```{r}
+if (!is.null(p2)) {
+  svg_filename <- paste0("t_cells_to_lum-myo_2+patients_", threshold, ".svg")
+  svglite::svglite(file.path(params$data_out_dir, svg_filename),
+                   width = ceiling(ncol(p2$data) * 3),
+                   height = max(3.64 * sqrt(nrow(p2$data)) - 11, 7))
+  print(p2)
+  dev.off()
+
+  compare_and_save_svg(svg_filename, new_svg_dir = params$data_out_dir)
+}
 ```
 
 
@@ -135,8 +167,16 @@ p = make_dotplot(liana_result_CD45_lum_myo, immune_cells_to_include, cancer_cell
 ```
 
 ```{r}
-save_pdf_if_changed(p, paste0("Figures/t_cells_to_lum-myo_3+patients_", threshold, ".pdf"),
-                    height = 8, width = 25)
+if (!is.null(p)) {
+  svg_filename <- paste0("t_cells_to_lum-myo_3+patients_", threshold, ".svg")
+  svglite::svglite(file.path(params$data_out_dir, svg_filename),
+                   width = ceiling(ncol(p$data) * 3),
+                   height = max(3.64 * sqrt(nrow(p$data)) - 11, 7))
+  print(p)
+  dev.off()
+
+  compare_and_save_svg(svg_filename, new_svg_dir = params$data_out_dir)
+}
 ```
 
 # T cells- cancer 1/2 dotplot
@@ -148,8 +188,16 @@ p = make_dotplot(liana_result_CD45_cancer, immune_cells_to_include, "Cancer", th
 ```
 
 ```{r}
-save_pdf_if_changed(p, paste0("Figures/t_cells_to_cancer_1+patients_", threshold, ".pdf"),
-                    height = 60, width = 25)
+if (!is.null(p)) {
+  svg_filename <- paste0("t_cells_to_cancer_1+patients_", threshold, ".svg")
+  svglite::svglite(file.path(params$data_out_dir, svg_filename),
+                   width = ceiling(ncol(p$data) * 3),
+                   height = max(3.64 * sqrt(nrow(p$data)) - 11, 7))
+  print(p)
+  dev.off()
+
+  compare_and_save_svg(svg_filename, new_svg_dir = params$data_out_dir)
+}
 ```
 
 # T cells- cancer 3/4 dotplot
@@ -160,8 +208,16 @@ save_pdf_if_changed(p, paste0("Figures/t_cells_to_cancer_1+patients_", threshold
 p = make_dotplot(liana_result_CD45_cancer, immune_cells_to_include, "Cancer", threshold, patients = c(3,4))
 ```
 ```{r}
-save_pdf_if_changed(p, paste0("Figures/t_cells_to_cancer_3+patients_", threshold, ".pdf"),
-                    height = 15, width = 25)
+if (!is.null(p)) {
+  svg_filename <- paste0("t_cells_to_cancer_3+patients_", threshold, ".svg")
+  svglite::svglite(file.path(params$data_out_dir, svg_filename),
+                   width = ceiling(ncol(p$data) * 3),
+                   height = max(3.64 * sqrt(nrow(p$data)) - 11, 7))
+  print(p)
+  dev.off()
+
+  compare_and_save_svg(svg_filename, new_svg_dir = params$data_out_dir)
+}
 ```
 
 # T cells- CAF at least 1/2 dotplot
@@ -173,8 +229,16 @@ p = make_dotplot(liana_result_CD45_caf, immune_cells_to_include, caf_types_to_in
 ```
 
 ```{r}
-save_pdf_if_changed(p, paste0("Figures/t_cells_to_caf_1+patients_", threshold, ".pdf"),
-                    width = 30, height = 30)
+if (!is.null(p)) {
+  svg_filename <- paste0("t_cells_to_caf_1+patients_", threshold, ".svg")
+  svglite::svglite(file.path(params$data_out_dir, svg_filename),
+                   width = ceiling(ncol(p$data) * 3),
+                   height = max(3.64 * sqrt(nrow(p$data)) - 11, 7))
+  print(p)
+  dev.off()
+
+  compare_and_save_svg(svg_filename, new_svg_dir = params$data_out_dir)
+}
 ```
 # T cells- CAF at least 3/4 dotplot
 
@@ -186,6 +250,15 @@ p = make_dotplot(liana_result_CD45_caf, immune_cells_to_include, caf_types_to_in
 ```
 
 ```{r}
-save_pdf_if_changed(p, paste0("Figures/t_cells_to_caf_3+patients_", threshold, ".pdf"),
-                    height = 12, width = 15)
+if (!is.null(p)) {
+  svg_filename <- paste0("t_cells_to_caf_3+patients_", threshold, ".svg")
+  svglite::svglite(file.path(params$data_out_dir, svg_filename),
+                   width = ceiling(ncol(p$data) * 3),
+                   height = max(3.64 * sqrt(nrow(p$data)) - 11, 7))
+  print(p)
+  dev.off()
+
+  compare_and_save_svg(svg_filename, new_svg_dir = params$data_out_dir)
+}
 ```
+

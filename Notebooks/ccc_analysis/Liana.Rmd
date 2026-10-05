@@ -102,11 +102,6 @@ for (type_name in  names(types)) {
 }
 ```
 
-```{r}
-# get luminal - Treg interaction only
-liana_mod %>% filter(source == "Treg", target == "Luminal", aggregate_rank <= 0.01) 
-```
-
 
 ## all T cells to cancer cells
 
@@ -231,7 +226,12 @@ p = liana_dotplot(liana_mod,
               source_groups = source_groups,
                 target_groups = target_groups)
 print(p)
-save_pdf_if_changed(p,target_path = params$data_out_dir %s+% "cancer_to_all_t_cells.pdf",width = 37,height = 10)
+svg_filename <- "cancer_to_all_t_cells.svg"
+svglite::svglite(file.path(params$data_out_dir, svg_filename), width = 37, height = 10)
+print(p)
+dev.off()
+
+compare_and_save_svg(svg_filename)
 ```
 
 

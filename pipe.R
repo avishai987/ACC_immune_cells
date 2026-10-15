@@ -180,7 +180,7 @@ pipeline[["Liana_per_patient"]] = list(
   ),
   params = list(
     debug = F,
-    threshold = 0.001
+    threshold = 0.01
   )
 )
 

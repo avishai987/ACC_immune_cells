@@ -96,6 +96,7 @@ pipeline[["umap_clustering"]] = list(
   input = list(
     script = "./Notebooks/05_UMAP_clustering.Rmd",
     acc_immune = pipeline$pre_process$output$acc_immune,
+    acc_cancer_pri = pipeline$cell_types$output$acc_cancer_pri,
     immune_with_cell_types = pipeline$immune_identity$output$immune_with_cell_types,
     t_cells_labled = pipeline$Tcells_types$output$t_cells_labled,
     caf_with_subtypes = pipeline$caf_subtypes$output$caf_with_subtypes,
@@ -176,22 +177,41 @@ pipeline[["Liana_per_patient"]] = list(
   ),
   output = list(
     report = "Reports/ccc_analysis/LIANA_per_patient/LIANA_per_patient.html"
+  ),
+  params = list(
+    debug = F,
+    threshold = 0.001
   )
 )
 
+pipeline[["pathways_for_Nichenet"]] = list(
+  input = list(
+    script = "./Notebooks/ccc_analysis/pathways_for_Nichenet.Rmd",
+    t_cells_labled = pipeline$Tcells_types$output$t_cells_labled,
+    caf_with_subtypes = pipeline$caf_subtypes$output$caf_with_subtypes,
+    starCAT_pathways_metadata = "input_data/starCAT/starCAT_PMC11092745_Supplementary_Tables.xlsx"
+  ),
+  output = list(
+    report = "Reports/ccc_analysis/pathways_for_Nichenet/pathways_for_Nichenet.html",
+    T_pathways_for_Nichenet = "Reports/ccc_analysis/pathways_for_Nichenet/T_pathways_for_Nichenet.RDS"
+  )
+)
 pipeline[["nichenet_analysis"]] = list(
   input = list(
-    script = "./Notebooks/ccc_analysis/Nichenet_analysis.Rmd",
+    script = "./Notebooks/ccc_analysis/Nichenet.Rmd",
     t_cells_labled = pipeline$Tcells_types$output$t_cells_labled,
     cancer = pipeline$cell_types$output$cancer,
     caf_with_subtypes = pipeline$caf_subtypes$output$caf_with_subtypes,
     immune_with_cell_types = pipeline$immune_identity$output$immune_with_cell_types,
     liana_result_CD45_caf = pipeline$run_liana_per_patient$output$liana_result_CD45_caf,
     liana_result_CD45_cancer = pipeline$run_liana_per_patient$output$liana_result_CD45_cancer,
-    liana_result_CD45_lum_myo = pipeline$run_liana_per_patient$output$liana_result_CD45_lum_myo
+    liana_result_CD45_lum_myo = pipeline$run_liana_per_patient$output$liana_result_CD45_lum_myo,
+    T_pathways_for_Nichenet = pipeline$pathways_for_Nichenet$output$T_pathways_for_Nichenet,
+    starCAT_pathways_metadata = "input_data/starCAT/starCAT_PMC11092745_Supplementary_Tables.xlsx"
   ),
   output = list(
-    report = "Reports/ccc_analysis/Nichenet_analysis/Nichenet_analysis.html"
+    report = "Reports/ccc_analysis/Nichenet_analysis/Nichenet.html",
+    all_significant_interactions = "Reports/ccc_analysis/Nichenet_analysis/all_significant_interactions.RDS"
   )
 )
 ######################################## Bulk deconvolution ###############################################
@@ -266,7 +286,7 @@ pipeline[["Dou_CIBERSORT_analysis"]] = list(
   input = list(
     script = "./Notebooks/Bulk_deconv/Dou_CIBERSORT_analsyis.Rmd",
     dou_acc_survival = "input_data/Dou_PMC8450584/PMC8450584_DataSheet_2.xlsx",
-    cs_result = "input_data/CIBERSORTx_result/CIBERSORTx_Job23_Results_dou_all_10Kvargenes_relative_bBatchcorrection.csv"
+    cs_result = "input_data/CIBERSORTx_result/CIBERSORTx_Job16_Results_dou_all_withMarkers_relative_bBatchcorrect_2025_09_29.csv"
   ),
   output = list(
     report = "Reports/Bulk_deconv/Dou_CIBERSORT_analsyis/Dou_CIBERSORT_analsyis.html"
@@ -277,7 +297,7 @@ pipeline[["Dou_CIBERSORT_analysis"]] = list(
 pipeline[["ferrarotto_CIBERSORT_analysis"]] = list(
   input = list(
     script = "./Notebooks/Bulk_deconv/Ferrarotto_CIBERSORT_analsyis.Rmd",
-    cs_result = "./input_data/CIBERSORTx_result/CIBERSORTx_Job30_Results.csv",
+    cs_result = "input_data/CIBERSORTx_result/CIBERSORTx_Job25_Results_ferrarotto_withMarkers_relative_bBatchcorrect.csv",
     ferra_clinical = "input_data/Ferrarotto_PMC7854509/CCR2020_Clinical.xlsx"
   ),
   output = list(
@@ -290,12 +310,31 @@ pipeline[["Brayer_CIBERSORT_analysis"]] = list(
     script = "./Notebooks/Bulk_deconv/Brayer_CIBERSORT_analysis.Rmd",
     DK_clinical = "./input_data/Brayer_PMC10000625_and_PMC5800907/DK_sample_data_table2.csv",
     TX_clinical = "./input_data/Brayer_PMC10000625_and_PMC5800907/TX_sample_data_table2.csv",
-    cs_result = "input_data/CIBERSORTx_result/CIBERSORTx_Job28_Results_brayer_10Kvargenes_relative_bBatchCorrection.csv"
+    cs_result = "input_data/CIBERSORTx_result/CIBERSORTx_Job31_Results.csv"
   ),
   output = list(
     report = "Reports/Bulk_deconv/brayer_CIBERSORT_analsyis/brayer_CIBERSORT_analsyis.html"
   )
 )
+
+pipeline[["Comm_analysis_bulk"]] = list(
+  input = list(
+    script = "./Notebooks/Bulk_deconv/Comm_analysis_bulk.Rmd",
+    cs_result_dou = "input_data/CIBERSORTx_result/CIBERSORTx_Job16_Results_dou_all_withMarkers_relative_bBatchcorrect_2025_09_29.csv",
+    cs_result_ferrarotto = "input_data/CIBERSORTx_result/CIBERSORTx_Job25_Results_ferrarotto_withMarkers_relative_bBatchcorrect.csv",
+    cs_result_brayer = "input_data/CIBERSORTx_result/CIBERSORTx_Job31_Results.csv",
+    dou_exprs = pipeline$create_dou_matrix$output$dou_exprs,
+    ferra_exprs = pipeline$create_ferrarotto_matrix$output$ferra_exprs,
+    brayer_exprs = pipeline$create_brayer_matrix$output$brayer_exprs,
+    liana_result_CD45_lum_myo = pipeline$run_liana_per_patient$output$liana_result_CD45_lum_myo
+  ),
+  output = list(
+    report = "Reports/Bulk_deconv/Comm_analysis_bulk/Comm_analysis_bulk.html"
+  )
+)
+
+######################################## Pathway_analysis ###############################################
+
 
 pipeline[["sipsic_run"]] = list(
   input = list(
@@ -469,7 +508,7 @@ for (rule in raw_rules) {
 }
 
 if (length(from_nodes) == 0) {
-  stop("לא נמצאו קשרי תלויות.")
+  stop("No dependencies found.")
 }
 
 # 2. בניית הגרף
@@ -514,3 +553,50 @@ rm(list = c("from_nodes", "to_nodes", "file_to_step", "raw_rules", "relations_ta
 "pipeline_graph", "g", "makefile_lines", "makefile_path", "line", "parts", "targets", "deps", 
 "split_targets", "split_deps", "current_clean_target", "associated_target_step", "source_step",
 "dep","d","t","rule","all_rules","i"))
+
+library(svglite)
+library(digest)
+
+compare_and_save_svg <- function(filename, new_svg_dir = params$data_out_dir, old_svg_dir = "./Figures/", interactive_force = FALSE) {
+  if (interactive() && !interactive_force) {
+    message("Running in interactive mode. Skipping SVG comparison and saving.")
+    return(FALSE)
+  }
+
+  old_svg_path = file.path(old_svg_dir, filename)
+  new_svg_path = file.path(new_svg_dir, filename)
+  # Helper function to sanitize dynamic attributes (IDs, clip-paths, URLs) and whitespace
+  # This prevents false positives in hash comparison caused by svglite re-indexing
+  get_clean_hash <- function(f) {
+    txt <- readLines(f, warn = FALSE)
+    
+    # 1. Clean dynamic ID definitions: id="glyph-1-2" -> id=""
+    txt <- gsub('id="[^"]+"', '', txt)
+    
+    # 2. Clean dynamic URL/clip-path references: url(#cp123) -> url()
+    txt <- gsub('url\\(#?[^)]+\\)', '', txt)
+    
+    # 3. Strip all whitespace and empty lines
+    txt <- gsub('\\s+', '', txt)
+    
+    return(digest(txt, algo = "md5"))
+  }
+  
+  is_identical <- FALSE
+  
+  # Compare new SVG hash against the existing SVG file if present
+  if (file.exists(old_svg_path)) {
+    new_hash <- get_clean_hash(new_svg_path)
+    old_hash <- get_clean_hash(old_svg_path)
+    is_identical <- (new_hash == old_hash)
+  }
+  
+  # Overwrite the old SVG only if changes are detected or if the file doesn't exist
+  if (!is_identical) {
+    # Ensure destination directory structure exists
+    dir.create(dirname(old_svg_path), recursive = TRUE, showWarnings = FALSE)
+    file.copy(new_svg_path, old_svg_path, overwrite = TRUE)
+    message(sprintf("SVG file updated! %s", old_svg_path))
+  }
+  
+}

@@ -14,6 +14,7 @@ output:
     df_print: paged
 params: 
   data_out_dir: "./temp_data/" 
+  threshold: 0.001
   debug: FALSE
 ---
 
@@ -53,7 +54,7 @@ liana_result_CD45_lum_myo = readRDS(file = input$liana_result_CD45_lum_myo)
 
 
 ```{r}
-threshold = 0.001
+threshold = params$threshold
 immune_cells_to_include = c("CD4_T", "CD8_T", "gdT", "Treg")
 cancer_cells_to_include = c("Luminal", "Myo")
 caf_types_to_include = c("pan.myCAF", "pan.iCAF", "dCAF/pCAF", "pan.iCAF.2")
@@ -97,6 +98,39 @@ make_dotplot <- function(dataet, cell_types_1, cell_types_2, threshold, patients
     message("No interactions found for the specified patients and threshold.")
     return(NULL)
   }
+
+  # Hierarchically cluster interactions using sca.LRscore across source-target pairs.
+  # The resulting order is passed to liana_dotplot through the input row order.
+  cluster_matrix = filtered_results %>%
+    mutate(
+      interaction = paste(ligand.complex, receptor.complex, sep = " -> "),
+      pair = paste(source, target, sep = " - ")
+    ) %>%
+    group_by(interaction, pair) %>%
+    summarise(sca.LRscore = mean(sca.LRscore, na.rm = TRUE), .groups = "drop") %>%
+    pivot_wider(
+      names_from = pair,
+      values_from = sca.LRscore,
+      values_fill = 0
+    ) %>%
+    tibble::column_to_rownames("interaction") %>%
+    as.matrix()
+
+  interaction_order = rownames(cluster_matrix)
+  if (nrow(cluster_matrix) > 1) {
+    interaction_order = interaction_order[hclust(
+      dist(cluster_matrix),
+      method = "complete"
+    )$order]
+  }
+
+  filtered_results = filtered_results %>%
+    mutate(
+      interaction = paste(ligand.complex, receptor.complex, sep = " -> "),
+      interaction = factor(interaction, levels = interaction_order)
+    ) %>%
+    arrange(interaction)
+
   p = liana_dotplot(filtered_results,
               source_groups = unique(filtered_results$source),
                 target_groups = unique(filtered_results$target),
@@ -114,16 +148,16 @@ scale_radius(
 
 
 
-# T cells- lum/myo 1/2 patients dotplot
+# T cells- lum/myo 1+ patients dotplot
 ```{r}
 #| fig-height: 60
 #| fig-width: 25
-p = make_dotplot(liana_result_CD45_lum_myo, immune_cells_to_include, cancer_cells_to_include, threshold, patients = c(2,3,4))
+p = make_dotplot(liana_result_CD45_lum_myo, immune_cells_to_include, cancer_cells_to_include, threshold, patients = c(1,2,3,4))
 ```
 
 ```{r}
 if (!is.null(p)) {
-  svg_filename <- paste0("t_cells_to_lum-myo_2+patients_", threshold, ".svg")
+  svg_filename <- paste0("t_cells_to_lum-myo_1+patients_", threshold, ".svg")
   svglite::svglite(file.path(params$data_out_dir, svg_filename),
                    width = ceiling(ncol(p$data) * 3),
                    height = max(3.64 * sqrt(nrow(p$data)) - 11, 7))
@@ -147,7 +181,7 @@ p2
 
 ```{r}
 if (!is.null(p2)) {
-  svg_filename <- paste0("t_cells_to_lum-myo_2+patients_", threshold, ".svg")
+  svg_filename <- paste0("t_cells_to_lum-myo_2+patients_", threshold, "_retreat.svg")
   svglite::svglite(file.path(params$data_out_dir, svg_filename),
                    width = ceiling(ncol(p2$data) * 3),
                    height = max(3.64 * sqrt(nrow(p2$data)) - 11, 7))
@@ -158,8 +192,27 @@ if (!is.null(p2)) {
 }
 ```
 
+# T cells- lum/myo 2+ patients dotplot
+```{r}
+#| fig-height: 8
+#| fig-width: 25
+p = make_dotplot(liana_result_CD45_lum_myo, immune_cells_to_include, cancer_cells_to_include, threshold, patients = c(2,3,4))
+```
 
-# T cells- lum/myo 3/4 patients dotplot
+```{r}
+if (!is.null(p)) {
+  svg_filename <- paste0("t_cells_to_lum-myo_2+patients_", threshold, ".svg")
+  svglite::svglite(file.path(params$data_out_dir, svg_filename),
+                   width = ceiling(ncol(p$data) * 3),
+                   height = max(3.64 * sqrt(nrow(p$data)) - 11, 7))
+  print(p)
+  dev.off()
+
+  compare_and_save_svg(svg_filename, new_svg_dir = params$data_out_dir)
+}
+```
+
+# T cells- lum/myo 3+ patients dotplot
 ```{r}
 #| fig-height: 8
 #| fig-width: 25
@@ -179,7 +232,7 @@ if (!is.null(p)) {
 }
 ```
 
-# T cells- cancer 1/2 dotplot
+# T cells- cancer 1+ dotplot
 
 ```{r}
 #| fig-height: 60
@@ -200,7 +253,27 @@ if (!is.null(p)) {
 }
 ```
 
-# T cells- cancer 3/4 dotplot
+# T cells- cancer 2+ dotplot
+
+```{r}
+#| fig-height: 15
+#| fig-width: 25
+p = make_dotplot(liana_result_CD45_cancer, immune_cells_to_include, "Cancer", threshold, patients = c(2,3,4))
+```
+```{r}
+if (!is.null(p)) {
+  svg_filename <- paste0("t_cells_to_cancer_2+patients_", threshold, ".svg")
+  svglite::svglite(file.path(params$data_out_dir, svg_filename),
+                   width = ceiling(ncol(p$data) * 3),
+                   height = max(3.64 * sqrt(nrow(p$data)) - 11, 7))
+  print(p)
+  dev.off()
+
+  compare_and_save_svg(svg_filename, new_svg_dir = params$data_out_dir)
+}
+```
+
+# T cells- cancer 3+ dotplot
 
 ```{r}
 #| fig-height: 15
@@ -220,7 +293,7 @@ if (!is.null(p)) {
 }
 ```
 
-# T cells- CAF at least 1/2 dotplot
+# T cells- CAF at least 1+ dotplot
 
 ```{r}
 #| fig-height: 90
@@ -240,7 +313,30 @@ if (!is.null(p)) {
   compare_and_save_svg(svg_filename, new_svg_dir = params$data_out_dir)
 }
 ```
-# T cells- CAF at least 3/4 dotplot
+
+# T cells- CAF at least 2+ dotplot
+
+
+```{r}
+#| fig-height: 12
+#| fig-width: 15
+p = make_dotplot(liana_result_CD45_caf, immune_cells_to_include, caf_types_to_include, threshold, patients = c(2,3,4))
+```
+
+```{r}
+if (!is.null(p)) {
+  svg_filename <- paste0("t_cells_to_caf_2+patients_", threshold, ".svg")
+  svglite::svglite(file.path(params$data_out_dir, svg_filename),
+                   width = ceiling(ncol(p$data) * 3),
+                   height = max(3.64 * sqrt(nrow(p$data)) - 11, 7))
+  print(p)
+  dev.off()
+
+  compare_and_save_svg(svg_filename, new_svg_dir = params$data_out_dir)
+}
+```
+
+# T cells- CAF at least 3+ dotplot
 
 
 ```{r}

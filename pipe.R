@@ -214,6 +214,27 @@ pipeline[["nichenet_analysis"]] = list(
     all_significant_interactions = "Reports/ccc_analysis/Nichenet_analysis/all_significant_interactions.RDS"
   )
 )
+
+pipeline[["Nichenet_targets_GSEA"]] = list(
+  input = list(
+    script = "./Notebooks/ccc_analysis/Nichenet_targets_GSEA.Rmd",
+    acc_cancer_pri = pipeline$cell_types$output$acc_cancer_pri,
+    acc_caf_cells = pipeline$cell_types$output$caf,
+    t_cells_labled = pipeline$Tcells_types$output$t_cells_labled,
+    caf_with_subtypes = pipeline$caf_subtypes$output$caf_with_subtypes,
+    immune_with_cell_types = pipeline$immune_identity$output$immune_with_cell_types,
+    liana_result_CD45_lum_myo = pipeline$run_liana_per_patient$output$liana_result_CD45_lum_myo,
+    T_pathways_for_Nichenet = pipeline$pathways_for_Nichenet$output$T_pathways_for_Nichenet,
+    starCAT_pathways_metadata = "input_data/starCAT/starCAT_PMC11092745_Supplementary_Tables.xlsx"
+  ),
+  output = list(
+    report = "Reports/ccc_analysis/Nichenet_targets_GSEA/Nichenet_targets_GSEA.html"
+  ),
+  params = list(
+    threshold = 0.01,
+    patients = c(3,4)
+  )
+)
 ######################################## Bulk deconvolution ###############################################
 
 pipeline[["TPM_for_signature_matrix"]] = list(

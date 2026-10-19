@@ -13,7 +13,8 @@ output:
     toc_depth: 2
     df_print: paged
 params: 
-  data_out_dir: "./temp_data/" 
+  data_out_dir: "./temp_data/"
+  split_naive: FALSE
   debug: TRUE
 ---
 
@@ -145,14 +146,27 @@ run_LIANA_per_patient <- function(data, cell_types_to_include, debug = FALSE) {
 
 # aggregate T cells for only CD4, CD8, Tregs, and gamma delta T cells
 ```{r}
-# aggregate T cells for only CD4, CD8, Tregs, and gamma delta T cells
+# aggregate T cells for  CD4, CD8, Tregs, and gamma delta T cells
+# if params$split_naive is TRUE, then we will aggregate all CD4 and CD8 T cells into one category each, otherwise we will keep naive and activated CD4 and CD8 T cells separate.
 # change the cell_type column to reflect this aggregation
-acc_cancer_immune_caf$cell_type <- case_match(
+
+if(params$split_naive){
+  acc_cancer_immune_caf$cell_type <- case_match(
   acc_cancer_immune_caf$cell_type,
   c("CD4_EM", "CD4_CM", "CD4_Naive") ~ "CD4_T",
   c("CD8_CM", "CD8_Naive", "CD8_TEMRA", "CD8_EM") ~ "CD8_T",
   .default = as.character(acc_cancer_immune_caf$cell_type)
-)
+  ) 
+} else {
+  acc_cancer_immune_caf$cell_type <- case_match(
+    acc_cancer_immune_caf$cell_type,
+    c("CD4_EM", "CD4_CM") ~ "CD4_activated",
+    "CD4_Naive" ~ "CD4_Naive",
+    c("CD8_CM", "CD8_TEMRA", "CD8_EM") ~ "CD8_activated",
+     "CD8_Naive" ~ "CD8_Naive",
+    .default = as.character(acc_cancer_immune_caf$cell_type)
+  ) 
+}
 Idents(acc_cancer_immune_caf) <- "cell_type"
 table(acc_cancer_immune_caf@active.ident)
 

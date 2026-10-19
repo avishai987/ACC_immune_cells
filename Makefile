@@ -88,20 +88,20 @@ cancer_pathway_analysis: ./Reports/06_immune_markers_ACC/06_immune_markers_ACC.h
 # run_liana_per_patient
 # ============
 
-run_liana_per_patient: Reports/ccc_analysis/run_LIANA_per_patient/run_LIANA_per_patient.html Reports/ccc_analysis/run_LIANA_per_patient/liana_result_CD45-caf.RDS Reports/ccc_analysis/run_LIANA_per_patient/liana_result_CD45-cancer.RDS Reports/ccc_analysis/run_LIANA_per_patient/liana_result_CD45-lum-myo.RDS
+run_liana_per_patient: Reports/ccc_analysis/run_LIANA_per_patient/keep_naive/liana_result_CD45-caf.RDS Reports/ccc_analysis/run_LIANA_per_patient/keep_naive/liana_result_CD45-cancer.RDS Reports/ccc_analysis/run_LIANA_per_patient/keep_naive/liana_result_CD45-lum-myo.RDS Reports/ccc_analysis/run_LIANA_per_patient/keep_naive/run_LIANA_per_patient.html
 	@echo  $@ is up to date
 
-Reports/ccc_analysis/run_LIANA_per_patient/run_LIANA_per_patient.html Reports/ccc_analysis/run_LIANA_per_patient/liana_result_CD45-caf.RDS Reports/ccc_analysis/run_LIANA_per_patient/liana_result_CD45-cancer.RDS Reports/ccc_analysis/run_LIANA_per_patient/liana_result_CD45-lum-myo.RDS &: ./Notebooks/ccc_analysis/run_LIANA_per_patient.Rmd ./Reports/04_Tcells_types/t_cells_labled.RDS ./Reports/02_cell_type_assignment/cancer.RDS ./Reports/CAF_subtypes/caf_with_subtypes.RDS ./Reports/03_immune_cell_types/immune_with_cell_types.RDS
+Reports/ccc_analysis/run_LIANA_per_patient/keep_naive/liana_result_CD45-caf.RDS Reports/ccc_analysis/run_LIANA_per_patient/keep_naive/liana_result_CD45-cancer.RDS Reports/ccc_analysis/run_LIANA_per_patient/keep_naive/liana_result_CD45-lum-myo.RDS Reports/ccc_analysis/run_LIANA_per_patient/keep_naive/run_LIANA_per_patient.html &: ./Notebooks/ccc_analysis/run_LIANA_per_patient.Rmd ./Reports/04_Tcells_types/t_cells_labled.RDS ./Reports/02_cell_type_assignment/cancer.RDS ./Reports/CAF_subtypes/caf_with_subtypes.RDS ./Reports/03_immune_cell_types/immune_with_cell_types.RDS
 	Rscript render.R run_liana_per_patient
 
 # ============
 # Liana_per_patient
 # ============
 
-Liana_per_patient: Reports/ccc_analysis/LIANA_per_patient/LIANA_per_patient.html
+Liana_per_patient: Reports/ccc_analysis/Liana_per_patient/keep_naive/Liana_per_patient0.01.html
 	@echo  $@ is up to date
 
-Reports/ccc_analysis/LIANA_per_patient/LIANA_per_patient.html &: ./Notebooks/ccc_analysis/LIANA_per_patient.Rmd Reports/ccc_analysis/run_LIANA_per_patient/liana_result_CD45-caf.RDS Reports/ccc_analysis/run_LIANA_per_patient/liana_result_CD45-cancer.RDS Reports/ccc_analysis/run_LIANA_per_patient/liana_result_CD45-lum-myo.RDS
+Reports/ccc_analysis/Liana_per_patient/keep_naive/Liana_per_patient0.01.html &: ./Notebooks/ccc_analysis/LIANA_per_patient.Rmd Reports/ccc_analysis/run_LIANA_per_patient/keep_naive/liana_result_CD45-caf.RDS Reports/ccc_analysis/run_LIANA_per_patient/keep_naive/liana_result_CD45-cancer.RDS Reports/ccc_analysis/run_LIANA_per_patient/keep_naive/liana_result_CD45-lum-myo.RDS
 	Rscript render.R Liana_per_patient
 
 # ============
@@ -121,17 +121,17 @@ Reports/ccc_analysis/pathways_for_Nichenet/pathways_for_Nichenet.html Reports/cc
 nichenet_analysis: Reports/ccc_analysis/Nichenet_analysis/Nichenet.html Reports/ccc_analysis/Nichenet_analysis/all_significant_interactions.RDS
 	@echo  $@ is up to date
 
-Reports/ccc_analysis/Nichenet_analysis/Nichenet.html Reports/ccc_analysis/Nichenet_analysis/all_significant_interactions.RDS &: ./Notebooks/ccc_analysis/Nichenet.Rmd ./Reports/04_Tcells_types/t_cells_labled.RDS ./Reports/02_cell_type_assignment/cancer.RDS ./Reports/CAF_subtypes/caf_with_subtypes.RDS ./Reports/03_immune_cell_types/immune_with_cell_types.RDS Reports/ccc_analysis/run_LIANA_per_patient/liana_result_CD45-caf.RDS Reports/ccc_analysis/run_LIANA_per_patient/liana_result_CD45-cancer.RDS Reports/ccc_analysis/run_LIANA_per_patient/liana_result_CD45-lum-myo.RDS Reports/ccc_analysis/pathways_for_Nichenet/T_pathways_for_Nichenet.RDS input_data/starCAT/starCAT_PMC11092745_Supplementary_Tables.xlsx
+Reports/ccc_analysis/Nichenet_analysis/Nichenet.html Reports/ccc_analysis/Nichenet_analysis/all_significant_interactions.RDS &: ./Notebooks/ccc_analysis/Nichenet.Rmd ./Reports/04_Tcells_types/t_cells_labled.RDS ./Reports/02_cell_type_assignment/cancer.RDS ./Reports/CAF_subtypes/caf_with_subtypes.RDS ./Reports/03_immune_cell_types/immune_with_cell_types.RDS Reports/ccc_analysis/run_LIANA_per_patient/keep_naive/liana_result_CD45-caf.RDS Reports/ccc_analysis/run_LIANA_per_patient/keep_naive/liana_result_CD45-cancer.RDS Reports/ccc_analysis/run_LIANA_per_patient/keep_naive/liana_result_CD45-lum-myo.RDS Reports/ccc_analysis/pathways_for_Nichenet/T_pathways_for_Nichenet.RDS input_data/starCAT/starCAT_PMC11092745_Supplementary_Tables.xlsx
 	Rscript render.R nichenet_analysis
 
 # ============
 # Nichenet_targets_GSEA
 # ============
 
-Nichenet_targets_GSEA: Reports/ccc_analysis/Nichenet_targets_GSEA/Nichenet_targets_GSEA.html
+Nichenet_targets_GSEA: Reports/ccc_analysis/Nichenet_targets_GSEA/0.001/Nichenet_targets_GSEA.html
 	@echo  $@ is up to date
 
-Reports/ccc_analysis/Nichenet_targets_GSEA/Nichenet_targets_GSEA.html &: ./Notebooks/ccc_analysis/Nichenet_targets_GSEA.Rmd ./Reports/02_cell_type_assignment/acc_cancer_pri.RDS ./Reports/02_cell_type_assignment/caf.RDS ./Reports/04_Tcells_types/t_cells_labled.RDS ./Reports/CAF_subtypes/caf_with_subtypes.RDS ./Reports/03_immune_cell_types/immune_with_cell_types.RDS Reports/ccc_analysis/run_LIANA_per_patient/liana_result_CD45-lum-myo.RDS Reports/ccc_analysis/pathways_for_Nichenet/T_pathways_for_Nichenet.RDS input_data/starCAT/starCAT_PMC11092745_Supplementary_Tables.xlsx
+Reports/ccc_analysis/Nichenet_targets_GSEA/0.001/Nichenet_targets_GSEA.html &: ./Notebooks/ccc_analysis/Nichenet_targets_GSEA.Rmd ./Reports/02_cell_type_assignment/acc_cancer_pri.RDS ./Reports/02_cell_type_assignment/caf.RDS ./Reports/04_Tcells_types/t_cells_labled.RDS ./Reports/CAF_subtypes/caf_with_subtypes.RDS ./Reports/03_immune_cell_types/immune_with_cell_types.RDS Reports/ccc_analysis/run_LIANA_per_patient/keep_naive/liana_result_CD45-lum-myo.RDS Reports/ccc_analysis/pathways_for_Nichenet/T_pathways_for_Nichenet.RDS input_data/starCAT/starCAT_PMC11092745_Supplementary_Tables.xlsx
 	Rscript render.R Nichenet_targets_GSEA
 
 # ============
@@ -211,7 +211,7 @@ Reports/Bulk_deconv/brayer_CIBERSORT_analsyis/brayer_CIBERSORT_analsyis.html &: 
 Comm_analysis_bulk: Reports/Bulk_deconv/Comm_analysis_bulk/Comm_analysis_bulk.html
 	@echo  $@ is up to date
 
-Reports/Bulk_deconv/Comm_analysis_bulk/Comm_analysis_bulk.html &: ./Notebooks/Bulk_deconv/Comm_analysis_bulk.Rmd input_data/CIBERSORTx_result/CIBERSORTx_Job16_Results_dou_all_withMarkers_relative_bBatchcorrect_2025_09_29.csv input_data/CIBERSORTx_result/CIBERSORTx_Job25_Results_ferrarotto_withMarkers_relative_bBatchcorrect.csv input_data/CIBERSORTx_result/CIBERSORTx_Job31_Results.csv Reports/Bulk_deconv/create_dou_matrix/dou_exprs.tsv Reports/Bulk_deconv/create_ferrarotto_matrix/ferrarotto_TPM.tsv Reports/Bulk_deconv/create_brayer_matrix/brayer_TPM.tsv Reports/ccc_analysis/run_LIANA_per_patient/liana_result_CD45-lum-myo.RDS
+Reports/Bulk_deconv/Comm_analysis_bulk/Comm_analysis_bulk.html &: ./Notebooks/Bulk_deconv/Comm_analysis_bulk.Rmd input_data/CIBERSORTx_result/CIBERSORTx_Job16_Results_dou_all_withMarkers_relative_bBatchcorrect_2025_09_29.csv input_data/CIBERSORTx_result/CIBERSORTx_Job25_Results_ferrarotto_withMarkers_relative_bBatchcorrect.csv input_data/CIBERSORTx_result/CIBERSORTx_Job31_Results.csv Reports/Bulk_deconv/create_dou_matrix/dou_exprs.tsv Reports/Bulk_deconv/create_ferrarotto_matrix/ferrarotto_TPM.tsv Reports/Bulk_deconv/create_brayer_matrix/brayer_TPM.tsv Reports/ccc_analysis/run_LIANA_per_patient/keep_naive/liana_result_CD45-lum-myo.RDS
 	Rscript render.R Comm_analysis_bulk
 
 # ============

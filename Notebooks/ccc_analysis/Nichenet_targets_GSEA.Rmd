@@ -15,7 +15,7 @@ output:
 params: 
   data_out_dir: "./temp_data/" 
   threshold: 0.01
-  patients: [3,4]
+  top_starCAT_genes: 200
 ---
 
 ```{r}
@@ -33,7 +33,7 @@ source_from_github(repositoy = "DEG_functions",version = "0.2.59")
 library(dplyr)
 library(matrixStats)
 suppressPackageStartupMessages(library(GSEABase))
-
+library(hypeR)
 conflicted::conflict_prefer("select", "dplyr")
 conflicted::conflict_prefer("filter", "dplyr")
 conflicted::conflict_prefer("intersect", "base")
@@ -211,7 +211,6 @@ make_dotplot <- function(dataet,cell_types_1, cell_types_2, threshold, patients,
 # Thresholds
 ```{r}
 threshold = params$threshold
-patients = params$patients
 immune_cells_to_include = c("CD4_T", "CD8_T", "gdT", "Treg")
 cancer_cells_to_include = c("Luminal", "Myo")
 caf_types_to_include = c("pan.iCAF.2", "pan.pCAF", "pan.iCAF", "pan.dCAF", "pan.myCAF")
@@ -225,7 +224,7 @@ liana_result_CD45_lum_myo = readRDS(file = input$liana_result_CD45_lum_myo)
 ```{r}
 #| fig-height: 12
 #| fig-width: 15
-p = make_dotplot(liana_result_CD45_lum_myo, immune_cells_to_include, cancer_cells_to_include, threshold, patients = patients)
+p = make_dotplot(liana_result_CD45_lum_myo, immune_cells_to_include, cancer_cells_to_include, threshold, patients = c(3, 4))
 ```
 
 ## Load nichenet dataset
@@ -240,15 +239,17 @@ ligand_target_matrix <- readRDS("./input_data/ligand_target_matrix_nsga2r_final.
 
 ```
 
+# Load starCAT pathways metadata
 ```{r}
 starCAT_pathways_top_genes  = readxl::read_excel(path = input$starCAT_pathways_metadata,sheet = 2,skip = 2)
 names(starCAT_pathways_top_genes) = names(starCAT_pathways_top_genes) %>% gsub(pattern = "/",replacement = ".") %>% gsub(pattern = "-",replacement = "_")
-n_top_genes = 200 # top genes to take
+n_top_genes = params$top_starCAT_genes # top genes to take
 
 
 
 ```
 
+# Add cytotoxicity score to the Seurat object
 ```{r}
 acc_cancer_immune_caf = AddMetaData(object = acc_cancer_immune_caf,
                                      metadata =t_cells_labled$Cytotoxic,col.name = "Cytotoxic")
@@ -273,131 +274,194 @@ print_receptors_cor <- function(receptors, seurat, target_cell, pathway) {
 }
 ```
 
+
+# Functions for analyzing interactions and pathways
 ```{r}
-# Analyze all significant interactions
-all_significant_interactions = list()
-for (origin_cell in c("Luminal", "Myo")){
-  for (target_cell in c("CD4_T", "CD8_T", "gdT", "Treg")){
-    message(paste0("Analyzing interactions from ", origin_cell, " to ", target_cell))
-    # get plot for the target cell type
-    p_target = make_dotplot(liana_result_CD45_lum_myo, origin_cell, target_cell, threshold, patients = patients, target_cell = target_cell, plot = FALSE) 
-    if (is.null(p_target)) {
-      message(paste0("No interactions found for target cell type: ", target_cell))
-      next()
-    }
-    ligands = p_target$data %>%
-    dplyr::pull(interaction) %>%
-    as.character() %>%
-    unique() %>% # collapse to same interactions with different source cell types
-    strsplit("-") %>%
-    map_chr(1) %>% # take first element of the split (the ligand)
-    str_trim()   %>%
-    unique() # get unique ligands
+# Split interaction labels into the ligand and receptor gene names.
+extract_interaction_genes <- function(interaction_data) {
+  interactions <- interaction_data |>
+    dplyr::pull(interaction) |>
+    as.character() |>
+    unique()
 
-    #get the receptors for those ligands
-    receptors = p_target$data %>%
-    dplyr::pull(interaction) %>%
-    as.character() %>%
-    unique() %>% # collapse to same interactions with different source cell types
-    strsplit("-") %>%
-    map_chr(2) %>% # take second element of the split (the receptor)
-    str_trim()   %>%
-    gsub(pattern = "> ", replacement = "") %>%
-    unique() # get unique receptors
-
-    if(length(ligands) == 0){
-      message(paste0("No ligands found for target cell type: ", target_cell))
-      next()
-    }
-    ligands <- ligands[ligands %in% colnames(ligand_target_matrix)] # filter ligands to only those present in the ligand-target matrix
-    print_receptors_cor(receptors, acc_cancer_immune_caf, target_cell, "Cytotoxic")
-
-    # get the genes expressed in the target cell type (receiver) that are expressed in at least 10% of the cells
-    expressed_genes_receiver <- GetAssayData(acc_cancer_immune_caf, slot = "data") %>%
-    .[, Idents(acc_cancer_immune_caf) == target_cell] %>%
-    apply(1, function(x) sum(x > 0) / length(x)) %>%
-    .[. >= 0.10] %>%
-    names()
-    
-    ligand_regulatory_scores <- ligand_target_matrix[, ligands] %>% as.data.frame()
-    row_names <- rownames(ligand_regulatory_scores)
-    combined_regulatory_scores <- rowMaxs(as.matrix(ligand_regulatory_scores))
-    names(combined_regulatory_scores) <- row_names
-
-    # 2. filter only for genes expressed in your T cell (background)
-    combined_regulatory_scores <- combined_regulatory_scores[names(combined_regulatory_scores) %in% expressed_genes_receiver]
-
-    # 3. sort the scores from highest to lowest (to fit GSEA)
-    ranked_gene_list <- sort(combined_regulatory_scores, decreasing = TRUE)
-
-    # get pathways and genes for target cell type
-    pathways = T_pathways_for_Nichenet[[target_cell]]
-    pathway_genes = starCAT_pathways_top_genes[1:n_top_genes,pathways] %>% as.list()
-
-    hyp_obj <-hypeR_fgsea(signature = ranked_gene_list,genesets = pathway_genes,up_only = F,nproc=1)
-    plt = hyp_dots(hyp_obj,merge = F,fdr = 0.2) 
-    plt = plt[[1]] + ggtitle(paste0("GSEA for ", target_cell, " downstream targets of ligands from ", origin_cell))
-    print(plt)
-
-    nes = plt$data %>% filter(fdr < 0.05) %>% arrange(desc(nes)) %>% pull(nes)
-    fdr = plt$data %>% filter(fdr < 0.05) %>% arrange(desc(nes)) %>% pull(fdr)
-    le_genes = plt$data %>% filter(fdr < 0.05) %>% arrange(desc(nes)) %>% pull(le)
-    names(le_genes) = plt$data %>% filter(fdr < 0.05) %>% arrange(desc(nes)) %>% pull(label)
-    pathway_name = plt$data %>% filter(fdr < 0.05) %>% arrange(desc(nes)) %>% pull(label)
-    sig_interactions = data.frame(pathway_name = pathway_name, nes = nes, fdr = fdr,le_genes = le_genes)
-    all_significant_interactions[[paste0(origin_cell, "_to_", target_cell)]] = sig_interactions
-
-  }
-
-}
-```
-
-
-
-```{r}
-# plot all_significant_interactions in a dotplot
-## combine all significant interactions into a single data frame
-all_sig_interactions_df = bind_rows(all_significant_interactions, .id = "interaction_pair")
-# Cluster pathways by their NES profile across interaction pairs and use the
-# resulting order for the y-axis.
-nes_matrix = all_sig_interactions_df %>%
-  select(pathway_name, interaction_pair, nes) %>%
-  tidyr::pivot_wider(
-    names_from = interaction_pair,
-    values_from = nes,
-    values_fill = 0
-  ) %>%
-  tibble::column_to_rownames("pathway_name") %>%
-  as.matrix()
-
-if (nrow(nes_matrix) > 1) {
-  pathway_order = rownames(nes_matrix)[hclust(dist(nes_matrix), method = "complete")$order]
-  all_sig_interactions_df$pathway_name = factor(
-    all_sig_interactions_df$pathway_name,
-    levels = pathway_order
+  parsed <- strsplit(interactions, "-")
+  list(
+    ligands = parsed |> purrr::map_chr(1) |> stringr::str_trim() |> unique(),
+    receptors = parsed |> purrr::map_chr(2) |> stringr::str_remove("^>\\s*") |> stringr::str_trim() |> unique()
   )
 }
 
+# Find significant pathways for each source and target cell pair.
+analyze_interaction_pathways <- function(
+  liana_results, origin_cells, target_cells, threshold, patients,
+  seurat_object, ligand_target_matrix, pathways_by_cell,
+  pathway_metadata, n_top_genes, expression_fraction = 0.10
+) {
+  results <- list()
+
+  for (origin_cell in origin_cells) {
+    for (target_cell in target_cells) {
+      message("Analyzing interactions from ", origin_cell, " to ", target_cell)
+      p_target <- make_dotplot(
+        liana_results, origin_cell, target_cell, threshold,
+        patients = patients, target_cell = target_cell, plot = FALSE
+      )
+      if (is.null(p_target)) next
+
+      genes <- extract_interaction_genes(p_target$data)
+      ligands <- intersect(genes$ligands, colnames(ligand_target_matrix))
+      if (!length(ligands)) next
+
+      # Use genes expressed in at least the requested fraction of receiver cells.
+      receiver_cells <- Idents(seurat_object) == target_cell
+      if (!any(receiver_cells)) next
+
+      expression_fraction_by_gene <- GetAssayData(
+        seurat_object, slot = "data"
+      )[, receiver_cells, drop = FALSE] |>
+        apply(1, function(x) mean(x > 0))
+      expressed_genes <- expression_fraction_by_gene[
+        expression_fraction_by_gene >= expression_fraction
+      ] |>
+        names()
+
+      # Combine the target scores of all ligands by taking the highest score per gene.
+      regulatory_scores <- ligand_target_matrix[, ligands, drop = FALSE] |>
+        as.matrix() |>
+        matrixStats::rowMaxs()
+      names(regulatory_scores) <- rownames(ligand_target_matrix)
+      ranked_genes <- sort(regulatory_scores[names(regulatory_scores) %in% expressed_genes], decreasing = TRUE)
+
+      # Use the pathways assigned to this receiver cell type.
+      pathway_names <- pathways_by_cell[[target_cell]]
+      pathway_genes <- pathway_metadata[
+        seq_len(min(n_top_genes, nrow(pathway_metadata))), pathway_names, drop = FALSE
+      ] |>
+        as.list()
+
+      enrichment_plot <- hypeR_fgsea(
+        signature = ranked_genes, genesets = pathway_genes,
+        up_only = TRUE, nproc = 1
+      ) |>
+        hyp_dots(merge = FALSE, fdr = 0.2)
+
+      # Keep only pathways passing the stricter reporting threshold.
+      results[[paste0(origin_cell, "_to_", target_cell)]] <- enrichment_plot$data |>
+        dplyr::filter(fdr < 0.05) |>
+        dplyr::arrange(dplyr::desc(nes)) |>
+        dplyr::transmute(pathway_name = label, nes, fdr, le_genes = le)
+    }
+  }
+
+  # Remove cell pairs for which no result was returned.
+  results <- purrr::compact(results)
+  combined_results <- dplyr::bind_rows(results, .id = "interaction_pair")
+
+  # Keep the downstream table valid when no pathways pass the FDR cutoff.
+  if (!"pathway_name" %in% names(combined_results)) {
+    combined_results <- tibble::tibble(
+      interaction_pair = character(),
+      pathway_name = character(),
+      nes = numeric(),
+      fdr = numeric(),
+      le_genes = list()
+    )
+  }
+
+  combined_results
+}
+
+
+
+```
+
+
+
+```{r}
+# Plot enriched pathways across all source-target cell pairs.
+plot_all_sig_interactions <- function(
+  interaction_data,
+  title = "Significant interactions across all cell types"
+) {
+  required_columns <- c("interaction_pair", "pathway_name", "nes", "fdr")
+  missing_columns <- base::setdiff(required_columns, names(interaction_data))
+  if (length(missing_columns)) {
+    stop("Missing columns: ", paste(missing_columns, collapse = ", "))
+  }
+
+  plot_data <- interaction_data |>
+    dplyr::mutate(
+      interaction_pair = factor(interaction_pair),
+      pathway_name = as.character(pathway_name)
+    )
+
+  if (nrow(plot_data) > 1) {
+    # Order pathways by similarity of their NES profiles across cell pairs.
+    nes_matrix <- plot_data |>
+      dplyr::select(pathway_name, interaction_pair, nes) |>
+      tidyr::pivot_wider(
+        names_from = interaction_pair,
+        values_from = nes,
+        values_fill = 0
+      ) |>
+      tibble::column_to_rownames("pathway_name") |>
+      as.matrix()
+
+    pathway_order <- rownames(nes_matrix)
+    if (nrow(nes_matrix) > 1) {
+      pathway_order <- pathway_order[hclust(dist(nes_matrix), method = "complete")$order]
+    }
+    plot_data$pathway_name <- factor(plot_data$pathway_name, levels = pathway_order)
+  }
+
+  ggplot(plot_data, aes(interaction_pair, pathway_name, size = nes, color = fdr)) +
+    geom_point() +
+    scale_color_gradient(low = "red", high = "blue", oob = scales::squish) +
+    labs(
+      x = "Interaction pair", y = "Pathway name",
+      size = "NES", color = "FDR", title = title
+    ) +
+    theme(
+      axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
+      axis.text = element_text(size = 14),
+      legend.title = element_text(size = 14),
+      legend.text = element_text(size = 14)
+    )
+}
+
 
 ```
 
 ```{r}
+# add naive genes to CD4 and CD8 T cells
+T_pathways_for_Nichenet$CD4_T = c(T_pathways_for_Nichenet$CD4_T, "CD4_Naive")
+T_pathways_for_Nichenet$CD8_T = c(T_pathways_for_Nichenet$CD8_T, "CD8_Naive")
+```
+
+## 3+ patients
+```{r}
 #| fig-height: 12
 #| fig-width: 15
-# plot the dotplot
-p = ggplot(all_sig_interactions_df, aes(x = interaction_pair, y = pathway_name, size = nes, color = fdr)) +
-  geom_point() +
-  scale_color_gradient(low = "red", high = "blue") +
-  labs(x = "Interaction Pair", y = "Pathway Name", size = "NES", color = "FDR") +
-  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1), axis.text = element_text(size = 14),
-    legend.title = element_text(size = 14),legend.text = element_text(size = 14),title = element_text(size = 14))+
-  ggtitle("Significant interactions across all cell types")
+patients = c(3, 4)
+all_sig_interactions_df <- analyze_interaction_pathways(
+  liana_results = liana_result_CD45_lum_myo,
+  origin_cells = c("Luminal", "Myo"),
+  target_cells = c("CD4_T", "CD8_T", "gdT", "Treg"),
+  threshold = threshold, patients = patients,
+  seurat_object = acc_cancer_immune_caf,
+  ligand_target_matrix = ligand_target_matrix,
+  pathways_by_cell = T_pathways_for_Nichenet,
+  pathway_metadata = starCAT_pathways_top_genes,
+  n_top_genes = n_top_genes
+)
+
+p <- plot_all_sig_interactions(all_sig_interactions_df)
 print(p)
 ```
 
 ```{r}
-patients_str = paste(patients, collapse = "_")
-  svg_filename <- paste0("Lum-Myo_to_Tcells_pathways_", threshold,"_", patients_str, "-patients.svg")
+patients_str = paste0(min(patients), "+")
+  svg_filename <- paste0("Lum-Myo_to_Tcells_pathways_", threshold,"_", patients_str, "_patients.svg")
   svglite::svglite(file.path(params$data_out_dir, svg_filename),
                    width = ceiling(ncol(p$data) * 3),
                    height = max(3.64 * sqrt(nrow(p$data)) - 11, 7))
@@ -407,7 +471,38 @@ patients_str = paste(patients, collapse = "_")
   compare_and_save_svg(svg_filename, new_svg_dir = params$data_out_dir)
 ```
 
+## 2+ patients
 
+```{r}
+#| fig-height: 12
+#| fig-width: 15
+patients = c(2,3, 4)
+all_sig_interactions_df <- analyze_interaction_pathways(
+  liana_results = liana_result_CD45_lum_myo,
+  origin_cells = c("Luminal", "Myo"),
+  target_cells = c("CD4_T", "CD8_T", "gdT", "Treg"),
+  threshold = threshold, patients = patients,
+  seurat_object = acc_cancer_immune_caf,
+  ligand_target_matrix = ligand_target_matrix,
+  pathways_by_cell = T_pathways_for_Nichenet,
+  pathway_metadata = starCAT_pathways_top_genes,
+  n_top_genes = n_top_genes
+)
+
+p <- plot_all_sig_interactions(all_sig_interactions_df)
+print(p)
+```
+```{r}
+patients_str = paste0(min(patients), "+")
+  svg_filename <- paste0("Lum-Myo_to_Tcells_pathways_", threshold,"_", patients_str, "_patients.svg")
+  svglite::svglite(file.path(params$data_out_dir, svg_filename),
+                   width = ceiling(ncol(p$data) * 3),
+                   height = max(3.64 * sqrt(nrow(p$data)) - 11, 7))
+  print(p)
+  dev.off()
+
+  compare_and_save_svg(svg_filename, new_svg_dir = params$data_out_dir)
+```
 # Go pathways
 
 ```{r}

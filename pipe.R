@@ -157,16 +157,19 @@ pipeline[["run_liana_per_patient"]] = list(
     cancer = pipeline$cell_types$output$cancer,
     caf_with_subtypes = pipeline$caf_subtypes$output$caf_with_subtypes,
     immune_with_cell_types = pipeline$immune_identity$output$immune_with_cell_types),
-  output = list(
-    report = "Reports/ccc_analysis/run_LIANA_per_patient/run_LIANA_per_patient.html",
-    liana_result_CD45_caf = "Reports/ccc_analysis/run_LIANA_per_patient/liana_result_CD45-caf.RDS",
-    liana_result_CD45_cancer = "Reports/ccc_analysis/run_LIANA_per_patient/liana_result_CD45-cancer.RDS",
-    liana_result_CD45_lum_myo = "Reports/ccc_analysis/run_LIANA_per_patient/liana_result_CD45-lum-myo.RDS"
-  ),
+
   params = list(
-    debug = F
+    debug = F,
+    split_naive = F
   )
 )
+  if(pipeline$run_liana_per_patient$params$split_naive){split_naive_str = "split_naive"}else{split_naive_str = "keep_naive"}
+  pipeline[["run_liana_per_patient"]]$output = list(
+    liana_result_CD45_caf = paste0("Reports/ccc_analysis/run_LIANA_per_patient/",split_naive_str,"/liana_result_CD45-caf.RDS"),
+    liana_result_CD45_cancer = paste0("Reports/ccc_analysis/run_LIANA_per_patient/",split_naive_str,"/liana_result_CD45-cancer.RDS"),
+    liana_result_CD45_lum_myo = paste0("Reports/ccc_analysis/run_LIANA_per_patient/",split_naive_str,"/liana_result_CD45-lum-myo.RDS"),
+    report = paste0("Reports/ccc_analysis/run_LIANA_per_patient/",split_naive_str,"/run_LIANA_per_patient",".html") 
+  )
 
 pipeline[["Liana_per_patient"]] = list(
   input = list(
@@ -175,14 +178,15 @@ pipeline[["Liana_per_patient"]] = list(
     liana_result_CD45_cancer = pipeline$run_liana_per_patient$output$liana_result_CD45_cancer,
     liana_result_CD45_lum_myo = pipeline$run_liana_per_patient$output$liana_result_CD45_lum_myo
   ),
-  output = list(
-    report = "Reports/ccc_analysis/LIANA_per_patient/LIANA_per_patient.html"
-  ),
   params = list(
     debug = F,
     threshold = 0.01
   )
 )
+  pipeline[["Liana_per_patient"]]$output = list(
+    report = paste0("Reports/ccc_analysis/Liana_per_patient/",split_naive_str,"/Liana_per_patient",pipeline$Liana_per_patient$params$threshold,".html")
+  )
+
 
 pipeline[["pathways_for_Nichenet"]] = list(
   input = list(
@@ -227,14 +231,15 @@ pipeline[["Nichenet_targets_GSEA"]] = list(
     T_pathways_for_Nichenet = pipeline$pathways_for_Nichenet$output$T_pathways_for_Nichenet,
     starCAT_pathways_metadata = "input_data/starCAT/starCAT_PMC11092745_Supplementary_Tables.xlsx"
   ),
-  output = list(
-    report = "Reports/ccc_analysis/Nichenet_targets_GSEA/Nichenet_targets_GSEA.html"
-  ),
   params = list(
-    threshold = 0.01,
-    patients = c(3,4)
+    threshold = 0.001
+    )
   )
-)
+
+  pipeline[["Nichenet_targets_GSEA"]]$output = list(
+  report = paste0("Reports/ccc_analysis/Nichenet_targets_GSEA/", pipeline[["Nichenet_targets_GSEA"]]$params$threshold,"/Nichenet_targets_GSEA.html")
+  )
+
 ######################################## Bulk deconvolution ###############################################
 
 pipeline[["TPM_for_signature_matrix"]] = list(
@@ -461,15 +466,10 @@ save_pdf_if_changed <- function(plot_expr, target_path, width = 7, height = 5, f
   return(TRUE)
 }
 
-
-#plot graph
-
-
 suppressPackageStartupMessages(library(igraph))
-suppressPackageStartupMessages(library(ggraph))
-library(ggplot2)
+library(visNetwork)
 
-# 1. קריאת קובץ ה-Makefile וה-Parser
+# 1. קריאת קובץ ה-Makefile וה-Parser (הקוד המקורי שלך ללא שינוי)
 makefile_path <- "Makefile"
 if (!file.exists(makefile_path)) {
   stop("קובץ Makefile לא נמצא בתיקיית העבודה הנוכחית!")
@@ -532,42 +532,60 @@ if (length(from_nodes) == 0) {
   stop("No dependencies found.")
 }
 
-# 2. בניית הגרף
+# 2. הכנת הנתונים עבור visNetwork
 relations_table <- unique(data.frame(from = from_nodes, to = to_nodes, stringsAsFactors = FALSE))
-pipeline_graph <- graph_from_data_frame(relations_table, directed = TRUE)
+all_unique_nodes <- unique(c(relations_table$from, relations_table$to))
 
-# 3. ציור מתקדם ומרווח בעזרת ggraph (פריסת עץ Sugiyama קלאסית)
-# תיקון: הסרת ה-layers=max_edges הבעייתי
-g <- ggraph(pipeline_graph, layout = 'sugiyama') + 
-  # ציור החצים (עם מרווח ביטחון כדי שלא ייכנסו לתוך תיבות הטקסט)
-  geom_edge_diagonal(
-    aes(start_cap = label_rect(node1.name), end_cap = label_rect(node2.name)),
-    arrow = arrow(length = unit(2.5, 'mm'), type = 'closed'),
-    color = 'gray60', alpha = 0.8, width = 0.6
-  ) +
-  # ציור תיבות הטקסט של השלבים (מתאימות את עצמן אוטומטית לאורך המילה)
-  geom_node_label(
-    aes(label = name), 
-    fill = "#F4F7FA", 
-    color = "#1A365D",
-    fontface = "bold", 
-    size = 3.2, 
-    label.padding = unit(0.3, "lines"),
-    label.size = 0.4
-  ) +
-  # הגדרות עיצוב מסביב
-  labs(title = "Clean Pipeline Architecture", subtitle = "Automated view from Makefile") +
-  theme_void() + 
-  theme(
-    plot.title = element_text(face = "bold", size = 16, hjust = 0.5, color = "#1A365D"),
-    plot.subtitle = element_text(size = 11, hjust = 0.5, color = "gray40", margin = margin(b = 20)),
-    plot.margin = margin(20, 40, 20, 40)
+nodes <- data.frame(
+  id = all_unique_nodes,
+  label = all_unique_nodes,
+  shape = "box",
+  color = list(
+    background = "#F4F7FA",
+    border = "#1A365D",
+    highlight = list(background = "#FFEAA7", border = "#D63031"),
+    hover = list(background = "#E8EEF5", border = "#0984E3")
+  ),
+  font = list(face = "Helvetica", size = 16, color = "#1A365D"),
+  margin = 10,
+  shadow = TRUE
+)
+
+edges <- data.frame(
+  from = relations_table$from,
+  to = relations_table$to,
+  arrows = "to",
+  color = list(color = "#B2BEC3", highlight = "#0984E3", hover = "#0984E3"),
+  smooth = list(enabled = TRUE, type = "cubicBezier", roundness = 0.5)
+)
+
+# 3. בניית הגרף האינטראקטיבי
+network <- visNetwork(nodes, edges, main = "Clean Pipeline Architecture", submain = "Hover/Click to highlight dependencies") %>%
+  # היררכיה מסודרת מלמעלה למטה (או משמאל לימין) בדומה ל-Sugiyama
+  visHierarchicalLayout(
+    direction = "LR", # שנה ל-"UD" אם אתה מעדיף זרימה מלמעלה למטה
+    levelSeparation = 180,
+    nodeSpacing = 120
+  ) %>%
+  # הדגשת תלויות בלחיצה או מעבר עכבר
+  visOptions(
+    highlightNearest = list(
+      enabled = TRUE,
+      degree = 2,            # עומק השרשרת (כמה רמות קדימה/אחורה להאיר)
+      hover = TRUE,           # מפעיל את ההארה גם במעבר עכבר (Hover)
+      algorithm = "hierarchical" # מבדיל בין כיווני הזרימה
+    ),
+    nodesIdSelection = TRUE # מאפשר גם תיבת חיפוש/בחירה בחלק העליון
+  ) %>%
+  visInteraction(
+    hover = TRUE,
+    navigationButtons = TRUE, # כפתורי זום וניווט
+    zoomView = TRUE
   )
 
-# 4. שמירה ישירה לקובץ PDF רחב כדי למנוע דחיסה של הטקסט
-svglite::svglite("pipeline_graph.svg", width = 14, height = 10)
-print(g)
-dev.off()
+# 4. שמירה לקובץ HTML עצמאי
+htmlwidgets::saveWidget(network, file = "pipeline_interactive.html", selfcontained = TRUE)
+message("קובץ pipeline_interactive.html נוצר בהצלחה!")
 
 #delete all grpah related objects to clean the environment
 rm(list = c("from_nodes", "to_nodes", "file_to_step", "raw_rules", "relations_table", 

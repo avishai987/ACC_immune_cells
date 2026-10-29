@@ -16,8 +16,11 @@ params:
   data_out_dir: "./temp_data/" 
   threshold: 0.01
   top_starCAT_genes: 200
+  split_naive: TRUE
+  bg_threshold: 0.1
 ---
 
+# Load libraries and source functions
 ```{r}
 library(liana)
 library(Seurat)
@@ -40,11 +43,13 @@ conflicted::conflict_prefer("intersect", "base")
 
 ```
 
+# Read parameters and input files
 ```{r setup}
 if (interactive()) {
     setwd(here::here())
     params <- rmarkdown::yaml_front_matter(rstudioapi::getSourceEditorContext()$path)$params
 }
+print(params)
 ```
 
 ```{r}
@@ -109,14 +114,26 @@ Idents(acc_cancer_immune_caf) <- acc_cancer_immune_caf@meta.data$cell_type
 
 # aggregate T cells for only CD4, CD8, Tregs, and gamma delta T cells
 ```{r}
-# aggregate T cells for only CD4, CD8, Tregs, and gamma delta T cells
+# aggregate T cells for  CD4, CD8, Tregs, and gamma delta T cells
+# if params$split_naive is TRUE, then we will aggregate all CD4 and CD8 T cells into one category each, otherwise we will keep naive and activated CD4 and CD8 T cells separate.
 # change the cell_type column to reflect this aggregation
-acc_cancer_immune_caf$cell_type <- case_match(
+
+if(!params$split_naive){
+  acc_cancer_immune_caf$cell_type <- case_match(
   acc_cancer_immune_caf$cell_type,
   c("CD4_EM", "CD4_CM", "CD4_Naive") ~ "CD4_T",
   c("CD8_CM", "CD8_Naive", "CD8_TEMRA", "CD8_EM") ~ "CD8_T",
   .default = as.character(acc_cancer_immune_caf$cell_type)
-)
+  ) 
+} else {
+  acc_cancer_immune_caf$cell_type <- case_match(
+    acc_cancer_immune_caf$cell_type,
+    c("CD4_EM", "CD4_CM") ~ "CD4_activated",
+    c("CD8_CM", "CD8_TEMRA", "CD8_EM") ~ "CD8_activated",
+     c("CD8_Naive","CD4_Naive") ~ "T_Naive",
+    .default = as.character(acc_cancer_immune_caf$cell_type)
+  ) 
+}
 Idents(acc_cancer_immune_caf) <- "cell_type"
 table(acc_cancer_immune_caf@active.ident)
 
@@ -211,9 +228,15 @@ make_dotplot <- function(dataet,cell_types_1, cell_types_2, threshold, patients,
 # Thresholds
 ```{r}
 threshold = params$threshold
-immune_cells_to_include = c("CD4_T", "CD8_T", "gdT", "Treg")
+if(pipeline$run_liana_per_patient$params$split_naive){
+    immune_cells_to_include = c("CD4_activated", "CD8_activated","T_Naive", "gdT", "Treg")
+
+} else{
+  immune_cells_to_include = c("CD4_T", "CD8_T", "gdT", "Treg")
+
+}
 cancer_cells_to_include = c("Luminal", "Myo")
-caf_types_to_include = c("pan.iCAF.2", "pan.pCAF", "pan.iCAF", "pan.dCAF", "pan.myCAF")
+caf_types_to_include = c("pan.myCAF", "pan.iCAF", "dCAF/pCAF", "pan.iCAF.2")
 ```
 
 ```{r}
@@ -224,7 +247,7 @@ liana_result_CD45_lum_myo = readRDS(file = input$liana_result_CD45_lum_myo)
 ```{r}
 #| fig-height: 12
 #| fig-width: 15
-p = make_dotplot(liana_result_CD45_lum_myo, immune_cells_to_include, cancer_cells_to_include, threshold, patients = c(3, 4))
+p = make_dotplot(liana_result_CD45_lum_myo, immune_cells_to_include, cancer_cells_to_include, threshold, patients = c(2,3, 4))
 ```
 
 ## Load nichenet dataset
@@ -294,8 +317,8 @@ extract_interaction_genes <- function(interaction_data) {
 # Find significant pathways for each source and target cell pair.
 analyze_interaction_pathways <- function(
   liana_results, origin_cells, target_cells, threshold, patients,
-  seurat_object, ligand_target_matrix, pathways_by_cell,
-  pathway_metadata, n_top_genes, expression_fraction = 0.10
+  seurat_object, ligand_target_matrix, pathways_by_cell = NULL,
+  geneset, expression_fraction = params$bg_threshold
 ) {
   results <- list()
 
@@ -320,6 +343,7 @@ analyze_interaction_pathways <- function(
         seurat_object, slot = "data"
       )[, receiver_cells, drop = FALSE] |>
         apply(1, function(x) mean(x > 0))
+
       expressed_genes <- expression_fraction_by_gene[
         expression_fraction_by_gene >= expression_fraction
       ] |>
@@ -332,30 +356,48 @@ analyze_interaction_pathways <- function(
       names(regulatory_scores) <- rownames(ligand_target_matrix)
       ranked_genes <- sort(regulatory_scores[names(regulatory_scores) %in% expressed_genes], decreasing = TRUE)
 
-      # Use the pathways assigned to this receiver cell type.
-      pathway_names <- pathways_by_cell[[target_cell]]
-      pathway_genes <- pathway_metadata[
-        seq_len(min(n_top_genes, nrow(pathway_metadata))), pathway_names, drop = FALSE
-      ] |>
-        as.list()
+      # If list per cell type, use the pathways assigned to this receiver cell type.
+      # else, use the same pathways for all receiver cell types.
+      if (is.list(pathways_by_cell)) {
+        pathway_names <- pathways_by_cell[[target_cell]]
+      } else {
+          pathway_names <- names(geneset)
+      }
+
+      # Restrict the analysis to the pathways assigned to this target cell.
+      pathway_genes <- geneset[pathway_names]
+      pathway_genes <- pathway_genes[!vapply(pathway_genes, is.null, logical(1))]
 
       enrichment_plot <- hypeR_fgsea(
         signature = ranked_genes, genesets = pathway_genes,
-        up_only = TRUE, nproc = 1
-      ) |>
+        up_only = TRUE, nproc = 1)|>
         hyp_dots(merge = FALSE, fdr = 0.2)
 
+      # hyp_dots() returns a waiver when no enrichment table is available.
+      enrichment_data <- enrichment_plot$data
+      if (!is.data.frame(enrichment_data) || !nrow(enrichment_data)) next
+
       # Keep only pathways passing the stricter reporting threshold.
-      results[[paste0(origin_cell, "_to_", target_cell)]] <- enrichment_plot$data |>
+      enriched_pathways <- enrichment_data |>
         dplyr::filter(fdr < 0.05) |>
         dplyr::arrange(dplyr::desc(nes)) |>
         dplyr::transmute(pathway_name = label, nes, fdr, le_genes = le)
+
+      if (!nrow(enriched_pathways)) next
+
+      # Add leading-edge ligands to the results.
+      enriched_pathways <- get_le_ligands(
+        enriched_pathways, ligand_target_matrix, ligands
+      )
+
+      results[[paste0(origin_cell, "_to_", target_cell)]] <- enriched_pathways
     }
   }
 
   # Remove cell pairs for which no result was returned.
   results <- purrr::compact(results)
   combined_results <- dplyr::bind_rows(results, .id = "interaction_pair")
+
 
   # Keep the downstream table valid when no pathways pass the FDR cutoff.
   if (!"pathway_name" %in% names(combined_results)) {
@@ -372,7 +414,106 @@ analyze_interaction_pathways <- function(
 }
 
 
+library(dplyr)
+library(purrr)
+library(stringr)
+library(dplyr)
+library(purrr)
+library(stringr)
 
+get_le_ligands <- function(enriched_pathways, 
+                           ligand_target_matrix, 
+                           ligands, 
+                           le_col = "le_genes", 
+                           z_threshold = 0.5) {
+  
+  # 1. Identify and validate the leading edge gene column
+  if (!le_col %in% colnames(enriched_pathways)) {
+    possible_cols <- c("le_genes", "overlap", "le", "leadingEdge", "genes")
+    matched_col <- intersect(possible_cols, colnames(enriched_pathways))
+    if (length(matched_col) > 0) {
+      le_col <- matched_col[1]
+    } else {
+      stop(paste("Could not find leading edge column. Available columns:", 
+                 paste(colnames(enriched_pathways), collapse = ", ")))
+    }
+  }
+
+  # 2. Filter requested ligands that are present in the prior regulatory model
+  target_genes <- rownames(ligand_target_matrix)
+  candidate_ligands <- intersect(ligands, colnames(ligand_target_matrix))
+  if (length(candidate_ligands) == 0) {
+    stop("None of the specified ligands are present in the ligand_target_matrix.")
+  }
+
+  # 3. Subset and Z-score scale the matrix across ligands (columns)
+  # This normalizes each ligand's distribution to prevent broadly connected hub ligands from dominating.
+  sub_matrix <- ligand_target_matrix[, candidate_ligands, drop = FALSE]
+  scaled_matrix <- as.matrix(scale(sub_matrix))
+
+  # 4. Helper function: Find the highest relative-scoring ligand(s) for a single target gene
+  find_ligands_for_gene <- function(gene) {
+    if (!gene %in% target_genes) return(character(0))
+    
+    # Retrieve scaled regulatory potentials across candidate ligands for this gene
+    scores <- scaled_matrix[gene, , drop = TRUE]
+    max_val <- max(scores, na.rm = TRUE)
+    
+    # Filter out weak interactions using the Z-score threshold (default: > 0.5 SD above mean)
+    if (is.na(max_val) || max_val <= z_threshold) return(character(0))
+    
+    # Handle ties by retaining all ligands sharing the maximum scaled potential
+    candidate_ligands[scores == max_val]
+  }
+
+  # 5. Helper function: Parse LE genes and compute per-pathway ligand summaries
+  analyze_row_ligands <- function(le_entry) {
+    if (is.null(le_entry) || length(le_entry) == 0 || is.na(le_entry[1])) {
+      return(tibble::tibble(le_ligands = "", top_dominant_ligand = ""))
+    }
+
+    # Support comma-separated strings as well as character vectors or lists
+    if (is.character(le_entry) && length(le_entry) == 1) {
+      genes <- stringr::str_split(le_entry, "[,;\\s/]+")[[1]]
+    } else {
+      genes <- as.character(le_entry)
+    }
+    
+    genes <- genes[genes != "" & !is.na(genes)]
+    if (length(genes) == 0) {
+      return(tibble::tibble(le_ligands = "", top_dominant_ligand = ""))
+    }
+
+    # Map each target gene to its top relative upstream regulator(s)
+    mapped_ligands <- genes |>
+      purrr::map(find_ligands_for_gene) |>
+      unlist(use.names = FALSE)
+
+    if (length(mapped_ligands) == 0) {
+      return(tibble::tibble(le_ligands = "", top_dominant_ligand = ""))
+    }
+
+    # Extract unique, sorted list of contributing leading edge ligands
+    all_le_ligands <- paste(sort(unique(mapped_ligands)), collapse = ", ")
+
+    # Rank ligands by frequency of target gene coverage in the leading edge
+    counts <- table(mapped_ligands)
+    max_count <- max(counts)
+    
+    # Determine the top regulator(s); collapse if multiple ligands tie for highest frequency
+    top_dominant <- paste(names(counts[counts == max_count]), collapse = ", ")
+
+    tibble::tibble(
+      le_ligands = all_le_ligands,
+      top_dominant_ligand = top_dominant
+    )
+  }
+
+  # 6. Apply across all pathway rows and append summary columns
+  ligand_summaries <- purrr::map_dfr(enriched_pathways[[le_col]], analyze_row_ligands)
+
+  dplyr::bind_cols(enriched_pathways, ligand_summaries)
+}
 ```
 
 
@@ -433,76 +574,279 @@ plot_all_sig_interactions <- function(
 ```
 
 ```{r}
+# Convert STARCAT's pathway-by-gene table to a named list for hypeR.
+starcat_geneset <- starCAT_pathways_top_genes |>
+  purrr::map(~ {
+    genes <- as.character(.x)
+    genes <- genes[!is.na(genes) & genes != ""]
+    if (is.null(n_top_genes)) genes else head(genes, n_top_genes)
+  })
+
+starCAT_pathways_metadata  = readxl::read_excel(path = input$starCAT_pathways_metadata,sheet = 1,skip = 14)
+pathways_to_check = starCAT_pathways_metadata %>% filter(`GEP Class` == "Functional") %>% pull(`Short Name`) %>% gsub(pattern = "/",replacement = ".") %>% gsub(pattern = "-",replacement = "_")
+pathways_to_check = c(pathways_to_check,"CD4_Naive","CD8_Naive")
+starcat_geneset = starcat_geneset[names(starcat_geneset) %in% pathways_to_check]
+```
+
+```{r}
 # add naive genes to CD4 and CD8 T cells
 T_pathways_for_Nichenet$CD4_T = c(T_pathways_for_Nichenet$CD4_T, "CD4_Naive")
 T_pathways_for_Nichenet$CD8_T = c(T_pathways_for_Nichenet$CD8_T, "CD8_Naive")
+
+
+```
+# Run GSEA with starCAT pathways
+## 3+ patients
+```{r}
+#| fig-height: 12
+#| fig-width: 15
+patients = c(3, 4)
+
+
+
+all_sig_interactions_df <- analyze_interaction_pathways(
+  liana_results = liana_result_CD45_lum_myo,
+  origin_cells = cancer_cells_to_include,
+  target_cells = immune_cells_to_include,
+  threshold = threshold, patients = patients,
+  seurat_object = acc_cancer_immune_caf,
+  ligand_target_matrix = ligand_target_matrix,
+  # pathways_by_cell = T_pathways_for_Nichenet,
+  geneset = starcat_geneset
+)
+
+p <- plot_all_sig_interactions(all_sig_interactions_df)
+print(p)
+
+patients_str = paste0(min(patients), "+")
+  svg_filename <- paste0("Lum-Myo_to_Tcells_pathways_", threshold,"_", patients_str, "_patients.svg")
+  svglite::svglite(file.path(params$data_out_dir, svg_filename),
+                   width = ceiling(ncol(p$data) * 3),
+                   height = max(3.64 * sqrt(nrow(p$data)) - 11, 7))
+  print(p)
+  dev.off()
+
+  compare_and_save_svg(svg_filename, new_svg_dir = params$data_out_dir)
+
+#write all_sig_interactions_df to csv
+write.csv(all_sig_interactions_df, file = file.path(params$data_out_dir, paste0("Lum-Myo_to_Tcells_pathways_", threshold,"_", patients_str, "_patients.csv")), row.names = FALSE)
+
+```
+
+
+
+## 2+ patients
+
+```{r}
+#| fig-height: 6
+#| fig-width: 5
+patients = c(2,3, 4)
+all_sig_interactions_df <- analyze_interaction_pathways(
+  liana_results = liana_result_CD45_lum_myo,
+  origin_cells = cancer_cells_to_include,
+  target_cells = immune_cells_to_include,
+  threshold = threshold, patients = patients,
+  seurat_object = acc_cancer_immune_caf,
+  ligand_target_matrix = ligand_target_matrix,
+  # pathways_by_cell = T_pathways_for_Nichenet,
+  geneset = starcat_geneset
+)
+
+p <- plot_all_sig_interactions(all_sig_interactions_df)
+#| fig-height: 6
+#| fig-width: 6
+print(p)
+
+patients_str = paste0(min(patients), "+")
+  svg_filename <- paste0("Lum-Myo_to_Tcells_pathways_", threshold,"_", patients_str, "_patients.svg")
+  svglite::svglite(file.path(params$data_out_dir, svg_filename),
+                   width = ceiling(ncol(p$data) * 3),
+                   height = max(3.64 * sqrt(nrow(p$data)) - 11, 7))
+  print(p)
+  dev.off()
+
+  compare_and_save_svg(svg_filename, new_svg_dir = params$data_out_dir)
+
+#write all_sig_interactions_df to csv
+write.csv(all_sig_interactions_df, file = file.path(params$data_out_dir, paste0("Lum-Myo_to_Tcells_pathways_", threshold,"_", patients_str, "_patients.csv")), row.names = FALSE)
+```
+
+
+
+
+
+# run GSEA with Reactome pathways
+
+```{r}
+library(dplyr)
+library(igraph)
+library(msigdbr)
+
+# 1. טעינת קובץ יחסי ההורה-ילד הרשמי של Reactome
+# הקובץ מכיל שתי עמודות: Parent ו-Child
+url <- "https://reactome.org/download/current/ReactomePathwaysRelation.txt"
+relations <- read.table(url, sep = "\t", stringsAsFactors = FALSE, col.names = c("parent", "child"))
+
+# סינון למסלולים הומניים בלבד (מזהי R-HSA)
+relations <- relations %>% filter(grepl("R-HSA", parent))
+
+# 2. בניית גרף היררכי מכוון (Directed Graph)
+reactome_graph <- graph_from_data_frame(relations, directed = TRUE)
+
+# 3. הגדרת צומת-העל (Top-level node) שמעניין אותך
+# R-HSA-168256 = Immune System
+# R-HSA-1280218 = adaptive immune system
+# R-HSA-162582 = Signal Transduction (אופציה נוספת שמעניינת לתקשורת תאית)
+root_node <- "R-HSA-9945266"
+
+# 4. שליפת כל צאצאי העץ (כל תתי-המסלולים עד קצה העץ)
+immune_descendants <- subcomponent(reactome_graph, root_node, mode = "out")
+immune_reactome_ids <- names(immune_descendants)
+
+```
+
+```{r}
+library(dplyr)
+library(msigdbr)
+
+reactome_genesets <- msigdbr(species = "Homo sapiens", collection = "C2", subcategory = "CP:REACTOME")
+
+immune_df <- reactome_genesets %>%
+  filter(gs_exact_source %in% immune_reactome_ids)
+immune_pathways <- split(x = immune_df$gene_symbol, f = immune_df$gs_name)
+print(paste("Found", length(immune_pathways), "unbiased immune pathways in Reactome."))
+
 ```
 
 ## 3+ patients
 ```{r}
 #| fig-height: 12
 #| fig-width: 15
-patients = c(3, 4)
-all_sig_interactions_df <- analyze_interaction_pathways(
-  liana_results = liana_result_CD45_lum_myo,
-  origin_cells = c("Luminal", "Myo"),
-  target_cells = c("CD4_T", "CD8_T", "gdT", "Treg"),
-  threshold = threshold, patients = patients,
-  seurat_object = acc_cancer_immune_caf,
-  ligand_target_matrix = ligand_target_matrix,
-  pathways_by_cell = T_pathways_for_Nichenet,
-  pathway_metadata = starCAT_pathways_top_genes,
-  n_top_genes = n_top_genes
-)
-
-p <- plot_all_sig_interactions(all_sig_interactions_df)
-print(p)
-```
-
-```{r}
-patients_str = paste0(min(patients), "+")
-  svg_filename <- paste0("Lum-Myo_to_Tcells_pathways_", threshold,"_", patients_str, "_patients.svg")
-  svglite::svglite(file.path(params$data_out_dir, svg_filename),
-                   width = ceiling(ncol(p$data) * 3),
-                   height = max(3.64 * sqrt(nrow(p$data)) - 11, 7))
-  print(p)
-  dev.off()
-
-  compare_and_save_svg(svg_filename, new_svg_dir = params$data_out_dir)
-```
-
-## 2+ patients
-
-```{r}
-#| fig-height: 12
-#| fig-width: 15
 patients = c(2,3, 4)
+
+
 all_sig_interactions_df <- analyze_interaction_pathways(
   liana_results = liana_result_CD45_lum_myo,
-  origin_cells = c("Luminal", "Myo"),
-  target_cells = c("CD4_T", "CD8_T", "gdT", "Treg"),
+  origin_cells = cancer_cells_to_include,
+  target_cells = immune_cells_to_include,
   threshold = threshold, patients = patients,
   seurat_object = acc_cancer_immune_caf,
   ligand_target_matrix = ligand_target_matrix,
-  pathways_by_cell = T_pathways_for_Nichenet,
-  pathway_metadata = starCAT_pathways_top_genes,
-  n_top_genes = n_top_genes
+  pathways_by_cell = NULL,
+  geneset = immune_pathways,
 )
 
 p <- plot_all_sig_interactions(all_sig_interactions_df)
 print(p)
-```
-```{r}
+
 patients_str = paste0(min(patients), "+")
-  svg_filename <- paste0("Lum-Myo_to_Tcells_pathways_", threshold,"_", patients_str, "_patients.svg")
+  svg_filename <- paste0("Lum-Myo_to_Tcells_reactome_", threshold,"_", patients_str, "_patients.svg")
   svglite::svglite(file.path(params$data_out_dir, svg_filename),
                    width = ceiling(ncol(p$data) * 3),
                    height = max(3.64 * sqrt(nrow(p$data)) - 11, 7))
   print(p)
   dev.off()
 
-  compare_and_save_svg(svg_filename, new_svg_dir = params$data_out_dir)
+
+patients = c(3, 4)
+
+
+all_sig_interactions_df <- analyze_interaction_pathways(
+  liana_results = liana_result_CD45_lum_myo,
+  origin_cells = cancer_cells_to_include,
+  target_cells = immune_cells_to_include,
+  threshold = threshold, patients = patients,
+  seurat_object = acc_cancer_immune_caf,
+  ligand_target_matrix = ligand_target_matrix,
+  pathways_by_cell = NULL,
+  geneset = immune_pathways,
+)
+
+p <- plot_all_sig_interactions(all_sig_interactions_df)
+print(p)
+
+patients_str = paste0(min(patients), "+")
+  svg_filename <- paste0("Lum-Myo_to_Tcells_reactome_", threshold,"_", patients_str, "_patients.svg")
+  svglite::svglite(file.path(params$data_out_dir, svg_filename),
+                   width = ceiling(ncol(p$data) * 3),
+                   height = max(3.64 * sqrt(nrow(p$data)) - 11, 7))
+  print(p)
+  dev.off()
+
+
 ```
+# C7- naive vs activated pathways
+
+```{r}
+immuno_genesets <- msigdbr(species = "Homo sapiens", category = "C7")
+#search for
+naive_activation_df <- immuno_genesets %>%
+  filter(grepl("NAIVE_VS_ACTIVATED_CD|NAIVE_VS_EFF_CD|NAIVE_VS_MEMORY_CD", gs_name)) %>%
+  select(gs_name, gene_symbol)
+
+unique_sigs <- unique(naive_activation_df$gs_name)
+print(unique_sigs)
+
+naive_activation_signatures =  split(x = naive_activation_df$gene_symbol, f = naive_activation_df$gs_name)
+```
+
+## 3+ patients
+```{r}
+#| fig-height: 9
+#| fig-width: 8
+patients = c(2,3, 4)
+
+
+all_sig_interactions_df <- analyze_interaction_pathways(
+  liana_results = liana_result_CD45_lum_myo,
+  origin_cells = cancer_cells_to_include,
+  target_cells = immune_cells_to_include,
+  threshold = threshold, patients = patients,
+  seurat_object = acc_cancer_immune_caf,
+  ligand_target_matrix = ligand_target_matrix,
+  pathways_by_cell = NULL,
+  geneset = naive_activation_signatures,
+)
+
+p <- plot_all_sig_interactions(all_sig_interactions_df)
+print(p)
+
+patients_str = paste0(min(patients), "+")
+  svg_filename <- paste0("Lum-Myo_to_Tcells_naive_act_pathways_", threshold,"_", patients_str, "_patients.svg")
+  svglite::svglite(file.path(params$data_out_dir, svg_filename),
+                   width = ceiling(ncol(p$data) * 3),
+                   height = max(3.64 * sqrt(nrow(p$data)) - 11, 7))
+  print(p)
+  dev.off()
+
+
+patients = c(3, 4)
+
+
+all_sig_interactions_df <- analyze_interaction_pathways(
+  liana_results = liana_result_CD45_lum_myo,
+  origin_cells = cancer_cells_to_include,
+  target_cells = immune_cells_to_include,
+  threshold = threshold, patients = patients,
+  seurat_object = acc_cancer_immune_caf,
+  ligand_target_matrix = ligand_target_matrix,
+  pathways_by_cell = NULL,
+  geneset = naive_activation_signatures,
+)
+
+p <- plot_all_sig_interactions(all_sig_interactions_df)
+print(p)
+
+patients_str = paste0(min(patients), "+")
+  svg_filename <- paste0("Lum-Myo_to_Tcells_naive_act_pathways_", threshold,"_", patients_str, "_patients.svg")
+  svglite::svglite(file.path(params$data_out_dir, svg_filename),
+                   width = ceiling(ncol(p$data) * 3),
+                   height = max(3.64 * sqrt(nrow(p$data)) - 11, 7))
+  print(p)
+  dev.off()
+
+```
+
 # Go pathways
 
 ```{r}

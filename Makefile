@@ -2,14 +2,14 @@
 
 .Phony: all
 
-all: pre_process cell_types immune_identity starCAT Tcells_types caf_subtypes umap_clustering cancer_pathway_analysis run_liana_per_patient Liana_per_patient pathways_for_Nichenet nichenet_analysis Nichenet_targets_GSEA TPM_for_signature_matrix create_dou_matrix create_ferrarotto_matrix create_brayer_matrix Dou_CIBERSORT_analysis ferrarotto_CIBERSORT_analysis Brayer_CIBERSORT_analysis Comm_analysis_bulk sipsic_run sipsic_analysis
+all: pre_process cell_types immune_identity starCAT Tcells_types caf_subtypes umap_clustering cancer_pathway_analysis run_liana_per_patient Liana_per_patient pathways_for_Nichenet nichenet_analysis Nichenet_targets_GSEA TPM_for_signature_matrix create_dou_matrix create_ferrarotto_matrix create_brayer_matrix Dou_CIBERSORT_analysis ferrarotto_CIBERSORT_analysis Brayer_CIBERSORT_analysis Comm_analysis_bulk Survival_analysis sipsic_run sipsic_analysis
 
 # ============
 # pre_process
 # ============
 
 pre_process: ./Reports/01_pre-process/01_pre-process.html ./Reports/01_pre-process/acc_immune.RDS
-	@echo  $@ is up to date
+	@echo  $@ is up to date 
 
 ./Reports/01_pre-process/01_pre-process.html ./Reports/01_pre-process/acc_immune.RDS &: ./Notebooks/01_pre-process.Rmd ./input_data/raw_counts/Feb24_1 ./input_data/raw_counts/Feb24_2 ./input_data/raw_counts/SN0276364 ./input_data/raw_counts/SN0276892 ./input_data/raw_counts/GSE210171_acc_scrnaseq_counts.txt
 	Rscript render.R pre_process
@@ -19,7 +19,7 @@ pre_process: ./Reports/01_pre-process/01_pre-process.html ./Reports/01_pre-proce
 # ============
 
 cell_types: ./Reports/02_cell_type_assignment/02_cell_type_assignment.html ./Reports/02_cell_type_assignment/immune.RDS ./Reports/02_cell_type_assignment/cancer.RDS ./Reports/02_cell_type_assignment/acc_cancer_pri.RDS ./Reports/02_cell_type_assignment/caf.RDS
-	@echo  $@ is up to date
+	@echo  $@ is up to date 
 
 ./Reports/02_cell_type_assignment/02_cell_type_assignment.html ./Reports/02_cell_type_assignment/immune.RDS ./Reports/02_cell_type_assignment/cancer.RDS ./Reports/02_cell_type_assignment/acc_cancer_pri.RDS ./Reports/02_cell_type_assignment/caf.RDS &: ./Notebooks/02_cell_type_assignment.Rmd ./Reports/01_pre-process/acc_immune.RDS input_data/oncotarget-05-12528-s001_acchigh.txt
 	Rscript render.R cell_types
@@ -29,7 +29,7 @@ cell_types: ./Reports/02_cell_type_assignment/02_cell_type_assignment.html ./Rep
 # ============
 
 immune_identity: ./Reports/03_immune_cell_types/03_immune_cell_types.html ./Reports/03_immune_cell_types/immune_with_cell_types.RDS ./Reports/03_immune_cell_types/starCAT_input/matrix.mtx.gz ./Reports/03_immune_cell_types/starCAT_input/barcodes.tsv.gz ./Reports/03_immune_cell_types/starCAT_input/features.tsv.gz
-	@echo  $@ is up to date
+	@echo  $@ is up to date 
 
 ./Reports/03_immune_cell_types/03_immune_cell_types.html ./Reports/03_immune_cell_types/immune_with_cell_types.RDS ./Reports/03_immune_cell_types/starCAT_input/matrix.mtx.gz ./Reports/03_immune_cell_types/starCAT_input/barcodes.tsv.gz ./Reports/03_immune_cell_types/starCAT_input/features.tsv.gz &: ./Notebooks/03_immune_cell_types.Rmd ./Reports/02_cell_type_assignment/immune.RDS
 	Rscript render.R immune_identity
@@ -39,7 +39,7 @@ immune_identity: ./Reports/03_immune_cell_types/03_immune_cell_types.html ./Repo
 # ============
 
 starCAT: ./Reports/04_starCAT/ACC.rf_usage_normalized.txt ./Reports/04_starCAT/ACC.scores.txt
-	@echo  $@ is up to date
+	@echo  $@ is up to date 
 
 ./Reports/04_starCAT/ACC.rf_usage_normalized.txt ./Reports/04_starCAT/ACC.scores.txt: ./Reports/03_immune_cell_types/starCAT_input/matrix.mtx.gz
 	mkdir -p ./Reports/04_starCAT; starcat --reference "TCAT.V1" --counts ./Reports/03_immune_cell_types/starCAT_input/matrix.mtx.gz --output-dir ./Reports/04_starCAT --name "ACC"
@@ -49,7 +49,7 @@ starCAT: ./Reports/04_starCAT/ACC.rf_usage_normalized.txt ./Reports/04_starCAT/A
 # ============
 
 Tcells_types: ./Reports/04_Tcells_types/04_Tcells_types.html ./Reports/04_Tcells_types/t_cells_labled.RDS ./Reports/04_Tcells_types/immune_with_Tcells.RDS
-	@echo  $@ is up to date
+	@echo  $@ is up to date 
 
 ./Reports/04_Tcells_types/04_Tcells_types.html ./Reports/04_Tcells_types/t_cells_labled.RDS ./Reports/04_Tcells_types/immune_with_Tcells.RDS &: ./Notebooks/04_Tcells_types.Rmd ./Reports/03_immune_cell_types/immune_with_cell_types.RDS ./Reports/04_starCAT/ACC.rf_usage_normalized.txt ./Reports/04_starCAT/ACC.scores.txt
 	Rscript render.R Tcells_types
@@ -59,7 +59,7 @@ Tcells_types: ./Reports/04_Tcells_types/04_Tcells_types.html ./Reports/04_Tcells
 # ============
 
 caf_subtypes: ./Reports/CAF_subtypes/CAF_subtypes.html ./Reports/CAF_subtypes/caf_with_subtypes.RDS
-	@echo  $@ is up to date
+	@echo  $@ is up to date 
 
 ./Reports/CAF_subtypes/CAF_subtypes.html ./Reports/CAF_subtypes/caf_with_subtypes.RDS &: ./Notebooks/CAF_subtypes.Rmd ./Reports/02_cell_type_assignment/caf.RDS ./input_data/NIHMS1678398-supplement-2.xlsx
 	Rscript render.R caf_subtypes
@@ -69,7 +69,7 @@ caf_subtypes: ./Reports/CAF_subtypes/CAF_subtypes.html ./Reports/CAF_subtypes/ca
 # ============
 
 umap_clustering: ./Reports/05_UMAP_clustering/05_UMAP_clustering.html
-	@echo  $@ is up to date
+	@echo  $@ is up to date 
 
 ./Reports/05_UMAP_clustering/05_UMAP_clustering.html &: ./Notebooks/05_UMAP_clustering.Rmd ./Reports/01_pre-process/acc_immune.RDS ./Reports/02_cell_type_assignment/acc_cancer_pri.RDS ./Reports/03_immune_cell_types/immune_with_cell_types.RDS ./Reports/04_Tcells_types/t_cells_labled.RDS ./Reports/CAF_subtypes/caf_with_subtypes.RDS ./input_data/NIHMS1678398-supplement-2.xlsx
 	Rscript render.R umap_clustering
@@ -79,7 +79,7 @@ umap_clustering: ./Reports/05_UMAP_clustering/05_UMAP_clustering.html
 # ============
 
 cancer_pathway_analysis: ./Reports/06_immune_markers_ACC/06_immune_markers_ACC.html ./Reports/06_immune_markers_ACC/signif_deg.rds
-	@echo  $@ is up to date
+	@echo  $@ is up to date 
 
 ./Reports/06_immune_markers_ACC/06_immune_markers_ACC.html ./Reports/06_immune_markers_ACC/signif_deg.rds &: ./Notebooks/06_immune_markers_ACC.Rmd ./Reports/02_cell_type_assignment/acc_cancer_pri.RDS input_data/all_direct_and_indirect_annotations_to_GO_immune_system_process.txt
 	Rscript render.R cancer_pathway_analysis
@@ -89,7 +89,7 @@ cancer_pathway_analysis: ./Reports/06_immune_markers_ACC/06_immune_markers_ACC.h
 # ============
 
 run_liana_per_patient: Reports/ccc_analysis/run_LIANA_per_patient/keep_naive/liana_result_CD45-caf.RDS Reports/ccc_analysis/run_LIANA_per_patient/keep_naive/liana_result_CD45-cancer.RDS Reports/ccc_analysis/run_LIANA_per_patient/keep_naive/liana_result_CD45-lum-myo.RDS Reports/ccc_analysis/run_LIANA_per_patient/keep_naive/run_LIANA_per_patient.html
-	@echo  $@ is up to date
+	@echo  $@ is up to date with params: debug = FALSE, split_naive = FALSE
 
 Reports/ccc_analysis/run_LIANA_per_patient/keep_naive/liana_result_CD45-caf.RDS Reports/ccc_analysis/run_LIANA_per_patient/keep_naive/liana_result_CD45-cancer.RDS Reports/ccc_analysis/run_LIANA_per_patient/keep_naive/liana_result_CD45-lum-myo.RDS Reports/ccc_analysis/run_LIANA_per_patient/keep_naive/run_LIANA_per_patient.html &: ./Notebooks/ccc_analysis/run_LIANA_per_patient.Rmd ./Reports/04_Tcells_types/t_cells_labled.RDS ./Reports/02_cell_type_assignment/cancer.RDS ./Reports/CAF_subtypes/caf_with_subtypes.RDS ./Reports/03_immune_cell_types/immune_with_cell_types.RDS
 	Rscript render.R run_liana_per_patient
@@ -99,7 +99,7 @@ Reports/ccc_analysis/run_LIANA_per_patient/keep_naive/liana_result_CD45-caf.RDS 
 # ============
 
 Liana_per_patient: Reports/ccc_analysis/Liana_per_patient/keep_naive/Liana_per_patient0.01.html
-	@echo  $@ is up to date
+	@echo  $@ is up to date with params: debug = FALSE, threshold = 0.01, split_naive = FALSE
 
 Reports/ccc_analysis/Liana_per_patient/keep_naive/Liana_per_patient0.01.html &: ./Notebooks/ccc_analysis/LIANA_per_patient.Rmd Reports/ccc_analysis/run_LIANA_per_patient/keep_naive/liana_result_CD45-caf.RDS Reports/ccc_analysis/run_LIANA_per_patient/keep_naive/liana_result_CD45-cancer.RDS Reports/ccc_analysis/run_LIANA_per_patient/keep_naive/liana_result_CD45-lum-myo.RDS
 	Rscript render.R Liana_per_patient
@@ -109,7 +109,7 @@ Reports/ccc_analysis/Liana_per_patient/keep_naive/Liana_per_patient0.01.html &: 
 # ============
 
 pathways_for_Nichenet: Reports/ccc_analysis/pathways_for_Nichenet/pathways_for_Nichenet.html Reports/ccc_analysis/pathways_for_Nichenet/T_pathways_for_Nichenet.RDS
-	@echo  $@ is up to date
+	@echo  $@ is up to date 
 
 Reports/ccc_analysis/pathways_for_Nichenet/pathways_for_Nichenet.html Reports/ccc_analysis/pathways_for_Nichenet/T_pathways_for_Nichenet.RDS &: ./Notebooks/ccc_analysis/pathways_for_Nichenet.Rmd ./Reports/04_Tcells_types/t_cells_labled.RDS ./Reports/CAF_subtypes/caf_with_subtypes.RDS input_data/starCAT/starCAT_PMC11092745_Supplementary_Tables.xlsx
 	Rscript render.R pathways_for_Nichenet
@@ -119,7 +119,7 @@ Reports/ccc_analysis/pathways_for_Nichenet/pathways_for_Nichenet.html Reports/cc
 # ============
 
 nichenet_analysis: Reports/ccc_analysis/Nichenet_analysis/Nichenet.html Reports/ccc_analysis/Nichenet_analysis/all_significant_interactions.RDS
-	@echo  $@ is up to date
+	@echo  $@ is up to date 
 
 Reports/ccc_analysis/Nichenet_analysis/Nichenet.html Reports/ccc_analysis/Nichenet_analysis/all_significant_interactions.RDS &: ./Notebooks/ccc_analysis/Nichenet.Rmd ./Reports/04_Tcells_types/t_cells_labled.RDS ./Reports/02_cell_type_assignment/cancer.RDS ./Reports/CAF_subtypes/caf_with_subtypes.RDS ./Reports/03_immune_cell_types/immune_with_cell_types.RDS Reports/ccc_analysis/run_LIANA_per_patient/keep_naive/liana_result_CD45-caf.RDS Reports/ccc_analysis/run_LIANA_per_patient/keep_naive/liana_result_CD45-cancer.RDS Reports/ccc_analysis/run_LIANA_per_patient/keep_naive/liana_result_CD45-lum-myo.RDS Reports/ccc_analysis/pathways_for_Nichenet/T_pathways_for_Nichenet.RDS input_data/starCAT/starCAT_PMC11092745_Supplementary_Tables.xlsx
 	Rscript render.R nichenet_analysis
@@ -128,10 +128,10 @@ Reports/ccc_analysis/Nichenet_analysis/Nichenet.html Reports/ccc_analysis/Nichen
 # Nichenet_targets_GSEA
 # ============
 
-Nichenet_targets_GSEA: Reports/ccc_analysis/Nichenet_targets_GSEA/0.001/Nichenet_targets_GSEA.html
-	@echo  $@ is up to date
+Nichenet_targets_GSEA: Reports/ccc_analysis/Nichenet_targets_GSEA/0.01_keep_naive/Nichenet_targets_GSEA.html
+	@echo  $@ is up to date with params: threshold = 0.01, split_naive = FALSE
 
-Reports/ccc_analysis/Nichenet_targets_GSEA/0.001/Nichenet_targets_GSEA.html &: ./Notebooks/ccc_analysis/Nichenet_targets_GSEA.Rmd ./Reports/02_cell_type_assignment/acc_cancer_pri.RDS ./Reports/02_cell_type_assignment/caf.RDS ./Reports/04_Tcells_types/t_cells_labled.RDS ./Reports/CAF_subtypes/caf_with_subtypes.RDS ./Reports/03_immune_cell_types/immune_with_cell_types.RDS Reports/ccc_analysis/run_LIANA_per_patient/keep_naive/liana_result_CD45-lum-myo.RDS Reports/ccc_analysis/pathways_for_Nichenet/T_pathways_for_Nichenet.RDS input_data/starCAT/starCAT_PMC11092745_Supplementary_Tables.xlsx
+Reports/ccc_analysis/Nichenet_targets_GSEA/0.01_keep_naive/Nichenet_targets_GSEA.html &: ./Notebooks/ccc_analysis/Nichenet_targets_GSEA.Rmd ./Reports/02_cell_type_assignment/acc_cancer_pri.RDS ./Reports/02_cell_type_assignment/caf.RDS ./Reports/04_Tcells_types/t_cells_labled.RDS ./Reports/CAF_subtypes/caf_with_subtypes.RDS ./Reports/03_immune_cell_types/immune_with_cell_types.RDS Reports/ccc_analysis/run_LIANA_per_patient/keep_naive/liana_result_CD45-lum-myo.RDS Reports/ccc_analysis/pathways_for_Nichenet/T_pathways_for_Nichenet.RDS input_data/starCAT/starCAT_PMC11092745_Supplementary_Tables.xlsx
 	Rscript render.R Nichenet_targets_GSEA
 
 # ============
@@ -139,7 +139,7 @@ Reports/ccc_analysis/Nichenet_targets_GSEA/0.001/Nichenet_targets_GSEA.html &: .
 # ============
 
 TPM_for_signature_matrix: Reports/Bulk_deconv/Creat_TPM_matrix_for_csx_signature/Creat_TPM_matrix_for_csx_signature.html Reports/Bulk_deconv/Creat_TPM_matrix_for_csx_signature/acc_tpm_for_signature_matrix.txt
-	@echo  $@ is up to date
+	@echo  $@ is up to date with params: only_primary = FALSE, top_var_genes = 10000
 
 Reports/Bulk_deconv/Creat_TPM_matrix_for_csx_signature/Creat_TPM_matrix_for_csx_signature.html Reports/Bulk_deconv/Creat_TPM_matrix_for_csx_signature/acc_tpm_for_signature_matrix.txt &: ./Notebooks/Bulk_deconv/Creat_TPM_matrix_for_csx_signature.Rmd ./Reports/04_Tcells_types/t_cells_labled.RDS ./Reports/02_cell_type_assignment/cancer.RDS ./Reports/02_cell_type_assignment/caf.RDS ./Reports/03_immune_cell_types/immune_with_cell_types.RDS
 	Rscript render.R TPM_for_signature_matrix
@@ -149,7 +149,7 @@ Reports/Bulk_deconv/Creat_TPM_matrix_for_csx_signature/Creat_TPM_matrix_for_csx_
 # ============
 
 create_dou_matrix: Reports/Bulk_deconv/create_dou_matrix/dou_exprs.tsv Reports/Bulk_deconv/create_dou_matrix/create_dou_matrix.html
-	@echo  $@ is up to date
+	@echo  $@ is up to date 
 
 Reports/Bulk_deconv/create_dou_matrix/dou_exprs.tsv Reports/Bulk_deconv/create_dou_matrix/create_dou_matrix.html &: ./Notebooks/Bulk_deconv/create_dou_matrix.Rmd input_data/Dou_PMC8450584/PMC8450584_DataSheet_1.xlsx input_data/Dou_PMC8450584/PMC8450584_DataSheet_2.xlsx
 	Rscript render.R create_dou_matrix
@@ -159,7 +159,7 @@ Reports/Bulk_deconv/create_dou_matrix/dou_exprs.tsv Reports/Bulk_deconv/create_d
 # ============
 
 create_ferrarotto_matrix: Reports/Bulk_deconv/create_ferrarotto_matrix/ferrarotto_TPM.tsv Reports/Bulk_deconv/create_ferrarotto_matrix/Create_ferrarotto_TPM.html
-	@echo  $@ is up to date
+	@echo  $@ is up to date 
 
 Reports/Bulk_deconv/create_ferrarotto_matrix/ferrarotto_TPM.tsv Reports/Bulk_deconv/create_ferrarotto_matrix/Create_ferrarotto_TPM.html &: ./Notebooks/Bulk_deconv/Create_Ferrarotto_TPM.Rmd input_data/Ferrarotto_PMC7854509/ACC_RNAseq_PMC7854509_RPKM.xlsx
 	Rscript render.R create_ferrarotto_matrix
@@ -169,7 +169,7 @@ Reports/Bulk_deconv/create_ferrarotto_matrix/ferrarotto_TPM.tsv Reports/Bulk_dec
 # ============
 
 create_brayer_matrix: Reports/Bulk_deconv/create_brayer_matrix/brayer_TPM.tsv Reports/Bulk_deconv/create_brayer_matrix/Create_brayer_TPM.html
-	@echo  $@ is up to date
+	@echo  $@ is up to date 
 
 Reports/Bulk_deconv/create_brayer_matrix/brayer_TPM.tsv Reports/Bulk_deconv/create_brayer_matrix/Create_brayer_TPM.html &: ./Notebooks/Bulk_deconv/create_Brayer_TPM.Rmd input_data/Brayer_PMC10000625_and_PMC5800907/TX_All_Genes_Data.csv input_data/Brayer_PMC10000625_and_PMC5800907/DK_All_Genes_Data.csv
 	Rscript render.R create_brayer_matrix
@@ -179,7 +179,7 @@ Reports/Bulk_deconv/create_brayer_matrix/brayer_TPM.tsv Reports/Bulk_deconv/crea
 # ============
 
 Dou_CIBERSORT_analysis: Reports/Bulk_deconv/Dou_CIBERSORT_analsyis/Dou_CIBERSORT_analsyis.html
-	@echo  $@ is up to date
+	@echo  $@ is up to date 
 
 Reports/Bulk_deconv/Dou_CIBERSORT_analsyis/Dou_CIBERSORT_analsyis.html &: ./Notebooks/Bulk_deconv/Dou_CIBERSORT_analsyis.Rmd input_data/Dou_PMC8450584/PMC8450584_DataSheet_2.xlsx input_data/CIBERSORTx_result/CIBERSORTx_Job16_Results_dou_all_withMarkers_relative_bBatchcorrect_2025_09_29.csv
 	Rscript render.R Dou_CIBERSORT_analysis
@@ -189,7 +189,7 @@ Reports/Bulk_deconv/Dou_CIBERSORT_analsyis/Dou_CIBERSORT_analsyis.html &: ./Note
 # ============
 
 ferrarotto_CIBERSORT_analysis: Reports/Bulk_deconv/ferrarotto_CIBERSORT_analysis/ferrarotto_CIBERSORT_analysis.html
-	@echo  $@ is up to date
+	@echo  $@ is up to date 
 
 Reports/Bulk_deconv/ferrarotto_CIBERSORT_analysis/ferrarotto_CIBERSORT_analysis.html &: ./Notebooks/Bulk_deconv/Ferrarotto_CIBERSORT_analsyis.Rmd input_data/CIBERSORTx_result/CIBERSORTx_Job25_Results_ferrarotto_withMarkers_relative_bBatchcorrect.csv input_data/Ferrarotto_PMC7854509/CCR2020_Clinical.xlsx
 	Rscript render.R ferrarotto_CIBERSORT_analysis
@@ -199,7 +199,7 @@ Reports/Bulk_deconv/ferrarotto_CIBERSORT_analysis/ferrarotto_CIBERSORT_analysis.
 # ============
 
 Brayer_CIBERSORT_analysis: Reports/Bulk_deconv/brayer_CIBERSORT_analsyis/brayer_CIBERSORT_analsyis.html
-	@echo  $@ is up to date
+	@echo  $@ is up to date 
 
 Reports/Bulk_deconv/brayer_CIBERSORT_analsyis/brayer_CIBERSORT_analsyis.html &: ./Notebooks/Bulk_deconv/Brayer_CIBERSORT_analysis.Rmd ./input_data/Brayer_PMC10000625_and_PMC5800907/DK_sample_data_table2.csv ./input_data/Brayer_PMC10000625_and_PMC5800907/TX_sample_data_table2.csv input_data/CIBERSORTx_result/CIBERSORTx_Job31_Results.csv
 	Rscript render.R Brayer_CIBERSORT_analysis
@@ -209,17 +209,27 @@ Reports/Bulk_deconv/brayer_CIBERSORT_analsyis/brayer_CIBERSORT_analsyis.html &: 
 # ============
 
 Comm_analysis_bulk: Reports/Bulk_deconv/Comm_analysis_bulk/Comm_analysis_bulk.html
-	@echo  $@ is up to date
+	@echo  $@ is up to date 
 
-Reports/Bulk_deconv/Comm_analysis_bulk/Comm_analysis_bulk.html &: ./Notebooks/Bulk_deconv/Comm_analysis_bulk.Rmd input_data/CIBERSORTx_result/CIBERSORTx_Job16_Results_dou_all_withMarkers_relative_bBatchcorrect_2025_09_29.csv input_data/CIBERSORTx_result/CIBERSORTx_Job25_Results_ferrarotto_withMarkers_relative_bBatchcorrect.csv input_data/CIBERSORTx_result/CIBERSORTx_Job31_Results.csv Reports/Bulk_deconv/create_dou_matrix/dou_exprs.tsv Reports/Bulk_deconv/create_ferrarotto_matrix/ferrarotto_TPM.tsv Reports/Bulk_deconv/create_brayer_matrix/brayer_TPM.tsv Reports/ccc_analysis/run_LIANA_per_patient/keep_naive/liana_result_CD45-lum-myo.RDS
+Reports/Bulk_deconv/Comm_analysis_bulk/Comm_analysis_bulk.html &: ./Notebooks/Bulk_deconv/Comm_analysis_bulk.qmd input_data/CIBERSORTx_result/CIBERSORTx_Job16_Results_dou_all_withMarkers_relative_bBatchcorrect_2025_09_29.csv input_data/CIBERSORTx_result/CIBERSORTx_Job25_Results_ferrarotto_withMarkers_relative_bBatchcorrect.csv input_data/CIBERSORTx_result/CIBERSORTx_Job31_Results.csv Reports/Bulk_deconv/create_dou_matrix/dou_exprs.tsv Reports/Bulk_deconv/create_ferrarotto_matrix/ferrarotto_TPM.tsv Reports/Bulk_deconv/create_brayer_matrix/brayer_TPM.tsv Reports/ccc_analysis/run_LIANA_per_patient/keep_naive/liana_result_CD45-lum-myo.RDS
 	Rscript render.R Comm_analysis_bulk
+
+# ============
+# Survival_analysis
+# ============
+
+Survival_analysis: Reports/Bulk_deconv/Survival/Survival.html
+	@echo  $@ is up to date 
+
+Reports/Bulk_deconv/Survival/Survival.html &: ./Notebooks/Bulk_deconv/Survival.Qmd Reports/Bulk_deconv/create_dou_matrix/dou_exprs.tsv Reports/Bulk_deconv/create_ferrarotto_matrix/ferrarotto_TPM.tsv Reports/Bulk_deconv/create_brayer_matrix/brayer_TPM.tsv input_data/Dou_PMC8450584/PMC8450584_DataSheet_2.xlsx input_data/Ferrarotto_PMC7854509/CCR2020_Clinical.xlsx ./input_data/Brayer_PMC10000625_and_PMC5800907/DK_sample_data_table2.csv ./input_data/Brayer_PMC10000625_and_PMC5800907/TX_sample_data_table2.csv
+	Rscript render.R Survival_analysis
 
 # ============
 # sipsic_run
 # ============
 
 sipsic_run: Reports/Pathway_analysis/09_sipsic_run/09_sipsic_run.html Reports/Pathway_analysis/09_sipsic_run/sipsic_matrix.RDS
-	@echo  $@ is up to date
+	@echo  $@ is up to date 
 
 Reports/Pathway_analysis/09_sipsic_run/09_sipsic_run.html Reports/Pathway_analysis/09_sipsic_run/sipsic_matrix.RDS &: ./Notebooks/Pathway_analysis/09_sipsic_run.Rmd ./Reports/02_cell_type_assignment/acc_cancer_pri.RDS ./input_data/h.all.v2025.1.Hs.symbols.gmt
 	Rscript render.R sipsic_run
@@ -229,7 +239,7 @@ Reports/Pathway_analysis/09_sipsic_run/09_sipsic_run.html Reports/Pathway_analys
 # ============
 
 sipsic_analysis: Reports/Pathway_analysis/10_sipsic_analysis/10_sipsic_analysis.html
-	@echo  $@ is up to date
+	@echo  $@ is up to date 
 
 Reports/Pathway_analysis/10_sipsic_analysis/10_sipsic_analysis.html &: ./Notebooks/Pathway_analysis/10_sipsic_analysis.qmd ./Reports/02_cell_type_assignment/acc_cancer_pri.RDS Reports/Pathway_analysis/09_sipsic_run/sipsic_matrix.RDS
 	Rscript render.R sipsic_analysis

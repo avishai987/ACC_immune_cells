@@ -2839,18 +2839,19 @@ border-radius: 0px;
 
 <h1 class="title toc-ignore">Run LIANA</h1>
 <h4 class="author">Avishai Wizel</h4>
-<h4 class="date">2026-08-20 12:35:33.773424</h4>
+<h4 class="date">2026-10-28 12:55:30.445389</h4>
 
 </div>
 
 
 <pre class="r"><code>library(tidyverse)</code></pre>
-<pre><code>## ── Attaching core tidyverse packages ─────────────────────────────────────────────────────────── tidyverse 2.0.0 ──
+<pre><code>## ── Attaching core tidyverse packages ────────────────────────────────────────────────────────────────────────────────────────────────────────────────── tidyverse 2.0.0 ──
 ## ✔ dplyr     1.1.4     ✔ readr     2.1.5
 ## ✔ forcats   1.0.0     ✔ stringr   1.5.2
-## ✔ lubridate 1.9.4     ✔ tibble    3.3.0
-## ✔ purrr     1.1.0     ✔ tidyr     1.3.1
-## ── Conflicts ───────────────────────────────────────────────────────────────────────────── tidyverse_conflicts() ──
+## ✔ ggplot2   3.5.2     ✔ tibble    3.3.0
+## ✔ lubridate 1.9.4     ✔ tidyr     1.3.1
+## ✔ purrr     1.1.0     
+## ── Conflicts ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── tidyverse_conflicts() ──
 ## ✖ lubridate::%--%()      masks igraph::%--%()
 ## ✖ dplyr::as_data_frame() masks tibble::as_data_frame(), igraph::as_data_frame()
 ## ✖ purrr::compose()       masks igraph::compose()
@@ -2888,10 +2889,18 @@ print(params)</code></pre>
 <pre><code>## $debug
 ## [1] FALSE
 ## 
+## $split_naive
+## [1] FALSE
+## 
 ## $data_out_dir
-## [1] &quot;Reports/ccc_analysis/run_LIANA_per_patient/&quot;</code></pre>
-<pre class="r"><code>source(&quot;./pipe.R&quot;)
-input = pipeline$run_liana_per_patient$input
+## [1] &quot;Reports/ccc_analysis/run_LIANA_per_patient/keep_naive/&quot;</code></pre>
+<pre class="r"><code>source(&quot;./pipe.R&quot;)</code></pre>
+<pre><code>## קובץ pipeline_interactive.html נוצר בהצלחה!</code></pre>
+<pre><code>## Warning in rm(list = c(&quot;from_nodes&quot;, &quot;to_nodes&quot;, &quot;file_to_step&quot;, &quot;raw_rules&quot;, :
+## object &#39;pipeline_graph&#39; not found</code></pre>
+<pre><code>## Warning in rm(list = c(&quot;from_nodes&quot;, &quot;to_nodes&quot;, &quot;file_to_step&quot;, &quot;raw_rules&quot;, :
+## object &#39;g&#39; not found</code></pre>
+<pre class="r"><code>input = pipeline$run_liana_per_patient$input
 output = pipeline$run_liana_per_patient$output</code></pre>
 <pre class="r"><code>acc_cancer_cells = readRDS(input$cancer)
 acc_caf_cells =  readRDS(input$caf_with_subtypes)
@@ -2986,14 +2995,26 @@ run_LIANA_per_patient &lt;- function(data, cell_types_to_include, debug = FALSE)
 <div id="aggregate-t-cells-for-only-cd4-cd8-tregs-and-gamma-delta-t-cells" class="section level1" number="3">
 <h1><span class="header-section-number">3</span> aggregate T cells for
 only CD4, CD8, Tregs, and gamma delta T cells</h1>
-<pre class="r"><code># aggregate T cells for only CD4, CD8, Tregs, and gamma delta T cells
+<pre class="r"><code># aggregate T cells for  CD4, CD8, Tregs, and gamma delta T cells
+# if params$split_naive is TRUE, then we will aggregate all CD4 and CD8 T cells into one category each, otherwise we will keep naive and activated CD4 and CD8 T cells separate.
 # change the cell_type column to reflect this aggregation
-acc_cancer_immune_caf$cell_type &lt;- case_match(
+
+if(!params$split_naive){
+  acc_cancer_immune_caf$cell_type &lt;- case_match(
   acc_cancer_immune_caf$cell_type,
   c(&quot;CD4_EM&quot;, &quot;CD4_CM&quot;, &quot;CD4_Naive&quot;) ~ &quot;CD4_T&quot;,
   c(&quot;CD8_CM&quot;, &quot;CD8_Naive&quot;, &quot;CD8_TEMRA&quot;, &quot;CD8_EM&quot;) ~ &quot;CD8_T&quot;,
   .default = as.character(acc_cancer_immune_caf$cell_type)
-)
+  ) 
+} else {
+  acc_cancer_immune_caf$cell_type &lt;- case_match(
+    acc_cancer_immune_caf$cell_type,
+    c(&quot;CD4_EM&quot;, &quot;CD4_CM&quot;) ~ &quot;CD4_activated&quot;,
+    c(&quot;CD8_CM&quot;, &quot;CD8_TEMRA&quot;, &quot;CD8_EM&quot;) ~ &quot;CD8_activated&quot;,
+     c(&quot;CD8_Naive&quot;,&quot;CD4_Naive&quot;) ~ &quot;T_Naive&quot;,
+    .default = as.character(acc_cancer_immune_caf$cell_type)
+  ) 
+}
 Idents(acc_cancer_immune_caf) &lt;- &quot;cell_type&quot;
 table(acc_cancer_immune_caf@active.ident)</code></pre>
 <pre><code>## 
@@ -3011,7 +3032,11 @@ table(acc_cancer_immune_caf@active.ident)</code></pre>
 <div id="set-cell-types-to-include-for-liana-run" class="section level1" number="4">
 <h1><span class="header-section-number">4</span> Set cell types to
 include for LIANA run</h1>
-<pre class="r"><code>immune_cells_to_include = c(&quot;CD4_T&quot;, &quot;CD8_T&quot;, &quot;gdT&quot;, &quot;Treg&quot;)
+<pre class="r"><code>if (params$split_naive) {
+  immune_cells_to_include = c(&quot;CD4_activated&quot;, &quot;CD8_activated&quot;,&quot;T_Naive&quot;, &quot;gdT&quot;, &quot;Treg&quot;)
+} else {
+  immune_cells_to_include = c(&quot;CD4_T&quot;, &quot;CD8_T&quot;, &quot;gdT&quot;, &quot;Treg&quot;)
+}
 
 caf_types_to_include = c(&quot;pan.myCAF&quot;, &quot;pan.iCAF&quot;, &quot;dCAF/pCAF&quot;, &quot;pan.iCAF.2&quot;)</code></pre>
 </div>
@@ -3021,22 +3046,26 @@ for cancer and CAF cells</h1>
 <pre class="r"><code>liana_results = run_LIANA_per_patient(data = acc_cancer_immune_caf,
  cell_types_to_include = c(&quot;Luminal&quot;, &quot;Myo&quot;, immune_cells_to_include),
   debug = params$debug)</code></pre>
-<pre><code>## [1] &quot;running in parallel with 4 cores&quot;
+<pre><code>## [1] &quot;running in parallel with 7 cores&quot;
 ## [1] &quot;Running LIANA for patient: ACC2&quot;
 ## [1] &quot;Running LIANA for patient: ACC5&quot;
 ## [1] &quot;Running LIANA for patient: ACC15&quot;
 ## [1] &quot;Running LIANA for patient: ACC19&quot;
+## [1] &quot;Running LIANA for patient: ACC21&quot;
+## [1] &quot;Running LIANA for patient: ACC22&quot;
 ## [1] &quot;Running LIANA for patient: ACC7&quot;</code></pre>
 <pre class="r"><code>saveRDS(object = liana_results, file =  paste0(params$data_out_dir,&quot;liana_result_CD45-lum-myo.RDS&quot;))
 
 liana_results = run_LIANA_per_patient(data = acc_cancer_immune_caf,
  cell_types_to_include = c(caf_types_to_include, immune_cells_to_include),
   debug = params$debug)</code></pre>
-<pre><code>## [1] &quot;running in parallel with 4 cores&quot;
+<pre><code>## [1] &quot;running in parallel with 7 cores&quot;
 ## [1] &quot;Running LIANA for patient: ACC2&quot;
 ## [1] &quot;Running LIANA for patient: ACC5&quot;
 ## [1] &quot;Running LIANA for patient: ACC15&quot;
 ## [1] &quot;Running LIANA for patient: ACC19&quot;
+## [1] &quot;Running LIANA for patient: ACC21&quot;
+## [1] &quot;Running LIANA for patient: ACC22&quot;
 ## [1] &quot;Running LIANA for patient: ACC7&quot;</code></pre>
 <pre class="r"><code>saveRDS(object = liana_results,file =  paste0(params$data_out_dir,&quot;liana_result_CD45-caf.RDS&quot;))</code></pre>
 </div>
@@ -3064,12 +3093,13 @@ table(acc_cancer_immune_caf@active.ident)</code></pre>
 <h2><span class="header-section-number">6.1</span> RUN LIANA per patient
 for cancer and CAF cells</h2>
 <pre class="r"><code>liana_results = run_LIANA_per_patient(data = acc_cancer_immune_caf, cell_types_to_include = c(&quot;Cancer&quot;, immune_cells_to_include), debug = params$debug)</code></pre>
-<pre><code>## [1] &quot;running in parallel with 4 cores&quot;
+<pre><code>## [1] &quot;running in parallel with 7 cores&quot;
 ## [1] &quot;Running LIANA for patient: ACC2&quot;
 ## [1] &quot;Running LIANA for patient: ACC5&quot;
 ## [1] &quot;Running LIANA for patient: ACC15&quot;
 ## [1] &quot;Running LIANA for patient: ACC19&quot;
 ## [1] &quot;Running LIANA for patient: ACC21&quot;
+## [1] &quot;Running LIANA for patient: ACC22&quot;
 ## [1] &quot;Running LIANA for patient: ACC7&quot;</code></pre>
 <pre class="r"><code>saveRDS(object = liana_results,file =  paste0(params$data_out_dir,&quot;liana_result_CD45-cancer.RDS&quot;))</code></pre>
 </div>

@@ -1,0 +1,113 @@
+---
+title: 'pathways_for_Nichenet' 
+author: "Avishai Wizel"
+date: '`r Sys.time()`'
+output: 
+  html_document: 
+    code_folding: hide
+    toc: yes
+    toc_collapse: yes
+    toc_float: 
+      collapsed: TRUE
+    number_sections: true
+    toc_depth: 2
+    df_print: paged
+params: 
+  data_out_dir: "./temp_data/"
+---
+
+```{r}
+library(tidyverse)
+library(Seurat)
+```
+
+```{r setup}
+if(Sys.getenv("POSITRON") == "1"){
+    setwd(here::here())
+    params <- rmarkdown::yaml_front_matter(rstudioapi::getSourceEditorContext()$path)$params
+}
+```
+
+
+
+
+
+```{r}
+source("./pipe.R")
+input = pipeline$pathways_for_Nichenet$input
+output = pipeline$pathways_for_Nichenet$output
+```
+
+
+```{r}
+t_cells_labled = readRDS(file = input$t_cells_labled)
+starCAT_pathways_metadata  = readxl::read_excel(path = input$starCAT_pathways_metadata,sheet = 1,skip = 14)
+```
+
+
+```{r}
+pathways_to_check = starCAT_pathways_metadata %>% filter(`GEP Class` == "Functional") %>% pull(`Short Name`) %>% gsub(pattern = "/",replacement = ".") %>% gsub(pattern = "-",replacement = "_")
+pathways_to_check
+```
+
+```{r}
+FeaturePlot(object = t_cells_labled, features = pathways_to_check[1:12], combine = FALSE) %>% 
+  lapply(function(x) x + theme(legend.position = "bottom")) %>% 
+  cowplot::plot_grid(plotlist = .,ncol = 4)
+
+FeaturePlot(object = t_cells_labled, features = pathways_to_check[13:24], combine = FALSE) %>% 
+  lapply(function(x) x + theme(legend.position = "bottom")) %>% 
+  cowplot::plot_grid(plotlist = .,ncol = 4)
+```
+
+```{r}
+t_cells_labled$t_cell_label <- case_match(
+  t_cells_labled$t_cell_label,
+  c("CD4_EM", "CD4_CM", "CD4_Naive") ~ "CD4_T",
+  c("CD8_CM", "CD8_Naive", "CD8_TEMRA", "CD8_EM") ~ "CD8_T",
+  .default = as.character(t_cells_labled$t_cell_label)
+)
+```
+```{r}
+# get active cells percntage per program
+threshold = 0.025
+
+for (t_type in unique(t_cells_labled$t_cell_label)){
+  print(t_type)
+  t_type_data = subset(t_cells_labled, t_cell_label == t_type)
+  active_cells_per_program = t_type_data@meta.data %>% 
+    select(all_of(pathways_to_check)) %>% 
+    summarise(across(everything(), ~sum(.x > threshold) / n())) %>% 
+    pivot_longer(cols = everything(),names_to = "program",values_to = "active_cells") %>% 
+    arrange(desc(active_cells))
+# barplot
+  p = ggplot2::ggplot(active_cells_per_program, aes(x = reorder(program,active_cells), y = active_cells)) +
+    geom_bar(stat = "identity") +
+    coord_flip() +
+    theme_bw() +
+    labs(x = "Program", y = "Active cells percentage") +
+    scale_y_continuous(labels = scales::percent_format(accuracy = 1))+
+    ggtitle(paste0("Active cells percentage per program in ", t_type))
+  print(p)
+}
+```
+
+```{r}
+active_pathway_threshold = 0.1 # if 0.1 of the cells in a cell type are active for a pathway, we consider it active in this cell type
+active_pathways_per_cell_type = list()
+for (t_type in unique(t_cells_labled$t_cell_label)){
+  t_type_data = subset(t_cells_labled, t_cell_label == t_type)
+  active_cells_per_program = t_type_data@meta.data %>% 
+    select(all_of(pathways_to_check)) %>% 
+    summarise(across(everything(), ~sum(.x > threshold) / n())) %>% 
+    pivot_longer(cols = everything(),names_to = "program",values_to = "active_cells") %>% 
+    arrange(desc(active_cells))
+  active_pathways = active_cells_per_program %>% filter(active_cells > active_pathway_threshold) %>% pull(program)
+  active_pathways_per_cell_type[[t_type]] = active_pathways
+}
+```
+
+
+```{r}
+saveRDS(active_pathways_per_cell_type, file = output$T_pathways_for_Nichenet)
+```

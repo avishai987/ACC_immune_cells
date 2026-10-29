@@ -14,7 +14,7 @@ output:
     df_print: paged
 params: 
   data_out_dir: "./temp_data/"
-  split_naive: FALSE
+  split_naive: TRUE
   debug: TRUE
 ---
 
@@ -150,7 +150,7 @@ run_LIANA_per_patient <- function(data, cell_types_to_include, debug = FALSE) {
 # if params$split_naive is TRUE, then we will aggregate all CD4 and CD8 T cells into one category each, otherwise we will keep naive and activated CD4 and CD8 T cells separate.
 # change the cell_type column to reflect this aggregation
 
-if(params$split_naive){
+if(!params$split_naive){
   acc_cancer_immune_caf$cell_type <- case_match(
   acc_cancer_immune_caf$cell_type,
   c("CD4_EM", "CD4_CM", "CD4_Naive") ~ "CD4_T",
@@ -161,9 +161,8 @@ if(params$split_naive){
   acc_cancer_immune_caf$cell_type <- case_match(
     acc_cancer_immune_caf$cell_type,
     c("CD4_EM", "CD4_CM") ~ "CD4_activated",
-    "CD4_Naive" ~ "CD4_Naive",
     c("CD8_CM", "CD8_TEMRA", "CD8_EM") ~ "CD8_activated",
-     "CD8_Naive" ~ "CD8_Naive",
+     c("CD8_Naive","CD4_Naive") ~ "T_Naive",
     .default = as.character(acc_cancer_immune_caf$cell_type)
   ) 
 }
@@ -174,8 +173,11 @@ table(acc_cancer_immune_caf@active.ident)
 
 # Set cell types to include for LIANA run
 ```{r}
-
-immune_cells_to_include = c("CD4_T", "CD8_T", "gdT", "Treg")
+if (params$split_naive) {
+  immune_cells_to_include = c("CD4_activated", "CD8_activated","T_Naive", "gdT", "Treg")
+} else {
+  immune_cells_to_include = c("CD4_T", "CD8_T", "gdT", "Treg")
+}
 
 caf_types_to_include = c("pan.myCAF", "pan.iCAF", "dCAF/pCAF", "pan.iCAF.2")
 ```

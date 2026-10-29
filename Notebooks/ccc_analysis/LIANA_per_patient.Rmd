@@ -14,8 +14,9 @@ output:
     df_print: paged
 params: 
   data_out_dir: "./temp_data/" 
-  threshold: 0.001
+  threshold: 0.01
   debug: FALSE
+  split_naive: TRUE
 ---
 
 #updated threshold in pipe.R
@@ -57,7 +58,13 @@ liana_result_CD45_lum_myo = readRDS(file = input$liana_result_CD45_lum_myo)
 
 ```{r}
 threshold = params$threshold
-immune_cells_to_include = c("CD4_T", "CD8_T", "gdT", "Treg")
+if(pipeline$run_liana_per_patient$params$split_naive){
+    immune_cells_to_include = c("CD4_activated", "CD8_activated","T_Naive", "gdT", "Treg")
+
+} else{
+  immune_cells_to_include = c("CD4_T", "CD8_T", "gdT", "Treg")
+
+}
 cancer_cells_to_include = c("Luminal", "Myo")
 caf_types_to_include = c("pan.myCAF", "pan.iCAF", "dCAF/pCAF", "pan.iCAF.2")
 ```

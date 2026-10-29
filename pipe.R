@@ -180,7 +180,8 @@ pipeline[["Liana_per_patient"]] = list(
   ),
   params = list(
     debug = F,
-    threshold = 0.01
+    threshold = 0.01,
+    split_naive = pipeline$run_liana_per_patient$params$split_naive
   )
 )
   pipeline[["Liana_per_patient"]]$output = list(
@@ -232,12 +233,13 @@ pipeline[["Nichenet_targets_GSEA"]] = list(
     starCAT_pathways_metadata = "input_data/starCAT/starCAT_PMC11092745_Supplementary_Tables.xlsx"
   ),
   params = list(
-    threshold = 0.001
+    threshold = pipeline$Liana_per_patient$params$threshold,
+    split_naive = pipeline$run_liana_per_patient$params$split_naive
     )
   )
 
   pipeline[["Nichenet_targets_GSEA"]]$output = list(
-  report = paste0("Reports/ccc_analysis/Nichenet_targets_GSEA/", pipeline[["Nichenet_targets_GSEA"]]$params$threshold,"/Nichenet_targets_GSEA.html")
+  report = paste0("Reports/ccc_analysis/Nichenet_targets_GSEA/", pipeline[["Nichenet_targets_GSEA"]]$params$threshold,"_",split_naive_str,"/Nichenet_targets_GSEA.html")
   )
 
 ######################################## Bulk deconvolution ###############################################
@@ -345,7 +347,7 @@ pipeline[["Brayer_CIBERSORT_analysis"]] = list(
 
 pipeline[["Comm_analysis_bulk"]] = list(
   input = list(
-    script = "./Notebooks/Bulk_deconv/Comm_analysis_bulk.Rmd",
+    script = "./Notebooks/Bulk_deconv/Comm_analysis_bulk.qmd",
     cs_result_dou = "input_data/CIBERSORTx_result/CIBERSORTx_Job16_Results_dou_all_withMarkers_relative_bBatchcorrect_2025_09_29.csv",
     cs_result_ferrarotto = "input_data/CIBERSORTx_result/CIBERSORTx_Job25_Results_ferrarotto_withMarkers_relative_bBatchcorrect.csv",
     cs_result_brayer = "input_data/CIBERSORTx_result/CIBERSORTx_Job31_Results.csv",
@@ -358,6 +360,26 @@ pipeline[["Comm_analysis_bulk"]] = list(
     report = "Reports/Bulk_deconv/Comm_analysis_bulk/Comm_analysis_bulk.html"
   )
 )
+
+pipeline[["Survival_analysis"]] = list(
+  input = list(
+    script = "./Notebooks/Bulk_deconv/Survival.Qmd",
+    dou_exprs = pipeline$create_dou_matrix$output$dou_exprs,
+    ferra_exprs = pipeline$create_ferrarotto_matrix$output$ferra_exprs,
+    brayer_exprs = pipeline$create_brayer_matrix$output$brayer_exprs,
+    dou_acc_survival = "input_data/Dou_PMC8450584/PMC8450584_DataSheet_2.xlsx",
+    ferra_clinical = "input_data/Ferrarotto_PMC7854509/CCR2020_Clinical.xlsx",
+    DK_clinical = "./input_data/Brayer_PMC10000625_and_PMC5800907/DK_sample_data_table2.csv",
+    TX_clinical = "./input_data/Brayer_PMC10000625_and_PMC5800907/TX_sample_data_table2.csv"
+
+
+
+  ),
+  output = list(
+    report = "Reports/Bulk_deconv/Survival/Survival.html"
+  )
+)
+
 
 ######################################## Pathway_analysis ###############################################
 
@@ -397,8 +419,15 @@ for (i in 1:length(pipeline)) {
 mkfile = mkfile + make_rule("all", all_rules)
 
 for (i in 1:length(pipeline)) {
-  mkfile = mkfile +   make_comment(c("============", names(pipeline)[[i]], "============")) + # comment
-    make_rule(names(pipeline)[[i]], unlist(pipeline[[i]]$output), paste("@echo  $@ is up to date") ) #define rule output
+
+  if(!is.null(pipeline[[i]]$params)){
+    params_str = paste("with params:", paste(names(pipeline[[i]]$params), pipeline[[i]]$params, sep = " = ", collapse = ", "))
+  }else{
+    params_str = ""
+  }
+
+  mkfile = mkfile +   make_comment(c("============", names(pipeline)[[i]], "============")) + # comment  
+    make_rule(names(pipeline)[[i]], unlist(pipeline[[i]]$output), paste("@echo  $@ is up to date", params_str )) #define rule output
   if(is.null(pipeline[[i]]$shell)){
     mkfile = mkfile + make_rule(targets = c(unlist(pipeline[[i]]$output),"&"), deps = unlist(pipeline[[i]]$input), #run rscript, add & for grouped tagets
                                 script =paste("Rscript render.R",
@@ -409,7 +438,7 @@ for (i in 1:length(pipeline)) {
                                 script = eval(pipeline[[i]]$shell))
   }
   
-}
+  }
 
 
 write_makefile(makefile = mkfile,file_name = "Makefile")

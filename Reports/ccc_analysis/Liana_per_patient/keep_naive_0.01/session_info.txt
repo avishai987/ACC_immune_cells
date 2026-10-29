@@ -1,4 +1,4 @@
-─ Session info ────────────────────────────────────────────────────────────────────────────────
+─ Session info ────────────────────────────────────────────────────────
  setting  value
  version  R version 4.3.3 (2024-02-29)
  os       CS HUJI Debian GNU/Linux 13 (trixie) 5787
@@ -12,7 +12,7 @@
  pandoc   2.19.2 @ /sci/labs/yotamd/lab_share/avishai.wizel/python_envs/miniconda/envs/ACC_CD45/bin/ (via rmarkdown)
  quarto   NA
 
-─ Packages ────────────────────────────────────────────────────────────────────────────────────
+─ Packages ────────────────────────────────────────────────────────────
  package              * version    date (UTC) lib source
  abind                  1.4-5      2016-07-21 [1] CRAN (R 4.3.3)
  askpass                1.2.1      2024-10-04 [1] CRAN (R 4.3.3)
@@ -214,4 +214,4 @@
  [1] /sci/labs/yotamd/lab_share/avishai.wizel/python_envs/miniconda/envs/ACC_CD45/lib/R/library
  * ── Packages attached to the search path.
 
-───────────────────────────────────────────────────────────────────────────────────────────────
+───────────────────────────────────────────────────────────────────────

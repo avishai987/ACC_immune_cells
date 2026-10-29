@@ -160,7 +160,7 @@ pipeline[["run_liana_per_patient"]] = list(
 
   params = list(
     debug = F,
-    split_naive = F
+    split_naive = T
   )
 )
   if(pipeline$run_liana_per_patient$params$split_naive){split_naive_str = "split_naive"}else{split_naive_str = "keep_naive"}
@@ -185,7 +185,7 @@ pipeline[["Liana_per_patient"]] = list(
   )
 )
   pipeline[["Liana_per_patient"]]$output = list(
-    report = paste0("Reports/ccc_analysis/Liana_per_patient/",split_naive_str,"/Liana_per_patient",pipeline$Liana_per_patient$params$threshold,".html")
+    report = paste0("Reports/ccc_analysis/Liana_per_patient/",split_naive_str,"_", pipeline$Liana_per_patient$params$threshold, "/Liana_per_patient.html")
   )
 
 

@@ -24,6 +24,9 @@ library(tidyverse)
 library(dplyr)
 library(data.table)
 library(print.rmd.tabs)
+library(scales)
+library(cowplot)
+library(svglite)
 ```
 
 ```{r setup}
@@ -45,6 +48,25 @@ immune_with_cell_types = readRDS(input$immune_with_cell_types)
 acc_cancer_pri = readRDS(input$acc_cancer_pri)
 t_cells_labled = readRDS(input$t_cells_labled)
 caf_with_subtypes = readRDS(input$caf_with_subtypes)
+```
+
+```{r}
+#| fig-height: 10
+#| fig-width: 12
+#plot UMAP by patient
+p = DimPlot(object = acc_immune, reduction = "umap", pt.size = 5, label = F,
+group.by = "patient.ident",cols = rainbow(length(unique(acc_immune$patient.ident))),
+raster = T, raster.dpi = c(2048 , 2048 )) +
+   ggtitle("Single-Cell Landscape of ACC Cohort, color by patient") + theme(plot.title = element_text(hjust = 0.5,size = 20),legend.text = element_text(size = 14),  
+  axis.text = element_blank(),  # Removes all tick text labels
+    axis.ticks = element_blank(),  # Removes all tick marks
+)
+
+p
+
+svglite::svglite(file.path(params$data_out_dir,"umap_by_patient.svg"), width = 12, height = 10)
+p
+dev.off()
 ```
 
 # ACC+ immune UMAP
@@ -106,9 +128,17 @@ svglite::svglite(file.path(params$data_out_dir,filename), width = 12, height = 1
 print(p_bold)
 dev.off()
 
-compare_and_save_svg(filename, new_svg_dir = params$data_out_dir, old_svg_dir = "./Figures/Retreat")
 ```
 
+```{r}
+p = DimPlot(acc_immune,group.by = "cell_identity_with_subtypes",label = F,label.size = 5, pt.size = 4,raster = T, raster.dpi = c(2048 , 2048 ))+ scale_color_manual(values = rainbow(length(unique(acc_immune$cell_identity_with_subtypes)))) + ggtitle("Single-Cell Landscape of ACC Cohort") + theme(plot.title = element_text(hjust = 0.5),legend.text = element_text(size = 14),  
+  axis.text = element_blank(),  # Removes all tick text labels
+    axis.ticks = element_blank()  # Removes all tick marks
+)
+
+p_bold <- LabelClusters(plot = p, id = "cell_identity_with_subtypes", fontface = "bold", size = 5, repel = TRUE)
+p_bold
+```
 ## split to lum/myo, keep only pri cells
 
 ```{r}
@@ -151,7 +181,6 @@ svglite::svglite(file.path(params$data_out_dir,filename), width = 12, height = 1
 print(p_bold)
 dev.off()
 
-compare_and_save_svg(filename, new_svg_dir = params$data_out_dir, old_svg_dir = "./Figures/Retreat")
 ```
 
 # Immune UMAP
@@ -178,7 +207,6 @@ svglite::svglite(file.path(params$data_out_dir, svg_filename), width = 12, heigh
 print(p)
 dev.off()
 
-compare_and_save_svg(svg_filename,  new_svg_dir = params$data_out_dir)
 ```
 
 # T
@@ -200,7 +228,6 @@ svglite::svglite(file.path(params$data_out_dir, svg_filename), width = 12, heigh
 print(p)
 dev.off()
 
-compare_and_save_svg(svg_filename, new_svg_dir = params$data_out_dir)
 ```
 
 ```{r fig.height=8, fig.width=12}
@@ -244,8 +271,16 @@ names(caf_signatures) = names(caf_signatures) %>% gsub(pattern = "-",replacement
 ## UMAP
 ```{r}
 DimPlot(object = caf_with_subtypes, reduction = "umap", pt.size = 1, label = T,group.by = "cell_identity")
+DimPlot(object = caf_with_subtypes, reduction = "umap", pt.size = 1, label = T,group.by = "seurat_clusters")
 ```
 
+```{r}
+#remove "pan." from the signature names in caf_with_subtypes
+names(caf_with_subtypes@meta.data) = names(caf_with_subtypes@meta.data) %>% gsub(pattern = "pan\\.", replacement = "", x = .)
+caf_with_subtypes@meta.data$cell_identity = caf_with_subtypes@meta.data$cell_identity %>% gsub(pattern = "pan\\.", replacement = "", x = .)
+
+names(caf_signatures) = names(caf_signatures) %>% gsub(pattern = "pan\\.", replacement = "", x = .)
+```
 ## Violin plot of CAF subtypes scores
 ```{r}
 
@@ -264,6 +299,35 @@ svglite::svglite(file.path(params$data_out_dir, svg_filename), width = 12, heigh
 p
 dev.off()
 
-compare_and_save_svg(svg_filename, new_svg_dir = params$data_out_dir)
 ```
 
+
+```{r}
+#list of featureplots
+p_list = FeaturePlot(caf_with_subtypes,features = paste0(names(caf_signatures),"_score"),pt.size = 1,cols = c("cyan","red"),combine =F)
+
+for (i in 1:length(p_list)){
+  min_value = min(p_list[[i]]$data[,4])
+  max_value = max(p_list[[i]]$data[,4])
+  p_list[[i]] = p_list[[i]] +  
+scale_color_gradientn(
+  colors = c("grey90", "gold1", "firebrick1"),
+  values = rescale(c(min_value, 0.3, max_value), from = c(min_value, max_value)),
+  limits = c(min_value, max_value)
+)+ labs(color = "Mean of z score")
+}
+
+#combine the plots into a grid layout
+p_list[["dimplot"]] = DimPlot(caf_with_subtypes,group.by = "cell_identity", cols = rainbow(length(unique(caf_with_subtypes$cell_identity))))
+
+combined_plot = cowplot::plot_grid(plotlist = p_list, ncol = 3)
+#| fig-height: 12
+#| fig-width: 16
+combined_plot
+```
+
+```{r}
+svglite(file.path(params$data_out_dir, "featureplots_caf_subtypes_scores.svg"), width = 16, height = 12)
+combined_plot
+dev.off()
+```

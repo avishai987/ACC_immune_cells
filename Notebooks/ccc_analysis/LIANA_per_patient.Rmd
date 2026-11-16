@@ -16,7 +16,6 @@ params:
   data_out_dir: "./temp_data/" 
   threshold: 0.01
   debug: FALSE
-  split_naive: TRUE
 ---
 
 #updated threshold in pipe.R
@@ -36,6 +35,8 @@ if(Sys.getenv("POSITRON") == "1"){
     setwd(here::here())
     params <- rmarkdown::yaml_front_matter(rstudioapi::getSourceEditorContext()$path)$params
 }
+print(paste0("Running with params: ", params))
+print(paste0("Running with split_naive: ", pipeline$run_liana_per_patient$params$split_naive))
 ```
 
 
@@ -71,7 +72,7 @@ caf_types_to_include = c("pan.myCAF", "pan.iCAF", "dCAF/pCAF", "pan.iCAF.2")
 
 
 ```{r}
-make_dotplot <- function(dataet, cell_types_1, cell_types_2, threshold, patients){
+make_dotplot <- function(dataet, cell_types_1, cell_types_2, threshold, patients, plot = TRUE){
   filtered_results = data.frame()
   # for each patient, filter the results that pass the threshold 
   for (patient in names(dataet)){
@@ -148,9 +149,11 @@ scale_radius(
     range  = c(3, 9),  # מתחיל מגודל 3 (שערך 1 לא יהיה זעיר) ועולה עד 9
     breaks = c(1, 2, 3, 4),   # מונע את ה-3.25, 3.50 וכו'
   )+
-                  labs(size = "Number of patients")  +theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))+
+                  labs(size = "Number of \npatients")  +theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))+
                   ggtitle(paste0("Significant interactions (< ", threshold, ") in at least ", min(patients), " patients)\n Source"))
-  print(p)
+  if(plot){
+    print(p)
+  }
   return(p)
 }
 ```
@@ -173,8 +176,28 @@ if (!is.null(p)) {
   print(p)
   dev.off()
 
-  compare_and_save_svg(svg_filename, new_svg_dir = params$data_out_dir)
 }
+```
+
+```{r}
+#| fig-height: 10
+#| fig-width: 12
+liana_result_CD45_lum_myo_nectin = liana_result_CD45_lum_myo %>%
+  purrr::map(~ dplyr::filter(.x, startsWith(ligand.complex, "NECTIN") | receptor.complex == "CDH1"))
+p = make_dotplot(liana_result_CD45_lum_myo_nectin, immune_cells_to_include, cancer_cells_to_include, threshold, patients = c(1,2,3,4),plot = F) + ggtitle(paste0("Significant Nectin Axis interactions (< ", threshold, ") in at least ", min(c(1,2,3,4)), " patients\n Source"))
+print(p)
+```
+
+```{r}
+#| fig-height: 12
+#| fig-width: 12
+adhesion_retention_genes = c("SELL","ITGA4","ITGB2","CD44","JAML","PECAM1","CXCR4","CCR4","CD69")
+liana_result_CD45_lum_myo_adhesion = liana_result_CD45_lum_myo %>%
+  purrr::map(~ dplyr::filter(.x , receptor.complex %in% adhesion_retention_genes))
+p = make_dotplot(liana_result_CD45_lum_myo_adhesion, immune_cells_to_include, cancer_cells_to_include, 0.01, patients = c(1,2,3,4),plot = F) + ggtitle(paste0("Significant Adhesion Retention interactions (< ", threshold, ") in at least ", min(c(2,3,4)), " patients\n Source")) + 
+  aes(shape = factor(specificity == 1)) + 
+ scale_shape_manual(values = c("FALSE" = 19, "TRUE" = 1), guide = "none")
+print(p)
 ```
 
 ```{r}
@@ -197,7 +220,6 @@ if (!is.null(p2)) {
   print(p2)
   dev.off()
 
-  compare_and_save_svg(svg_filename, new_svg_dir = params$data_out_dir)
 }
 ```
 
@@ -217,7 +239,6 @@ if (!is.null(p)) {
   print(p)
   dev.off()
 
-  compare_and_save_svg(svg_filename, new_svg_dir = params$data_out_dir)
 }
 ```
 
@@ -237,7 +258,6 @@ if (!is.null(p)) {
   print(p)
   dev.off()
 
-  compare_and_save_svg(svg_filename, new_svg_dir = params$data_out_dir)
 }
 ```
 
@@ -258,7 +278,6 @@ if (!is.null(p)) {
   print(p)
   dev.off()
 
-  compare_and_save_svg(svg_filename, new_svg_dir = params$data_out_dir)
 }
 ```
 
@@ -278,7 +297,6 @@ if (!is.null(p)) {
   print(p)
   dev.off()
 
-  compare_and_save_svg(svg_filename, new_svg_dir = params$data_out_dir)
 }
 ```
 
@@ -298,7 +316,6 @@ if (!is.null(p)) {
   print(p)
   dev.off()
 
-  compare_and_save_svg(svg_filename, new_svg_dir = params$data_out_dir)
 }
 ```
 
@@ -319,7 +336,6 @@ if (!is.null(p)) {
   print(p)
   dev.off()
 
-  compare_and_save_svg(svg_filename, new_svg_dir = params$data_out_dir)
 }
 ```
 
@@ -341,7 +357,6 @@ if (!is.null(p)) {
   print(p)
   dev.off()
 
-  compare_and_save_svg(svg_filename, new_svg_dir = params$data_out_dir)
 }
 ```
 
@@ -363,7 +378,13 @@ if (!is.null(p)) {
   print(p)
   dev.off()
 
-  compare_and_save_svg(svg_filename, new_svg_dir = params$data_out_dir)
 }
 ```
 
+
+```{r}
+liana_result_CD45_caf_source = liana_result_CD45_caf %>%
+  purrr::map(~ dplyr::filter(.x, source %in% caf_types_to_include ))
+p = make_dotplot(liana_result_CD45_caf_source, immune_cells_to_include, caf_types_to_include, threshold, patients = c(3,4))
+
+```

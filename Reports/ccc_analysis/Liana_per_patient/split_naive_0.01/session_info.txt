@@ -1,4 +1,4 @@
-─ Session info ────────────────────────────────────────────────────────
+─ Session info ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
  setting  value
  version  R version 4.3.3 (2024-02-29)
  os       CS HUJI Debian GNU/Linux 13 (trixie) 5787
@@ -8,14 +8,13 @@
  collate  en_IL.UTF-8
  ctype    en_IL.UTF-8
  tz       Asia/Jerusalem
- date     2026-10-29
+ date     2026-11-16
  pandoc   2.19.2 @ /sci/labs/yotamd/lab_share/avishai.wizel/python_envs/miniconda/envs/ACC_CD45/bin/ (via rmarkdown)
  quarto   NA
 
-─ Packages ────────────────────────────────────────────────────────────
+─ Packages ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
  package              * version    date (UTC) lib source
  abind                  1.4-5      2016-07-21 [1] CRAN (R 4.3.3)
- askpass                1.2.1      2024-10-04 [1] CRAN (R 4.3.3)
  backports              1.5.0      2024-05-23 [1] CRAN (R 4.3.3)
  basilisk               1.23.0     2026-02-23 [1] Github (LTLA/basilisk@b653397)
  beachmat               2.18.0     2023-10-24 [1] Bioconductor
@@ -46,7 +45,7 @@
  deldir                 2.0-4      2024-02-28 [1] CRAN (R 4.3.3)
  devtools             * 2.4.5      2022-10-11 [1] CRAN (R 4.3.3)
  dichromat              2.0-0.1    2022-05-02 [1] CRAN (R 4.3.3)
- digest               * 0.6.37     2024-08-19 [1] CRAN (R 4.3.3)
+ digest                 0.6.37     2024-08-19 [1] CRAN (R 4.3.3)
  dir.expiry             1.8.0      2023-04-25 [1] Bioconductor
  doParallel             1.0.17     2022-02-07 [1] CRAN (R 4.3.3)
  dplyr                * 1.1.4      2023-11-17 [1] CRAN (R 4.3.3)
@@ -63,7 +62,6 @@
  fs                   * 1.6.6      2025-04-12 [1] CRAN (R 4.3.3)
  future                 1.67.0     2025-07-29 [1] CRAN (R 4.3.3)
  future.apply           1.20.0     2025-06-06 [1] CRAN (R 4.3.3)
- gdiff                * 0.2-5      2023-03-08 [1] CRAN (R 4.3.3)
  generics               0.1.4      2025-05-09 [1] CRAN (R 4.3.3)
  GenomeInfoDb           1.38.1     2023-11-08 [1] Bioconductor
  GenomeInfoDbData       1.2.11     2025-09-30 [1] Bioconductor
@@ -120,7 +118,6 @@
  parallelly             1.45.1     2025-07-24 [1] CRAN (R 4.3.3)
  patchwork              1.3.2      2025-08-25 [1] CRAN (R 4.3.3)
  pbapply                1.7-4      2025-07-20 [1] CRAN (R 4.3.3)
- pdftools               3.8.0      2026-04-11 [1] CRAN (R 4.3.3)
  pillar                 1.11.0     2025-07-04 [1] CRAN (R 4.3.3)
  pkgbuild               1.4.8      2025-05-26 [1] CRAN (R 4.3.3)
  pkgconfig              2.0.3      2019-09-22 [1] CRAN (R 4.3.3)
@@ -135,7 +132,6 @@
  progressr              0.15.1     2024-11-22 [1] CRAN (R 4.3.3)
  promises               1.3.3      2025-05-29 [1] CRAN (R 4.3.3)
  purrr                * 1.1.0      2025-07-10 [1] CRAN (R 4.3.3)
- qpdf                   1.4.1      2025-07-02 [1] CRAN (R 4.3.3)
  R6                     2.6.1      2025-02-15 [1] CRAN (R 4.3.3)
  RANN                   2.6.2      2024-08-25 [1] CRAN (R 4.3.3)
  rappdirs               0.3.3      2021-01-31 [1] CRAN (R 4.3.3)
@@ -185,7 +181,7 @@
  stringr              * 1.5.2      2025-09-08 [1] CRAN (R 4.3.3)
  SummarizedExperiment   1.32.0     2023-10-24 [1] Bioconductor
  survival               3.8-3      2024-12-17 [1] CRAN (R 4.3.3)
- svglite              * 2.2.1      2025-05-12 [1] CRAN (R 4.3.3)
+ svglite                2.2.1      2025-05-12 [1] CRAN (R 4.3.3)
  systemfonts            1.2.3      2025-04-30 [1] CRAN (R 4.3.3)
  tensor                 1.5.1      2025-06-17 [1] CRAN (R 4.3.3)
  textshaping            1.0.3      2025-09-02 [1] CRAN (R 4.3.3)
@@ -214,4 +210,4 @@
  [1] /sci/labs/yotamd/lab_share/avishai.wizel/python_envs/miniconda/envs/ACC_CD45/lib/R/library
  * ── Packages attached to the search path.
 
-───────────────────────────────────────────────────────────────────────
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────

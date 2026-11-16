@@ -22,7 +22,7 @@ library(ggplot2)
 library(data.table)
 library(survival)
 suppressPackageStartupMessages(library(S4Vectors))
-
+library(patchwork)
 ```
 
 ```{r setup}
@@ -37,10 +37,12 @@ if(Sys.getenv("POSITRON") == "1"){
 
 ```{r}
 source("./pipe.R")
+source("./Notebooks/Bulk_deconv/deconv_analysis_functions.R")
 input = pipeline$Survival_analysis$input
 output = pipeline$Survival_analysis$output
 ```
 
+# read expression and clinical data
 ```{r}
 dou_exprs = fread(input$dou_exprs,sep = "\t",header = T)  %>% column_to_rownames("V1") 
 ferra_exprs = fread(input$ferra_exprs,sep = "\t",header = T) %>% column_to_rownames("V1") 
@@ -59,7 +61,8 @@ all_clinical = rbind(tx_clinical,dk_clinical)
 ferra_clinical = readxl::read_excel(input$ferra_clinical,sheet = 1,col_names = T,skip = 0) %>% as.data.frame()
 ferra_clinical$TID = gsub(pattern = "-", replacement = "_", ferra_clinical$TID)
 ```
-
+# Clean data
+## Clean the ferra  data
 ```{r}
 ferra_clinical_clean <- ferra_clinical %>%
   mutate(
@@ -74,7 +77,7 @@ ferra_clinical_clean <- ferra_clinical %>%
   )
 ```
 
-# Dou survival analysis
+## Clean the Dou survival data
 
 ```{r}
 
@@ -90,11 +93,42 @@ dou_survival_clean[,"Case Number"] = gsub(dou_survival_clean$"Case Number", patt
 ```
 
 
+# Functions for survival analysis
+```{r}
+# Load deconvolution fractions and merge with clinical data.
+load_deconv_fractions <- function(deconv_path, clinical_data, sample_col) {
+  deconv_matrix <- fread(deconv_path) %>% as.data.frame()
+  deconv_fractions <- calculate_deconv_fractions(deconv_matrix)
 
+  if (!"Mixture" %in% names(deconv_fractions)) {
+    stop("The deconvolution matrix must contain a 'Mixture' column.")
+  }
+
+  names(deconv_fractions)[names(deconv_fractions) == "Mixture"] <- sample_col
+  fraction_data <- deconv_fractions %>%
+    select(all_of(c(sample_col, deconv_fraction_columns)))
+
+  clinical_data %>%
+    inner_join(fraction_data, by = sample_col)
+}
+```
 
 ```{r}
-#| fig-height: 6
-#| fig-width: 8
+# Extract exactly one named coefficient from a fitted Cox model.
+# This prevents main effects or other interaction terms from being plotted by mistake.
+extract_cox_term <- function(fit, term_name) {
+  coefficient_table <- summary(fit)$coefficients
+  if (!term_name %in% rownames(coefficient_table)) {
+    stop(
+      "Expected Cox coefficient '", term_name,
+      "' was not found. Available terms: ",
+      paste(rownames(coefficient_table), collapse = ", ")
+    )
+  }
+  coefficient_table[term_name, , drop = FALSE]
+}
+
+# Run one univariate Cox model for each ligand-receptor pair.
 run_lr_survival <- function(
     expression_data,
     clinical_data,
@@ -104,14 +138,20 @@ run_lr_survival <- function(
     event_col,
     survival_type,# i.e "OS" or "DMFS" or "LRRFS"
     data_name,
-    log_transform = TRUE
+    log_transform = TRUE,
+    cell_fraction_name = NULL
 ) {
+  # Validate the clinical columns before constructing any models.
   stopifnot(is.data.frame(expression_data), is.data.frame(clinical_data))
   if (!sample_col %in% names(clinical_data)) {
     stop("sample_col is not a column in clinical_data")
   }
   if (!all(c(time_col, event_col) %in% names(clinical_data))) {
     stop("time_col and event_col must be columns in clinical_data")
+  }
+  if (!is.null(cell_fraction_name) &&
+      !cell_fraction_name %in% names(clinical_data)) {
+    stop("cell_fraction_name is not a column in clinical_data")
   }
 
   expression_data <- as.data.frame(expression_data)
@@ -130,6 +170,7 @@ run_lr_survival <- function(
     )
   }
 
+  # Fit one Cox model for each ligand-receptor pair.
   results <- lapply(lr_pairs, function(pair) {
     ligand <- unname(pair[["ligand"]])
     receptor <- unname(pair[["receptor"]])
@@ -137,7 +178,7 @@ run_lr_survival <- function(
 
     if (!all(c(ligand, receptor) %in% rownames(expression_data))) {
       return(data.frame(
-        Pair = pair_name, logHR = NA_real_, lower = NA_real_,
+        Pair = pair_name, Predictor = pair_name, logHR = NA_real_, lower = NA_real_,
         upper = NA_real_, pvalue = NA_real_, n = 0L
       ))
     }
@@ -148,9 +189,11 @@ run_lr_survival <- function(
     expression_df <- as.data.frame(t(expr), check.names = FALSE) |>
       tibble::rownames_to_column("sample_id")
     names(expression_df)[2:3] <- c("Ligand_exp", "Receptor_exp")
+    # Create one model predictor per sample by multiplying ligand and receptor expression.
     expression_df$LR_Product <- expression_df$Ligand_exp * expression_df$Receptor_exp
     names(expression_df)[1] <- sample_col
 
+    # Keep only samples with matching clinical data and complete model inputs.
     model_data <- clinical_data |>
       dplyr::inner_join(expression_df, by = sample_col) |>
       dplyr::filter(
@@ -159,44 +202,66 @@ run_lr_survival <- function(
         !is.na(LR_Product)
       )
 
-    if (nrow(model_data) < 3 || dplyr::n_distinct(model_data$LR_Product) < 2) {
+    if (!is.null(cell_fraction_name)) {
+      model_data <- model_data |>
+        dplyr::filter(!is.na(.data[[cell_fraction_name]])) |>
+        dplyr::mutate(cell_fraction = as.numeric(.data[[cell_fraction_name]]))
+    }
+
+    if (nrow(model_data) < 3 ||
+        dplyr::n_distinct(model_data$LR_Product) < 2 ||
+        (!is.null(cell_fraction_name) &&
+         dplyr::n_distinct(model_data$cell_fraction) < 2)) {
       return(data.frame(
-        Pair = pair_name, logHR = NA_real_, lower = NA_real_,
+        Pair = pair_name, Predictor = pair_name, logHR = NA_real_, lower = NA_real_,
         upper = NA_real_, pvalue = NA_real_, n = nrow(model_data)
       ))
     }
 
-    fit <- survival::coxph(
-      survival::Surv(model_data[[time_col]], model_data[[event_col]]) ~ LR_Product,
-      data = model_data
-    )
-    coefficient <- summary(fit)$coefficients["LR_Product", ]
-    log_hr <- coefficient[["coef"]]
-    se <- coefficient[["se(coef)"]]
+    # Add the cell fraction interaction only when a fraction column was requested.
+    model_formula <- if (is.null(cell_fraction_name)) {
+      survival::Surv(model_data[[time_col]], model_data[[event_col]]) ~ LR_Product
+    } else {
+      survival::Surv(model_data[[time_col]], model_data[[event_col]]) ~
+        LR_Product * cell_fraction
+    }
+
+    fit <- survival::coxph(model_formula, data = model_data)
+    model_terms <- attr(stats::terms(model_formula), "term.labels")
+    coefficient_name <- if (is.null(cell_fraction_name)) {
+      model_terms[model_terms == "LR_Product"]
+    } else {
+      model_terms[grepl(":", model_terms, fixed = TRUE)]
+    }
+    if (length(coefficient_name) != 1L) {
+      stop("Could not uniquely identify the Cox term for the forest plot.")
+    }
+    # Extract the exact main or interaction term used in the forest plot.
+    coefficient <- extract_cox_term(fit, coefficient_name)
+    log_hr <- coefficient[1, "coef"]
+    se <- coefficient[1, "se(coef)"]
+    predictor_name <- if (is.null(cell_fraction_name)) {
+      pair_name
+    } else {
+      paste(pair_name, "x", cell_fraction_name)
+    }
 
     data.frame(
       Pair = pair_name,
+      Predictor = predictor_name,
       logHR = log_hr,
       lower = log_hr - 1.96 * se,
       upper = log_hr + 1.96 * se,
-      pvalue = coefficient[["Pr(>|z|)"]],
+      pvalue = coefficient[1, "Pr(>|z|)"],
       n = nrow(model_data)
     )
   }) |>
     dplyr::bind_rows()
-
-  plot <- ggplot2::ggplot(results, ggplot2::aes(x = logHR, y = reorder(Pair, logHR))) +
-    ggplot2::geom_vline(xintercept = 0, linetype = "dashed", color = "gray40") +
-    ggplot2::geom_errorbar(ggplot2::aes(xmin = lower, xmax = upper), orientation = "y", height = 0.2) +
-    ggplot2::geom_point(shape = 22, size = 3, fill = "white") +
-    ggplot2::labs(title = paste(data_name, survival_type, "Hazard Ratios (log scale) with 95% Confidence Intervals"),
-                  x = "log(HR) (95% CI)", y = "") +
-    ggplot2::theme_classic(base_size = 14) +
-    ggplot2::theme(
-      plot.title = ggplot2::element_text(size = 18),
-      axis.title = ggplot2::element_text(size = 16),
-      axis.text = ggplot2::element_text(size = 14)
-    )
+    # add FDR correction
+    results = results %>%
+      dplyr::mutate(FDR = p.adjust(pvalue, method = "BH"))
+  # Return both the tabular model results and the matching forest-style plot.
+  plot <- plot_cox_results(results, data_name, survival_type)
 
   list(results = results, plot = plot)
 }
@@ -205,76 +270,530 @@ run_lr_survival <- function(
 ```
 
 ```{r}
-lr_pairs <- list(
-  c(ligand = "CCN1", receptor = "ITGB1"),
-  c(ligand = "TGFB1", receptor = "TGFBR2"),
-  c(ligand = "CXCL12", receptor = "CXCR4"),
-  c(ligand = "SLPI", receptor = "PLSCR1")
+# Run one univariate Cox model for each deconvolution fraction.
+run_fraction_survival <- function(
+    survival_data,
+    time_col,
+    event_col,
+    fraction_columns = deconv_fraction_columns,
+    data_name,
+    survival_type,
+    scale = T # zscore the fraction columns for better comparability of hazard ratios
+) {
+  # Fail early if the selected endpoint or fraction predictors are unavailable.
+  missing_columns <- setdiff(
+    c(time_col, event_col, fraction_columns),
+    names(survival_data)
+  )
+  if (length(missing_columns) > 0) {
+    stop(
+      "Missing columns for ", data_name, " ", survival_type, ": ",
+      paste(missing_columns, collapse = ", ")
+    )
+  }
+
+  # Fit each fraction independently so the hazard ratios are directly comparable.
+  results <- lapply(fraction_columns, function(fraction_column) {
+    # Standardize the endpoint and predictor columns, then remove incomplete samples.
+    model_data <- survival_data %>%
+      transmute(
+        .time = as.numeric(.data[[time_col]]),
+        .event = as.numeric(.data[[event_col]]),
+        .fraction = as.numeric(.data[[fraction_column]])
+      ) %>%
+      filter(!is.na(.time), !is.na(.event), !is.na(.fraction))
+
+    if (nrow(model_data) < 3 || dplyr::n_distinct(model_data$.fraction) < 2) {
+      return(data.frame(
+        Dataset = data_name,
+        Survival = survival_type,
+        Fraction = fraction_column,
+        Predictor = fraction_column,
+        logHR = NA_real_,
+        lower = NA_real_,
+        upper = NA_real_,
+        pvalue = NA_real_,
+        n = nrow(model_data)
+      ))
+    }
+    if(scale){
+      model_data$.fraction <- scale(model_data$.fraction)
+    }
+
+    # Estimate the fraction's log hazard ratio and derive its 95% confidence interval.
+    fit <- survival::coxph(
+      survival::Surv(.time, .event) ~ .fraction,
+      data = model_data
+    )
+    # Extract the exact fraction term used in the model and plot.
+    coefficient <- extract_cox_term(fit, ".fraction")
+    log_hr <- coefficient[1, "coef"]
+    se <- coefficient[1, "se(coef)"]
+
+    data.frame(
+      Dataset = data_name,
+      Survival = survival_type,
+      Fraction = fraction_column,
+      Predictor = fraction_column,
+      logHR = log_hr,
+      lower = log_hr - 1.96 * se,
+      upper = log_hr + 1.96 * se,
+      pvalue = coefficient[1, "Pr(>|z|)"],
+      n = nrow(model_data)
+    )
+  }) %>%
+    bind_rows()
+
+  # add FDR correction
+  results = results %>%
+    dplyr::mutate(FDR = p.adjust(pvalue, method = "BH"))
+
+  # Keep the results and plot together for convenient inspection in the notebook.
+  list(
+    results = results,
+    plot = plot_cox_results(results, data_name, survival_type)
+  )
+}
+
+```
+
+```{r}
+# Plot Cox model log hazard ratios and their 95% confidence intervals.
+# Both ligand-receptor and deconvolution models use this same result format.
+plot_cox_results <- function(results, data_name, survival_type) {
+  # Highlight predictors that remain significant after FDR correction.
+  plot_data <- results %>%
+    dplyr::mutate(
+      FDR_significance = dplyr::if_else(
+        !is.na(FDR) & FDR < 0.05,
+        "FDR < 0.05",
+        "FDR >= 0.05 or unavailable"
+      )
+    )
+  plot_data$FDR_significance <- factor(
+    plot_data$FDR_significance,
+    levels = c("FDR < 0.05", "FDR >= 0.05 or unavailable")
+  )
+  # Create the y-axis factor from the same rows used for x/error-bar values.
+  # This keeps each label, estimate, and confidence interval synchronized.
+  predictor_levels <- plot_data$Predictor[order(plot_data$logHR, na.last = TRUE)]
+  plot_data$Predictor <- factor(
+    plot_data$Predictor,
+    levels = unique(predictor_levels)
+  )
+
+ggplot2::ggplot(
+  plot_data,
+  ggplot2::aes(x = logHR, y = Predictor)
+) +
+  ggplot2::geom_vline(xintercept = 0, linetype = "dashed", color = "gray40") +
+  ggplot2::geom_errorbar(
+    ggplot2::aes(xmin = lower, xmax = upper),
+    orientation = "y",
+    height = 0.2
+  ) +
+  ggplot2::geom_point(
+    ggplot2::aes(fill = FDR_significance),
+    shape = 21,
+    color = "black",
+    size = 3
+  ) +
+  # שכבת דמה שמכריחה את המקרא לצייר את שני הסמלים גם כשאין תצפיות מובהקות
+  ggplot2::geom_point(
+    data = data.frame(
+      logHR = NA_real_,
+      Predictor = plot_data$Predictor[1],
+      FDR_significance = factor(
+        c("FDR < 0.05", "FDR >= 0.05 or unavailable"),
+        levels = c("FDR < 0.05", "FDR >= 0.05 or unavailable")
+      )
+    ),
+    ggplot2::aes(fill = FDR_significance),
+    shape = 21,
+    color = "black",
+    size = 3,
+    na.rm = TRUE
+  ) +
+  ggplot2::scale_fill_manual(
+    name = "Multiple-testing result",
+    values = c(
+      "FDR < 0.05" = "darkorange2",
+      "FDR >= 0.05 or unavailable" = "white"
+    ),
+    drop = FALSE
+  ) +
+  ggplot2::labs(
+    title = paste(
+      data_name,
+      survival_type,
+      "Hazard Ratios (log scale)\n with 95% Confidence Intervals"
+    ),
+    subtitle = "Filled points indicate FDR < 0.05",
+    x = "log(HR) (95% CI)",
+    y = ""
+  ) +
+  ggplot2::theme_classic(base_size = 14) +
+  ggplot2::theme(
+    plot.title = ggplot2::element_text(size = 18),
+    plot.subtitle = ggplot2::element_text(size = 12),
+    axis.title = ggplot2::element_text(size = 16),
+    axis.text = ggplot2::element_text(size = 16)
+  )
+}
+```
+
+# Set ligand-receptor pairs 
+```{r}
+
+lr_pairs <-  list(
+  c(ligand = "VCAN", receptor = "SELL"),
+  c(ligand = "VCAN", receptor = "ITGA4"),
+  c(ligand = "MDK", receptor = "ITGA4"),
+  c(ligand = "MDK", receptor = "ITGB1"),
+  c(ligand = "CCN1", receptor = "ITGB2"),
+  c(ligand = "LAMB2", receptor = "CD44"),
+  c(ligand = "LAMB3", receptor = "CD44"),
+  c(ligand = "CXADR", receptor = "JAML")
+)
+```
+
+# Load deconvolution fractions
+
+```{r}
+deconv_fraction_columns <- c(
+  paste0(names(default_deconv_cell_sets()$t_cell_subtypes), "_fraction"),
+  "treg_fraction",
+  "luminal_fraction"
+)
+
+
+dou_deconv_survival <- load_deconv_fractions(
+  input$cs_result_dou,
+  dou_survival_clean,
+  "Case Number"
+)
+
+ferra_deconv_survival <- load_deconv_fractions(
+  input$cs_result_ferrarotto,
+  ferra_clinical_clean,
+  "TID"
+)
+
+brayer_deconv_survival <- load_deconv_fractions(
+  input$cs_result_brayer,
+  all_clinical,
+  "UID"
 )
 
 ```
+
+
+
 # Dou survival analysis
 
 ```{r}
 #|fig-height: 8
-#|fig-width: 9
-lr_survival <- run_lr_survival(
+#|fig-width: 15
+lr_survival_lrrfs <- run_lr_survival(
   expression_data = dou_exprs,
-  clinical_data = dou_survival_clean,
+  clinical_data = dou_deconv_survival,
   sample_col = "Case Number",
   time_col = "LRRFS_time",
   event_col = "LRRFS_event",
   survival_type = "LRRFS",
   data_name = "Dou",
-  lr_pairs = lr_pairs
+  lr_pairs = lr_pairs,
+  cell_fraction_name = "naive_t_cells_fraction"
 )
 
-lr_survival$plot
+p1 = lr_survival_lrrfs$plot
 
-lr_survival <- run_lr_survival(
+lr_survival_dmfs <- run_lr_survival(
   expression_data = dou_exprs,
-  clinical_data = dou_survival_clean,
+  clinical_data = dou_deconv_survival,
   sample_col = "Case Number",
   time_col = "DMFS_time",
   event_col = "DMFS_event",
   survival_type = "DMFS",
   data_name = "Dou",
+  cell_fraction_name = "naive_t_cells_fraction",
   lr_pairs = lr_pairs
 )
 
-lr_survival$plot
+p2 = lr_survival_dmfs$plot
+#|fig-height: 13
+#|fig-width: 14
+p_dou_lr <- p1/p2
+p_dou_lr
+
+dir.create(params$data_out_dir, showWarnings = FALSE, recursive = TRUE)
+ggsave(file.path(params$data_out_dir, "dou_lr_survival.svg"), p_dou_lr, width = 14, height = 13)
 ```
+
+
+```{r}
+#|fig-height: 8
+#|fig-width: 15
+dou_lrrfs_fraction_survival <- run_fraction_survival(
+  dou_deconv_survival,
+  time_col = "LRRFS_time",
+  event_col = "LRRFS_event",
+  data_name = "Dou",
+  survival_type = "LRRFS"
+)
+
+dou_dmfs_fraction_survival <- run_fraction_survival(
+  dou_deconv_survival,
+  time_col = "DMFS_time",
+  event_col = "DMFS_event",
+  data_name = "Dou",
+  survival_type = "DMFS"
+)
+
+dou_fraction_survival <- list(
+  LRRFS = dou_lrrfs_fraction_survival,
+  DMFS = dou_dmfs_fraction_survival
+)
+p1 = dou_lrrfs_fraction_survival$plot
+p2 = dou_dmfs_fraction_survival$plot
+p_dou_frac <- p1/p2
+p_dou_frac
+
+ggsave(file.path(params$data_out_dir, "dou_fraction_survival.svg"), p_dou_frac, width = 15, height = 8)
+```
+
 # Ferrarotto survival analysis
 
 
 ```{r}
 #|fig-height: 8
-#|fig-width: 9
+#|fig-width: 15
 lr_survival_ferra <- run_lr_survival(
   expression_data = ferra_exprs,
-  clinical_data = ferra_clinical_clean,
+  clinical_data = ferra_deconv_survival,
   lr_pairs = lr_pairs,
   sample_col = "TID",
   time_col = "OS_time_months",
   event_col = "OS_event",
   survival_type = "OS",
-  data_name = "Ferrarotto"
+  data_name = "Ferrarotto",
+  cell_fraction_name = "naive_t_cells_fraction"
 )
 lr_survival_ferra$plot
+ggsave(file.path(params$data_out_dir, "ferrarotto_lr_survival.svg"), lr_survival_ferra$plot, width = 15, height = 8)
+
+ferra_fraction_survival <- run_fraction_survival(
+  ferra_deconv_survival,
+  time_col = "OS_time_months",
+  event_col = "OS_event",
+  data_name = "Ferrarotto",
+  survival_type = "OS"
+)
+ferra_fraction_survival$plot
+ggsave(file.path(params$data_out_dir, "ferrarotto_fraction_survival.svg"), ferra_fraction_survival$plot, width = 15, height = 8)
+
 ```
+
+
 
 # Brayer survival analysis
 
 ```{r}
+#| fig-height: 8
+#| fig-width: 15
 lr_survival_brayer <- run_lr_survival(
   expression_data = brayer_exprs,
-  clinical_data = all_clinical,
+  clinical_data = brayer_deconv_survival,
   lr_pairs = lr_pairs,
   sample_col = "UID",
   time_col = "SURV_MO",
   event_col = "SURV_CENS",
   survival_type = "OS",
-  data_name = "Brayer"
+  data_name = "Brayer",
+  cell_fraction_name = "naive_t_cells_fraction"
 )
 lr_survival_brayer$plot
+ggsave(file.path(params$data_out_dir, "brayer_lr_survival.svg"), lr_survival_brayer$plot, width = 15, height = 8)
+
+brayer_fraction_survival <- run_fraction_survival(
+  brayer_deconv_survival,
+  time_col = "SURV_MO",
+  event_col = "SURV_CENS",
+  data_name = "Brayer",
+  survival_type = "OS"
+)
+brayer_fraction_survival$plot
+ggsave(file.path(params$data_out_dir, "brayer_fraction_survival.svg"), brayer_fraction_survival$plot, width = 15, height = 8)
+
+```
+
+```{r}
+library(patchwork)
+
+p1 = brayer_fraction_survival$plot +  theme(legend.position = "none")
+p2 = ferra_fraction_survival$plot  +   theme(legend.position = "none")
+p3 = dou_fraction_survival$LRRFS$plot +theme(legend.position = "bottom")
+p4 = dou_fraction_survival$DMFS$plot +   theme(legend.position = "none")
+
+dou_p = p3+p4 
+
+final_plot <- (p1+p2) / dou_p
+               
+final_plot
+```
+
+
+```{r}
+p1 = lr_survival_brayer$plot +  theme(legend.position = "none")
+p2 = lr_survival_ferra$plot  +   theme(legend.position = "none") +  theme(plot.margin = unit(c(1, 6, 1, 0.5), "cm"))
+p3 = lr_survival_dmfs$plot +theme(legend.position = "bottom")
+p4 = lr_survival_lrrfs$plot +   theme(legend.position = "none") +  theme(plot.margin = unit(c(1, 4, 1, 0.5), "cm"))
+
+dou_p = p3+p4 
+
+final_plot <- (p1+p2) / dou_p
+               
+final_plot +  theme(plot.margin = unit(c(1, 4, 1, 0.5), "cm"))
+```
+
+```{r}
+library(ggplot2)
+
+# 1. הגדרת הנתונים עבור 3 השלבים
+steps_df <- data.frame(
+  step_num = c(1, 2, 3),
+  x_center = c(2, 6, 10),
+  step_label = c("STEP 1", "STEP 2", "STEP 3"),
+  title = c(
+    "Stromal Recruitment\n(iCAF Gateway)",
+    "Luminal Tethering\n(The Unprimed Trap)",
+    "Active Suppression\n(Checkpoint Paralysis)"
+  ),
+  sender = c("iCAFs", "Luminal Cells", "Luminal Cells"),
+  mechanism = c(
+    "CXCL12 / CXCL14\n↓\nCXCR4",
+    "VCAN / Integrins / Laminins\n(No CD80/86 Co-stimulation)",
+    "NECTIN2 / NECTIN3\n↓\nTIGIT / CD96"
+  ),
+  receiver = c("Infiltrating T Cells", "Naive T Cells", "Infiltrating T Cells"),
+  outcome = c(
+    "Peritumoral stromal entry",
+    "Physical retention without priming",
+    "T-cell paralysis & immune evasion"
+  ),
+  accent_color = c("#10B981", "#F59E0B", "#EF4444"),
+  bg_fill      = c("#F0FDF4", "#FFFBEB", "#FEF2F2")
+)
+
+# 2. הגדרת החצים המחברים בין השלבים
+arrows_df <- data.frame(
+  x_start = c(3.65, 7.65),
+  x_end   = c(4.35, 8.35),
+  y       = c(5.0, 5.0)
+)
+
+# 3. בניית הגרף
+p <- ggplot() +
+  # כרטיסיות רקע לכל שלב
+  geom_rect(
+    data = steps_df,
+    aes(
+      xmin = x_center - 1.55, xmax = x_center + 1.55,
+      ymin = 1.2, ymax = 8.8,
+      fill = bg_fill, color = accent_color
+    ),
+    linewidth = 1.1
+  ) +
+  
+  # פס כותרת עליון (Badge) לכל שלב
+  geom_rect(
+    data = steps_df,
+    aes(
+      xmin = x_center - 0.7, xmax = x_center + 0.7,
+      ymin = 8.45, ymax = 9.15,
+      fill = accent_color
+    ),
+    color = NA
+  ) +
+  geom_text(
+    data = steps_df,
+    aes(x = x_center, y = 8.8, label = step_label),
+    color = "white", fontface = "bold", size = 6
+  ) +
+  
+  # כותרת השלב
+  geom_text(
+    data = steps_df,
+    aes(x = x_center, y = 7.75, label = title),
+    color = "#1E293B", fontface = "bold", size = 5, lineheight = 1.1
+  ) +
+  
+  # קו הפרדה מתחת לכותרת
+  geom_segment(
+    data = steps_df,
+    aes(x = x_center - 1.25, xend = x_center + 1.25, y = 7.05, yend = 7.05, color = accent_color),
+    linewidth = 0.6, alpha = 0.5
+  ) +
+  
+  # תיבת Sender (התא השולח)
+  geom_rect(
+    data = steps_df,
+    aes(xmin = x_center - 1.2, xmax = x_center + 1.2, ymin = 6.1, ymax = 6.75),
+    fill = "white", color = "#CBD5E1", linewidth = 0.6
+  ) +
+  geom_text(
+    data = steps_df,
+    aes(x = x_center, y = 6.42, label = paste0("Sender: ", sender)),
+    color = "#334155", fontface = "bold", size = 5
+  ) +
+  
+  # תיבת המנגנון המולקולרי (Ligand-Receptor)
+  geom_text(
+    data = steps_df,
+    aes(x = x_center, y = 4.95, label = mechanism, color = accent_color),
+    fontface = "bold", size = 5, lineheight = 1.15
+  ) +
+  
+  # תיבת Receiver (התא הקולט)
+  geom_rect(
+    data = steps_df,
+    aes(xmin = x_center - 1.2, xmax = x_center + 1.2, ymin = 3.15, ymax = 3.8),
+    fill = "white", color = "#CBD5E1", linewidth = 0.6
+  ) +
+  geom_text(
+    data = steps_df,
+    aes(x = x_center, y = 3.47, label = paste0("Target: ", receiver)),
+    color = "#334155", fontface = "bold", size = 5
+  ) +
+  
+  # קופסת תוצאה פונקציונלית בתחתית
+  geom_rect(
+    data = steps_df,
+    aes(xmin = x_center - 1.35, xmax = x_center + 1.35, ymin = 1.5, ymax = 2.55, fill = accent_color),
+    alpha = 0.15, color = NA
+  ) +
+  geom_text(
+    data = steps_df,
+    aes(x = x_center, y = 2.02, label = paste0("Outcome:\n", outcome)),
+    color = "#0F172A", fontface = "italic", size = 5, lineheight = 1.15
+  ) +
+  
+  # חצים גדולים בין הכרטיסיות
+  geom_segment(
+    data = arrows_df,
+    aes(x = x_start, xend = x_end, y = y, yend = y),
+    arrow = arrow(length = unit(0.28, "cm"), type = "closed"),
+    color = "#475569", linewidth = 1.4
+  ) +
+  
+  scale_fill_identity() +
+  scale_color_identity() +
+  coord_cartesian(xlim = c(0.2, 11.8), ylim = c(0.8, 9.5)) +
+  theme_void() +
+  theme(
+    plot.background = element_rect(fill = "white", color = NA),
+    plot.margin = margin(10, 10, 10, 10)
+  )
+
+print(p)
 ```

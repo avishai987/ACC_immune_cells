@@ -628,6 +628,8 @@ ggsave(file.path(params$data_out_dir, "brayer_fraction_survival.svg"), brayer_fr
 ```
 
 ```{r}
+#| fig-height: 12
+#| fig-width: 13
 library(patchwork)
 
 p1 = brayer_fraction_survival$plot +  theme(legend.position = "none")
@@ -641,9 +643,16 @@ final_plot <- (p1+p2) / dou_p
                
 final_plot
 ```
+```{r}
+ggsave(file.path(params$data_out_dir, "all_fraction_survival.svg"), final_plot
+       , width = 13, height = 12)
+
+```
 
 
 ```{r}
+#| fig-height: 12
+#| fig-width: 18
 p1 = lr_survival_brayer$plot +  theme(legend.position = "none")
 p2 = lr_survival_ferra$plot  +   theme(legend.position = "none") +  theme(plot.margin = unit(c(1, 6, 1, 0.5), "cm"))
 p3 = lr_survival_dmfs$plot +theme(legend.position = "bottom")
@@ -655,6 +664,11 @@ final_plot <- (p1+p2) / dou_p
                
 final_plot +  theme(plot.margin = unit(c(1, 4, 1, 0.5), "cm"))
 ```
+```{r}
+ggsave(file.path(params$data_out_dir, "all_LR_survival.svg"), final_plot,
+       width = 16, height = 12)
+```
+
 
 ```{r}
 library(ggplot2)

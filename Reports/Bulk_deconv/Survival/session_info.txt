@@ -1,4 +1,4 @@
-─ Session info ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+─ Session info ───────────────────────────────────────────────────────────────
  setting  value
  version  R version 4.3.3 (2024-02-29)
  os       CS HUJI Debian GNU/Linux 13 (trixie) 5787
@@ -12,7 +12,7 @@
  pandoc   2.19.2 @ /sci/labs/yotamd/lab_share/avishai.wizel/python_envs/miniconda/envs/ACC_CD45/bin/ (via rmarkdown)
  quarto   NA
 
-─ Packages ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+─ Packages ───────────────────────────────────────────────────────────────────
  package      * version date (UTC) lib source
  BiocGenerics * 0.48.1  2023-11-01 [1] Bioconductor
  bslib          0.9.0   2025-01-30 [1] CRAN (R 4.3.3)
@@ -99,4 +99,4 @@
  [1] /sci/labs/yotamd/lab_share/avishai.wizel/python_envs/miniconda/envs/ACC_CD45/lib/R/library
  * ── Packages attached to the search path.
 
-──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+──────────────────────────────────────────────────────────────────────────────

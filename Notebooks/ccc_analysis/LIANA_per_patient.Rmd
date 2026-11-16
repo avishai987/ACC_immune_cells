@@ -36,7 +36,7 @@ if(Sys.getenv("POSITRON") == "1"){
     params <- rmarkdown::yaml_front_matter(rstudioapi::getSourceEditorContext()$path)$params
 }
 print(paste0("Running with params: ", params))
-print(paste0("Running with split_naive: ", pipeline$run_liana_per_patient$params$split_naive))
+
 ```
 
 
@@ -47,6 +47,7 @@ print(paste0("Running with split_naive: ", pipeline$run_liana_per_patient$params
 source("./pipe.R")
 input = pipeline$Liana_per_patient$input
 output = pipeline$Liana_per_patient$output
+print(paste0("Running with split_naive: ", pipeline$run_liana_per_patient$params$split_naive))
 ```
 
 ```{r}
@@ -200,24 +201,15 @@ p = make_dotplot(liana_result_CD45_lum_myo_adhesion, immune_cells_to_include, ca
 print(p)
 ```
 
-```{r}
-# for retreat presentation
-# TODO: delete after retreat
 
-p2= p+ scale_y_discrete(limits = rev(c("SLPI -> CD4", "CCL5 -> SDC1", "CCL5 -> SDC4", "S100A4 -> ERBB3","CD40LG -> CD9", "CXCL14 -> CXCR4", "MYL9 -> CD69"))) + ggtitle(paste0("Significant interactions (< ", threshold, " in at least ", min(c(2,3,4)), " patients)\n Source"))+
-  guides(size = "none") + scale_color_gradient2(low = "lightblue", mid = "blue", high = "red", midpoint = 0.5,limits = c(0, 1))+ 
-  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, colour = "#E69F00"),text = element_text(family = "Arial"))
-
-p2
-```
 
 ```{r}
-if (!is.null(p2)) {
-  svg_filename <- paste0("t_cells_to_lum-myo_2+patients_", threshold, "_retreat.svg")
+if (!is.null(p)) {
+  svg_filename <- paste0("t_cells_to_lum-myo_adhesion_1+patients_", threshold, ".svg")
   svglite::svglite(file.path(params$data_out_dir, svg_filename),
-                   width = ceiling(ncol(p2$data) * 3),
-                   height = max(3.64 * sqrt(nrow(p2$data)) - 11, 7))
-  print(p2)
+                   width = ceiling(ncol(p$data) * 3),
+                   height = max(2.1 * sqrt(nrow(p$data)) - 15, 7))
+  print(p)
   dev.off()
 
 }
@@ -387,4 +379,15 @@ liana_result_CD45_caf_source = liana_result_CD45_caf %>%
   purrr::map(~ dplyr::filter(.x, source %in% caf_types_to_include ))
 p = make_dotplot(liana_result_CD45_caf_source, immune_cells_to_include, caf_types_to_include, threshold, patients = c(3,4))
 
+```
+```{r}
+if (!is.null(p)) {
+  svg_filename <- paste0("caf_to_Tcells_3+patients_", threshold, ".svg")
+  svglite::svglite(file.path(params$data_out_dir, svg_filename),
+                   width = ceiling(ncol(p$data) * 3),
+                   height = max(3.64 * sqrt(nrow(p$data)) - 11, 7))
+  print(p)
+  dev.off()
+
+}
 ```

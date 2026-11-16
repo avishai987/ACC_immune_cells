@@ -180,8 +180,7 @@ pipeline[["Liana_per_patient"]] = list(
   ),
   params = list(
     debug = F,
-    threshold = 0.01,
-    split_naive = pipeline$run_liana_per_patient$params$split_naive
+    threshold = 0.01
   )
 )
   pipeline[["Liana_per_patient"]]$output = list(
@@ -370,8 +369,10 @@ pipeline[["Survival_analysis"]] = list(
     dou_acc_survival = "input_data/Dou_PMC8450584/PMC8450584_DataSheet_2.xlsx",
     ferra_clinical = "input_data/Ferrarotto_PMC7854509/CCR2020_Clinical.xlsx",
     DK_clinical = "./input_data/Brayer_PMC10000625_and_PMC5800907/DK_sample_data_table2.csv",
-    TX_clinical = "./input_data/Brayer_PMC10000625_and_PMC5800907/TX_sample_data_table2.csv"
-
+    TX_clinical = "./input_data/Brayer_PMC10000625_and_PMC5800907/TX_sample_data_table2.csv",
+    cs_result_dou = "input_data/CIBERSORTx_result/CIBERSORTx_Job16_Results_dou_all_withMarkers_relative_bBatchcorrect_2025_09_29.csv",
+    cs_result_ferrarotto = "input_data/CIBERSORTx_result/CIBERSORTx_Job25_Results_ferrarotto_withMarkers_relative_bBatchcorrect.csv",
+    cs_result_brayer = "input_data/CIBERSORTx_result/CIBERSORTx_Job31_Results.csv"
 
 
   ),
@@ -408,263 +409,11 @@ pipeline[["sipsic_analysis"]] = list(
 )
 
 
-######################################## make ###############################################
-library(MakefileR)
-mkfile = makefile() 
-all_rules = c()
-mkfile = mkfile + make_rule(".Phony", "all")
-for (i in 1:length(pipeline)) {
-  all_rules = c(all_rules,  names(pipeline)[[i]])
-}
-mkfile = mkfile + make_rule("all", all_rules)
-
-for (i in 1:length(pipeline)) {
-
-  if(!is.null(pipeline[[i]]$params)){
-    params_str = paste("with params:", paste(names(pipeline[[i]]$params), pipeline[[i]]$params, sep = " = ", collapse = ", "))
-  }else{
-    params_str = ""
-  }
-
-  mkfile = mkfile +   make_comment(c("============", names(pipeline)[[i]], "============")) + # comment  
-    make_rule(names(pipeline)[[i]], unlist(pipeline[[i]]$output), paste("@echo  $@ is up to date", params_str )) #define rule output
-  if(is.null(pipeline[[i]]$shell)){
-    mkfile = mkfile + make_rule(targets = c(unlist(pipeline[[i]]$output),"&"), deps = unlist(pipeline[[i]]$input), #run rscript, add & for grouped tagets
-                                script =paste("Rscript render.R",
-                                              names(pipeline)[[i]]
-                                ))
-  }else{
-    mkfile = mkfile + make_rule(targets = unlist(pipeline[[i]]$output), deps = unlist(pipeline[[i]]$input),
-                                script = eval(pipeline[[i]]$shell))
-  }
-  
-  }
 
 
-write_makefile(makefile = mkfile,file_name = "Makefile")
+source("utils/write_makefile.r")
+write_makefile_with_pipeline(pipeline, file_name = "Makefile")
 
+source("utils/save_pipeline_graph.r")
+save_pipeline_graph(makefile = "Makefile", output_file = "pipeline_interactive.html")
 
-library(gdiff)
-
-save_pdf_if_changed <- function(plot_expr, target_path, width = 7, height = 5, force = F) {
-  if (force) {
-    # If force is TRUE, skip the comparison and directly save the plot
-    pdf(target_path, width = width, height = height)
-    if (inherits(plot_expr, "ggplot")) {
-      print(plot_expr)
-    } else {
-      force(plot_expr) 
-    }
-    dev.off()
-    message("Plot saved without comparison due to force = TRUE.")
-    return(TRUE)
-  }
-  # 1. Create a path for a temporary file in the system
-  temp_file <- tempfile(fileext = ".pdf")
-  
-  # 2. Open the PDF device with dynamic dimensions and save the plot
-  pdf(temp_file, width = width, height = height)
-  
-  # Check if the plot is a ggplot object (which requires the print() function to render)
-  if (inherits(plot_expr, "ggplot")) {
-    print(plot_expr)
-  } else {
-    # Force evaluation of the plot code for Base R graphics
-    force(plot_expr) 
-  }
-  
-  # Close the PDF device to finalize the temporary file write
-  dev.off()
-  
-  # 3. Check if the target file already exists
-  if (file.exists(target_path)) {
-    # samePDF() compares the two PDFs byte-by-byte but automatically
-    # ignores volatile metadata like CreationDate, ModDate, and PDF IDs
-    if (samePDF(temp_file, target_path)) {
-      message("The plot has not changed (ignoring PDF metadata). Existing file kept.")
-      unlink(temp_file) # Clean up the temporary file
-      return(FALSE)    # Exit the function without modifying the disk
-    }
-  }
-  
-  # 4. If the file does not exist, or visual content/dimensions differ -> copy and overwrite
-  file.copy(temp_file, target_path, overwrite = TRUE)
-  unlink(temp_file) # Clean up the temporary file
-  
-  message("The plot or dimensions changed (or file did not exist). The PDF file was successfully updated!")
-  return(TRUE)
-}
-
-suppressPackageStartupMessages(library(igraph))
-library(visNetwork)
-
-# 1. קריאת קובץ ה-Makefile וה-Parser (הקוד המקורי שלך ללא שינוי)
-makefile_path <- "Makefile"
-if (!file.exists(makefile_path)) {
-  stop("קובץ Makefile לא נמצא בתיקיית העבודה הנוכחית!")
-}
-makefile_lines <- readLines(makefile_path)
-
-from_nodes <- c()
-to_nodes <- c()
-file_to_step <- new.env(parent = emptyenv())
-raw_rules <- list()
-
-for (line in makefile_lines) {
-  line <- trimws(line)
-  if (line == "" || grepl("^#", line) || grepl("^\\.PHONY", line) || grepl("^all:", line)) next
-  if (grepl("^\\s*@", line) || grepl("^Rscript", line)) next
-  
-  if (grepl(":", line)) {
-    parts <- strsplit(line, ":")[[1]]
-    targets <- gsub("&", "", trimws(parts[1]))
-    deps <- if (length(parts) > 1) trimws(parts[2]) else ""
-    
-    split_targets <- strsplit(targets, "\\s+")[[1]]
-    split_deps <- strsplit(deps, "\\s+")[[1]]
-    
-    if (length(split_targets) == 1 && !grepl("/", targets) && !grepl("\\.", targets)) {
-      current_clean_target <- targets
-      for (dep in split_deps) {
-        if (grepl("/", dep) || grepl("\\.", dep)) {
-          file_to_step[[dep]] <- current_clean_target
-        }
-      }
-    } else {
-      raw_rules[[length(raw_rules) + 1]] <- list(targets = split_targets, deps = split_deps)
-    }
-  }
-}
-
-for (rule in raw_rules) {
-  associated_target_step <- NULL
-  for (t in rule$targets) {
-    if (exists(t, envir = file_to_step)) {
-      associated_target_step <- file_to_step[[t]]
-      break
-    }
-  }
-  if (!is.null(associated_target_step)) {
-    for (d in rule$deps) {
-      if (exists(d, envir = file_to_step)) {
-        source_step <- file_to_step[[d]]
-        if (source_step != associated_target_step) {
-          from_nodes <- c(from_nodes, source_step)
-          to_nodes <- c(to_nodes, associated_target_step)
-        }
-      }
-    }
-  }
-}
-
-if (length(from_nodes) == 0) {
-  stop("No dependencies found.")
-}
-
-# 2. הכנת הנתונים עבור visNetwork
-relations_table <- unique(data.frame(from = from_nodes, to = to_nodes, stringsAsFactors = FALSE))
-all_unique_nodes <- unique(c(relations_table$from, relations_table$to))
-
-nodes <- data.frame(
-  id = all_unique_nodes,
-  label = all_unique_nodes,
-  shape = "box",
-  color = list(
-    background = "#F4F7FA",
-    border = "#1A365D",
-    highlight = list(background = "#FFEAA7", border = "#D63031"),
-    hover = list(background = "#E8EEF5", border = "#0984E3")
-  ),
-  font = list(face = "Helvetica", size = 16, color = "#1A365D"),
-  margin = 10,
-  shadow = TRUE
-)
-
-edges <- data.frame(
-  from = relations_table$from,
-  to = relations_table$to,
-  arrows = "to",
-  color = list(color = "#B2BEC3", highlight = "#0984E3", hover = "#0984E3"),
-  smooth = list(enabled = TRUE, type = "cubicBezier", roundness = 0.5)
-)
-
-# 3. בניית הגרף האינטראקטיבי
-network <- visNetwork(nodes, edges, main = "Clean Pipeline Architecture", submain = "Hover/Click to highlight dependencies") %>%
-  # היררכיה מסודרת מלמעלה למטה (או משמאל לימין) בדומה ל-Sugiyama
-  visHierarchicalLayout(
-    direction = "LR", # שנה ל-"UD" אם אתה מעדיף זרימה מלמעלה למטה
-    levelSeparation = 180,
-    nodeSpacing = 120
-  ) %>%
-  # הדגשת תלויות בלחיצה או מעבר עכבר
-  visOptions(
-    highlightNearest = list(
-      enabled = TRUE,
-      degree = 2,            # עומק השרשרת (כמה רמות קדימה/אחורה להאיר)
-      hover = TRUE,           # מפעיל את ההארה גם במעבר עכבר (Hover)
-      algorithm = "hierarchical" # מבדיל בין כיווני הזרימה
-    ),
-    nodesIdSelection = TRUE # מאפשר גם תיבת חיפוש/בחירה בחלק העליון
-  ) %>%
-  visInteraction(
-    hover = TRUE,
-    navigationButtons = TRUE, # כפתורי זום וניווט
-    zoomView = TRUE
-  )
-
-# 4. שמירה לקובץ HTML עצמאי
-htmlwidgets::saveWidget(network, file = "pipeline_interactive.html", selfcontained = TRUE)
-message("קובץ pipeline_interactive.html נוצר בהצלחה!")
-
-#delete all grpah related objects to clean the environment
-rm(list = c("from_nodes", "to_nodes", "file_to_step", "raw_rules", "relations_table", 
-"pipeline_graph", "g", "makefile_lines", "makefile_path", "line", "parts", "targets", "deps", 
-"split_targets", "split_deps", "current_clean_target", "associated_target_step", "source_step",
-"dep","d","t","rule","all_rules","i"))
-
-library(svglite)
-library(digest)
-
-compare_and_save_svg <- function(filename, new_svg_dir = params$data_out_dir, old_svg_dir = "./Figures/", interactive_force = FALSE) {
-  if (interactive() && !interactive_force) {
-    message("Running in interactive mode. Skipping SVG comparison and saving.")
-    return(FALSE)
-  }
-
-  old_svg_path = file.path(old_svg_dir, filename)
-  new_svg_path = file.path(new_svg_dir, filename)
-  # Helper function to sanitize dynamic attributes (IDs, clip-paths, URLs) and whitespace
-  # This prevents false positives in hash comparison caused by svglite re-indexing
-  get_clean_hash <- function(f) {
-    txt <- readLines(f, warn = FALSE)
-    
-    # 1. Clean dynamic ID definitions: id="glyph-1-2" -> id=""
-    txt <- gsub('id="[^"]+"', '', txt)
-    
-    # 2. Clean dynamic URL/clip-path references: url(#cp123) -> url()
-    txt <- gsub('url\\(#?[^)]+\\)', '', txt)
-    
-    # 3. Strip all whitespace and empty lines
-    txt <- gsub('\\s+', '', txt)
-    
-    return(digest(txt, algo = "md5"))
-  }
-  
-  is_identical <- FALSE
-  
-  # Compare new SVG hash against the existing SVG file if present
-  if (file.exists(old_svg_path)) {
-    new_hash <- get_clean_hash(new_svg_path)
-    old_hash <- get_clean_hash(old_svg_path)
-    is_identical <- (new_hash == old_hash)
-  }
-  
-  # Overwrite the old SVG only if changes are detected or if the file doesn't exist
-  if (!is_identical) {
-    # Ensure destination directory structure exists
-    dir.create(dirname(old_svg_path), recursive = TRUE, showWarnings = FALSE)
-    file.copy(new_svg_path, old_svg_path, overwrite = TRUE)
-    message(sprintf("SVG file updated! %s", old_svg_path))
-  }
-  
-}

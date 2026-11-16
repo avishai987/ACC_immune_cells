@@ -26,8 +26,16 @@ library(grid)
 library(ComplexHeatmap)
 ```
 
+```{r setup}
+if(Sys.getenv("POSITRON") == "1"){
+    setwd(here::here())
+    params <- rmarkdown::yaml_front_matter(rstudioapi::getSourceEditorContext()$path)$params
+}
+```
+
 ```{r}
 source("./pipe.R")
+source("./Notebooks/Bulk_deconv/deconv_analysis_functions.R")
 input = pipeline$Dou_CIBERSORT_analysis$input
 output = pipeline$Dou_CIBERSORT_analysis$output
 ```
@@ -548,138 +556,69 @@ p
 # only cell types correlations
 
 ```{r}
-cell_types_cols = c(names(all_t_subtypes) , "lum_ratio", "Treg")
+
+cell_types_cols = c(names(all_t_subtypes) , "Treg", "lum_ratio")
+deconv_with_survival_to_cor = deconv_with_survival_aggTcells %>% as.data.frame()
 ```
 
 
+
+```{r}
+# Build the cell-type correlation heatmap with the shared wrapper.
+p <- plot_deconv_correlations(
+  deconv_with_survival_to_cor,
+  columns = cell_types_cols,
+  title = "Pearson",
+  text_size = 14
+)
+```
 
 ```{r}
 # calculate correlation between cell types and clinical data
-correlation_matrix <- cor(
-  x = deconv_with_survival_aggTcells[,cell_types_cols],
-  y = deconv_with_survival_aggTcells[,cell_types_cols],
-  method = "pearson" 
-)
-all_pairs = expand.grid(
-  Item_A = rownames(correlation_matrix), 
-  Item_B = colnames(correlation_matrix)
-)
-
-
-p_values_vector = apply(all_pairs, MARGIN = 1, FUN = function(x){
-  pair_a = x[[1]]
-  pair_b = x[[2]]
-  p_val = cor.test(deconv_with_survival_aggTcells[[pair_a]], deconv_with_survival_aggTcells[[pair_b]])[["p.value"]]
-    }
-) %>% p.adjust(method = "fdr")
-
-all_pvals = matrix(
-  p_values_vector,
-  nrow = nrow(correlation_matrix),
-  ncol = ncol(correlation_matrix)
-) %>% as.data.frame()
-rownames(all_pvals) = rownames(correlation_matrix)
-colnames(all_pvals) = colnames(correlation_matrix)
-
-```
-
-
-```{r}
-convert <- function(vec) {
-  symnum(vec, corr = FALSE, na = FALSE, cutpoints = c(0, 
-    0.001, 0.01, 0.05, 0.1, 1), symbols = c("***", "**", "*", ".", " ")) %>% as.character()
-} 
-all_pvals[] = apply(all_pvals, MARGIN = 2, FUN = convert)
-```
-
-```{r fig.height=8, fig.width=15}
-
-
-col_fun = circlize::colorRamp2(c(-1, 0, 1), c("royalblue4", "white", "red"))
-p = ComplexHeatmap::Heatmap(t(correlation_matrix),  row_names_gp = gpar(fontsize = 14), column_names_gp = gpar(fontsize = 14), 
-                            name = "Pearson",
-                            clustering_method_rows = "average",show_heatmap_legend = T,col = col_fun, 
-                            clustering_distance_rows = "euclidean", 
-                            cell_fun = function(j, i, x, y, width, height, fill) {
-                              grid.text(t(all_pvals)[i, j], x, y, gp = gpar(fontsize = 14))
-                              },
-                            column_names_rot =45,column_title = "cell types %",column_title_side = "bottom",
-                            row_title = "cell types %", row_title_side = "right"
-    
-)
-
-p
-```
-
-```{r}
-
-cell_types_cols = c(paste0(names(all_t_subtypes),"_ratio") , "lum_ratio", "Treg_ratio")
+deconv_with_survival_to_cor = deconv_with_survival_aggTcells %>% as.data.frame()
+colnames(deconv_with_survival_to_cor)[colnames(deconv_with_survival_to_cor) == "lum_ratio"] <- "Luminal_fraction"
+colnames(deconv_with_survival_to_cor) = colnames(deconv_with_survival_to_cor) %>% gsub(pattern = "_ratio", replacement = "_fraction")
+cell_types_cols = c(paste0(names(all_t_subtypes),"_fraction") , "Luminal_fraction", "Treg_fraction")
 ```
 
 
 
 ```{r}
-# calculate correlation between cell types and clinical data
-correlation_matrix <- cor(
-  x = deconv_with_survival_aggTcells[,cell_types_cols],
-  y = deconv_with_survival_aggTcells[,cell_types_cols],
-  method = "pearson" 
+# Build the normalized cell-type correlation heatmap with the shared wrapper.
+p <- plot_deconv_correlations(
+  deconv_with_survival_to_cor,
+  columns = cell_types_cols,
+  title = "Pearson",
+  text_size = 14
 )
-all_pairs = expand.grid(
-  Item_A = rownames(correlation_matrix), 
-  Item_B = colnames(correlation_matrix)
-)
-
-
-p_values_vector = apply(all_pairs, MARGIN = 1, FUN = function(x){
-  pair_a = x[[1]]
-  pair_b = x[[2]]
-  p_val = cor.test(deconv_with_survival_aggTcells[[pair_a]], deconv_with_survival_aggTcells[[pair_b]])[["p.value"]]
-    }
-) %>% p.adjust(method = "fdr")
-
-all_pvals = matrix(
-  p_values_vector,
-  nrow = nrow(correlation_matrix),
-  ncol = ncol(correlation_matrix)
-) %>% as.data.frame()
-rownames(all_pvals) = rownames(correlation_matrix)
-colnames(all_pvals) = colnames(correlation_matrix)
 
 ```
-
 
 ```{r}
-convert <- function(vec) {
-  symnum(vec, corr = FALSE, na = FALSE, cutpoints = c(0, 
-    0.001, 0.01, 0.05, 0.1, 1), symbols = c("***", "**", "*", ".", " ")) %>% as.character()
-} 
-all_pvals[] = apply(all_pvals, MARGIN = 2, FUN = convert)
+#| fig-height: 6
+#| fig-width: 8
+plot_code_to_send <- function() {
+  ComplexHeatmap::draw(p, padding = unit(c(2, 20, 2, 2), "mm"), column_title = "Dou et al. (China)", column_title_gp = gpar(fontsize = 20))
+  #ComplexHeatmap::draw(lgd, x = unit(0.85, "npc"), y = unit(0.85, "npc"))
+
+}
+
+plot_code_to_send()
 ```
 
-```{r fig.height=8, fig.width=15}
-
-
-col_fun = circlize::colorRamp2(c(-1, 0, 1), c("royalblue4", "white", "red"))
-p = ComplexHeatmap::Heatmap(t(correlation_matrix),  row_names_gp = gpar(fontsize = 14), column_names_gp = gpar(fontsize = 14),
-                            name = "Pearson",
-                            clustering_method_rows = "average",show_heatmap_legend = T,col = col_fun, 
-                            clustering_distance_rows = "euclidean", 
-                            cell_fun = function(j, i, x, y, width, height, fill) {
-                              grid.text(t(all_pvals)[i, j], x, y, gp = gpar(fontsize = 14))
-                              },
-                            column_names_rot =45,column_title = "cell types %",column_title_side = "bottom",
-                            row_title = "cell types %", row_title_side = "right"
-    
-)
-
-p
-```
 ```{r}
-x = "lum_ratio"
+svg_filename <- "dou_cibersort_heatmap.svg"
+svglite::svglite(file.path(params$data_out_dir, svg_filename), width = 8, height = 6)
+plot_code_to_send()
+dev.off()
+
+```
+
+```{r}
+x = "Luminal_fraction"
 y = "Distant metastasis-free survival time (DMFS)" #"Distant metastasis-free survival time (DMFS), #"Locoregional recurrence-free survival (LRRFS)"
-data = data.frame(fraction = deconv_with_survival_aggTcells[[x]],
-                  survival = deconv_with_survival_aggTcells[[y]])
+data = data.frame(fraction = deconv_with_survival_to_cor[[x]],
+                  survival = deconv_with_survival_to_cor[[y]])
 
 library(ggplot2)
 library(ggpubr) 

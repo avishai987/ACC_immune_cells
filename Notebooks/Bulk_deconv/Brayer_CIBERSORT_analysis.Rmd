@@ -26,8 +26,17 @@ library(grid)
 library(ComplexHeatmap)
 ```
 
+```{r setup}
+if(Sys.getenv("POSITRON") == "1"){
+    setwd(here::here())
+    params <- rmarkdown::yaml_front_matter(rstudioapi::getSourceEditorContext()$path)$params
+}
+```
+
+
 ```{r}
 source("./pipe.R")
+source("./Notebooks/Bulk_deconv/deconv_analysis_functions.R")
 input = pipeline$Brayer_CIBERSORT_analysis$input
 output = pipeline$Brayer_CIBERSORT_analysis$output
 ```
@@ -43,21 +52,31 @@ dk_clinical = fread(input$DK_clinical)
 deconv_result = fread(input$cs_result)
 deconv_result
 ```
-```{r}
-df_clinical_for_analysis = dk_clinical %>% filter(FORM != "dataMissing")
-deconv_result$lum_ratio = deconv_result$Luminal/(deconv_result$Luminal + deconv_result$Myo)
-```
+
+# Tumor form correlation with luminal ratio
 
 ```{r}
-df_clinical_for_analysis = left_join(df_clinical_for_analysis,deconv_result,by = c("UID" = "Mixture"))
+# Define the threshold for the Luminal fraction.
+luminal_fraction_threshold <- 0.6
+
+# The Luminal fraction is the Luminal score among the Luminal and Myo scores.
+# This definition is used throughout the notebook.
+deconv_result$luminal_fraction <- deconv_result$Luminal / (deconv_result$Luminal + deconv_result$Myo)
+
+# Filter out samples with missing histopathology and join the deconvolution scores.
+df_clinical_for_analysis <- dk_clinical %>%
+  filter(FORM != "dataMissing") %>%
+  left_join(deconv_result, by = c("UID" = "Mixture"))
+
 ```
-# Treshold
+
+
 
 ```{r}
-ratio_threshold = 0.6
+# set  high and low luminal ratio categories based on the threshold
 df_clinical_for_analysis <- df_clinical_for_analysis %>%
   mutate(
-    LumCategory = ifelse(lum_ratio > ratio_threshold, paste("High (>",ratio_threshold,")"), paste("Low (<=",ratio_threshold,")"))
+    LumCategory = ifelse(luminal_fraction > luminal_fraction_threshold, paste("High (>", luminal_fraction_threshold, ")"), paste("Low (<=", luminal_fraction_threshold, ")"))
   )
 
 my_colors <- c(
@@ -81,244 +100,92 @@ ggplot(df_clinical_for_analysis, aes(x = LumCategory, fill = FORM)) +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
+
+# correlations between cell types
+
+## combine clinical and deconvolution results
 ```{r}
 all_clinical = rbind(tx_clinical,dk_clinical)
 all_clinical_with_deconv = inner_join(all_clinical,deconv_result,by = c("UID" = "Mixture")) %>% as.data.frame()
 ```
 
-# cells ratio
+# Calculate immune-cell and T-cell subtype fractions
 ```{r}
 
-
-# calculate  T cells ratio
-t_cells_names = c( "CD8_Naive", "CD4_Naive", "CD8_CM", "CD4_CM", "CD4_EM", "CD8_EM", "gdT",
-                   "Treg", "CD8_TEMRA","MAIT")
-
-cell_types_cols = c("t_cells_fraction", "immune_cells_fraction", "lum_ratio")
-deconv_ratio_with_survival = all_clinical_with_deconv
-deconv_ratio_with_survival$t_cells_fraction = rowSums(deconv_ratio_with_survival[, colnames(deconv_ratio_with_survival) %in% t_cells_names])
-
-
-# Calculate Immune cells ratio
-immune_cells_names = c( "Naive B", "CD8_Naive", "CD4_Naive", 
-"CD8_CM", "CD4_CM", "CD4_EM", "CD8_EM", "Plasmacytoid Dendritic", 
-"gdT", "Treg", "CD8_TEMRA", "Macrophages", "Basophils", "Neutrophils", 
-"MAIT", "Plasma B", "Myeloid Dendritic")
-immune_cells_names = immune_cells_names[immune_cells_names %in% colnames(deconv_ratio_with_survival)]
-
-for (cell_name in immune_cells_names) {
-  cell_ratio = deconv_ratio_with_survival[,cell_name]/rowSums(deconv_ratio_with_survival[,immune_cells_names])
-  deconv_ratio_with_survival[,paste0(cell_name,"_ratio")] = cell_ratio
-  cell_types_cols = c(cell_types_cols, paste0(cell_name,"_ratio"))
-}
-
-
-
-deconv_ratio_with_survival$immune_cells_fraction = rowSums(deconv_ratio_with_survival[, colnames(deconv_ratio_with_survival) %in% immune_cells_names])
-
-deconv_ratio_with_survival$lum_ratio = deconv_ratio_with_survival$Luminal/(deconv_ratio_with_survival$Luminal + deconv_ratio_with_survival$Myo)+0.001
-
-# remove original immune cells columns
-for (cell_name in immune_cells_names) {
-    deconv_ratio_with_survival[,cell_name] <- NULL
-}
-
-deconv_ratio_with_survival$Myo <- NULL
-deconv_ratio_with_survival$Luminal <- NULL
-```
-
-# Aggregate T cells subtypes
-```{r}
-deconv_with_survival_aggTcells = all_clinical_with_deconv
-```
-
-```{r}
-#only T cells, collapse T cells subtypes
-naive_t_cells = c("CD8_Naive", "CD4_Naive")
-CD8_memory = c("CD8_CM", "CD8_EM","CD8_TEMRA")
-CD4_helper = c("CD4_CM", "CD4_EM")
-T_Innate_like = c("gdT", "MAIT")
-
-all_t_subtypes = list("naive_t_cells" = naive_t_cells, "CD8_memory" = CD8_memory, "CD4_helper" = CD4_helper, "T_Innate_like" = T_Innate_like)
-```
-
-```{r}
-# Calculate Immune cells ratio
-immune_cells_names = c( "Naive B", "CD8_Naive", "CD4_Naive", 
-"CD8_CM", "CD4_CM", "CD4_EM", "CD8_EM", "Plasmacytoid Dendritic", 
-"gdT", "Treg", "CD8_TEMRA", "Macrophages", "Basophils", "Neutrophils", 
-"MAIT", "Plasma B", "Myeloid Dendritic")
-immune_cells_names = immune_cells_names[immune_cells_names %in% colnames(deconv_with_survival_aggTcells)]
-
-deconv_with_survival_aggTcells$immune_cells_fraction = rowSums(deconv_with_survival_aggTcells[, colnames(deconv_with_survival_aggTcells) %in% immune_cells_names])
-```
-
-
-```{r}
-deconv_with_survival_aggTcells = deconv_with_survival_aggTcells %>% select(c(t_cells_names,"Luminal","Myo","immune_cells_fraction"))
-
-for (t_subtype_name in names(all_t_subtypes)) {
-  subtypes = all_t_subtypes[[t_subtype_name]]
-  # calculate the sum of the subtypes for each row and add it as a new column
-  deconv_with_survival_aggTcells = deconv_with_survival_aggTcells %>% 
-    mutate(!!t_subtype_name := rowSums(deconv_with_survival_aggTcells[, colnames(deconv_with_survival_aggTcells) %in% subtypes]))
-  # calculate the ratio of the subtypes to the total immune cells and add it as a new column
-  deconv_with_survival_aggTcells[[paste0(t_subtype_name, "/immune_cells")]] = deconv_with_survival_aggTcells[[t_subtype_name]] /
-    deconv_with_survival_aggTcells$immune_cells_fraction
-  # remove the original subtypes columns
-  deconv_with_survival_aggTcells = deconv_with_survival_aggTcells %>% select(-all_of(subtypes))
-} 
-deconv_with_survival_aggTcells[,"Treg/immune_cells"] = deconv_with_survival_aggTcells$Treg / deconv_with_survival_aggTcells$immune_cells_fraction
-
-deconv_with_survival_aggTcells$lum_ratio = deconv_with_survival_aggTcells$Luminal/(deconv_with_survival_aggTcells$Luminal + deconv_with_survival_aggTcells$Myo+0.001)
-
-
-deconv_with_survival_aggTcells$Myo <- NULL
-deconv_with_survival_aggTcells$Luminal <- NULL
+deconv_fractions <- calculate_deconv_fractions(all_clinical_with_deconv)
 
 ```
 
+# The fraction calculations above replace the former duplicate aggregation blocks.
 
 
-# only cell types correlations
-
+# Correlations among cell fractions
 ```{r}
-cell_types_cols = c(names(all_t_subtypes) , "lum_ratio", "Treg")
-```
 
+cells_to_include <-  c(
+    paste0(names(default_deconv_cell_sets()$t_cell_subtypes), "_fraction"),
+    "treg_fraction",
+    "luminal_fraction"
+  )
 
-
-```{r}
-# calculate correlation between cell types and clinical data
-deconv_with_survival_aggTcells = deconv_with_survival_aggTcells %>% as.data.frame()
-correlation_matrix <- cor(
-  x = deconv_with_survival_aggTcells[,cell_types_cols],
-  y = deconv_with_survival_aggTcells[,cell_types_cols],
-  method = "pearson" 
+fraction_columns <- intersect(
+ cells_to_include,
+  names(deconv_fractions)
 )
-all_pairs = expand.grid(
-  Item_A = rownames(correlation_matrix), 
-  Item_B = colnames(correlation_matrix)
+correlation_data <- deconv_fractions[, fraction_columns, drop = FALSE]
+```
+
+
+
+```{r}
+# Calculate and print the correlation matrix for inspection.
+correlation_matrix <- print_deconv_correlation(
+  correlation_data,
+  columns = fraction_columns
 )
 
-
-p_values_vector = apply(all_pairs, MARGIN = 1, FUN = function(x){
-  pair_a = x[[1]]
-  pair_b = x[[2]]
-  p_val = cor.test(deconv_with_survival_aggTcells[[pair_a]], deconv_with_survival_aggTcells[[pair_b]])[["p.value"]]
-    }
-) %>% p.adjust(method = "fdr")
-
-all_pvals = matrix(
-  p_values_vector,
-  nrow = nrow(correlation_matrix),
-  ncol = ncol(correlation_matrix)
-) %>% as.data.frame()
-rownames(all_pvals) = rownames(correlation_matrix)
-colnames(all_pvals) = colnames(correlation_matrix)
-
-```
-
-
-```{r}
-convert <- function(vec) {
-  symnum(vec, corr = FALSE, na = FALSE, cutpoints = c(0, 
-    0.001, 0.01, 0.05, 0.1, 1), symbols = c("***", "**", "*", ".", " ")) %>% as.character()
-} 
-all_pvals[] = apply(all_pvals, MARGIN = 2, FUN = convert)
 ```
 
 ```{r fig.height=8, fig.width=15}
 
 
-col_fun = circlize::colorRamp2(c(-1, 0, 1), c("royalblue4", "white", "red"))
-p = ComplexHeatmap::Heatmap(t(correlation_matrix),  row_names_gp = gpar(fontsize = 14), column_names_gp = gpar(fontsize = 14), 
-                            name = "Pearson",
-                            clustering_method_rows = "average",show_heatmap_legend = T,col = col_fun, 
-                            clustering_distance_rows = "euclidean", 
-                            cell_fun = function(j, i, x, y, width, height, fill) {
-                              grid.text(t(all_pvals)[i, j], x, y, gp = gpar(fontsize = 14))
-                              },
-                            column_names_rot =45,column_title = "cell types %",column_title_side = "bottom",
-                            row_title = "cell types %", row_title_side = "right"
-    
+p <- plot_deconv_correlations(
+  correlation_data,
+  columns = fraction_columns,
+  title = "Pearson",
+  text_size = 14
 )
+col_fun <- circlize::colorRamp2(c(-1, 0, 1), c("royalblue4", "white", "red"))
+lgd = Legend(title = "Pearson", col_fun = col_fun, legend_width = unit(8, "cm"), title_position = "topcenter",grid_width = unit(1, "cm"), title_gp = gpar(fontsize = 14), labels_gp = gpar(fontsize = 14))
 
-p
+
 ```
-
-#בetween cell types ratios
-```{r}
-
-cell_types_cols = c(paste0(names(all_t_subtypes),"/immune_cells") , "lum_ratio", "Treg/immune_cells")
-```
-
-
 
 ```{r}
-# calculate correlation between cell types and clinical data
-correlation_matrix <- cor(
-  x = deconv_with_survival_aggTcells[,cell_types_cols],
-  y = deconv_with_survival_aggTcells[,cell_types_cols],
-  method = "pearson" 
-)
-all_pairs = expand.grid(
-  Item_A = rownames(correlation_matrix), 
-  Item_B = colnames(correlation_matrix)
-)
+#| fig-height: 8
+#| fig-width: 10
+plot_code_to_send <- function() {
+  ComplexHeatmap::draw(p, padding = unit(c(2, 2, 2, 50), "mm"), column_title = "Brayer et al. (Denmark)", column_title_gp = gpar(fontsize = 20))
+  ComplexHeatmap::draw(lgd, x = unit(0.85, "npc"), y = unit(0.85, "npc"))
 
+}
 
-p_values_vector = apply(all_pairs, MARGIN = 1, FUN = function(x){
-  pair_a = x[[1]]
-  pair_b = x[[2]]
-  p_val = cor.test(deconv_with_survival_aggTcells[[pair_a]], deconv_with_survival_aggTcells[[pair_b]])[["p.value"]]
-    }
-) %>% p.adjust(method = "fdr")
-
-all_pvals = matrix(
-  p_values_vector,
-  nrow = nrow(correlation_matrix),
-  ncol = ncol(correlation_matrix)
-) %>% as.data.frame()
-rownames(all_pvals) = rownames(correlation_matrix)
-colnames(all_pvals) = colnames(correlation_matrix)
-
+plot_code_to_send()
 ```
-
 
 ```{r}
-convert <- function(vec) {
-  symnum(vec, corr = FALSE, na = FALSE, cutpoints = c(0, 
-    0.001, 0.01, 0.05, 0.1, 1), symbols = c("***", "**", "*", ".", " ")) %>% as.character()
-} 
-all_pvals[] = apply(all_pvals, MARGIN = 2, FUN = convert)
+svg_filename <- "brayer_cibersort_heatmap.svg"
+svglite::svglite(file.path(params$data_out_dir, svg_filename), width = 10, height = 6)
+plot_code_to_send()
+dev.off()
+
 ```
-
-```{r fig.height=8, fig.width=15}
-
-
-col_fun = circlize::colorRamp2(c(-1, 0, 1), c("royalblue4", "white", "red"))
-p = ComplexHeatmap::Heatmap(t(correlation_matrix),  row_names_gp = gpar(fontsize = 14), column_names_gp = gpar(fontsize = 14),
-                            name = "Pearson",
-                            clustering_method_rows = "average",show_heatmap_legend = T,col = col_fun, 
-                            clustering_distance_rows = "euclidean",  clustering_method_columns = "average",
-                            cell_fun = function(j, i, x, y, width, height, fill) {
-                              grid.text(t(all_pvals)[i, j], x, y, gp = gpar(fontsize = 14))
-                              },
-                            column_names_rot =45,column_title = "cell types %",column_title_side = "bottom",
-                            row_title = "cell types %", row_title_side = "right"
-    
-)
-
-p
-```
-
 
 # MI
 
 ```{r}
 library(infotheo)
-df_cells <- deconv_with_survival_aggTcells[,cell_types_cols] 
+df_cells <- correlation_data 
 
 
 df_discrete <- discretize(df_cells)
@@ -338,20 +205,25 @@ heatmap(mi_matrix, col = colorRampPalette(c("white", "blue", "red"))(100),
 # cox
 
 ```{r}
-all_clinical_with_deconv = all_clinical_with_deconv %>% mutate(os_status = if_else(condition = STATUS == "Alive", true = 1, false = 0),os_time = as.numeric(SURV_MO))
-# all_clinical_with_deconv = all_clinical_with_deconv %>%
+# Add survival outcomes to the same data frame used by the Cox models.
+deconv_fractions <- deconv_fractions %>%
+  mutate(
+    os_status = if_else(STATUS == "Alive", 1, 0),
+    os_time = as.numeric(SURV_MO)
+  )
+# deconv_fractions <- deconv_fractions %>%
 #   filter(STAGE != "unk", !is.na(STAGE))
 ```
 
 ```{r}
 library(survival)
-coxph(Surv(os_time, os_status) ~   lum_ratio  , data = all_clinical_with_deconv) %>% summary()
-coxph(Surv(os_time, os_status) ~  Treg  , data = all_clinical_with_deconv) %>% summary()
-coxph(Surv(os_time, os_status) ~   CAF  , data = all_clinical_with_deconv) %>% summary()
-coxph(Surv(os_time, os_status) ~   lum_ratio+ Treg  , data = all_clinical_with_deconv) %>% summary()
+coxph(Surv(os_time, os_status) ~ luminal_fraction, data = deconv_fractions) %>% summary()
+coxph(Surv(os_time, os_status) ~ Treg, data = deconv_fractions) %>% summary()
+coxph(Surv(os_time, os_status) ~ CAF, data = deconv_fractions) %>% summary()
+coxph(Surv(os_time, os_status) ~ luminal_fraction + Treg, data = deconv_fractions) %>% summary()
 
 ```
 ```{r}
-coxph(Surv(os_time, os_status) ~ lum_ratio + Treg + STAGE, data = all_clinical_with_deconv)
+coxph(Surv(os_time, os_status) ~ luminal_fraction + Treg + STAGE, data = deconv_fractions)
 ```
 

@@ -5,12 +5,13 @@ if (is.null(compare_and_save_svg)) {
 }
 #define paths
 all_files = c(
-  umap_all_cells = "Reports/05_UMAP_clustering/umap_all_cell_types.svg",
+  umap_all_cells = "Reports/05_UMAP_clustering/umap_all_cell_types_primary_lum_myo.svg",
   umap_t_cells_subtypes = "Reports/05_UMAP_clustering/umap_with_t_cell_subtypes.svg",
   violin_caf_scores = "Reports/05_UMAP_clustering/vlnplot_caf_subtypes_scores.svg",
   bulk_cor_brayer = "Reports/Bulk_deconv/brayer_CIBERSORT_analsyis/brayer_cibersort_heatmap.svg",
   bulk_cor_ferrarotto = "Reports/Bulk_deconv/ferrarotto_CIBERSORT_analysis/ferrarotto_cibersort_heatmap.svg",
   bulk_cor_dou = "Reports/Bulk_deconv/Dou_CIBERSORT_analsyis/dou_cibersort_heatmap.svg"
+  
 )
 
 final_figures_dir = "final_figures"
